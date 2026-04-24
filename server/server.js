@@ -2,11 +2,11 @@ const http = require('http');
 
 const programme = {
     id: "test-001",
-    name: "Tuesday Track Session",
+    name: "Tuesday Track",
     blocks: [
         {
-            name: "Track - Pyramid",
-            segments: [Track - Pyramid
+            name: "Track - Sprints",
+            segments: [
                 { name: "Fast", duration: 15 },
                 { name: "Easy", duration: 30 },
                 { name: "Fast", duration: 15 },
