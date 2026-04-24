@@ -6,13 +6,11 @@ const programme = {
     blocks: [
         {
             name: "Track - Pyramid",
-            segments: [
-                { name: "Fast", duration: 90 },
-                { name: "Easy", duration: 60 },
-                { name: "Fast", duration: 90 },
-                { name: "Easy", duration: 60 },
-                { name: "Fast", duration: 90 },
-                { name: "Easy", duration: 60 }
+            segments: [Track - Pyramid
+                { name: "Fast", duration: 15 },
+                { name: "Easy", duration: 30 },
+                { name: "Fast", duration: 15 },
+                { name: "Easy", duration: 30 }
             ]
         },
         {

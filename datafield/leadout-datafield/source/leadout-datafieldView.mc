@@ -1,5 +1,6 @@
 import Toybox.Activity;
 import Toybox.Application;
+import Toybox.Attention;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.WatchUi;
@@ -21,6 +22,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mCurrentBlock as Number;
     hidden var mCurrentSegment as Number;
     hidden var mSegmentStartMs as Number;
+    hidden var mProgrammeName as String;
     hidden var mBlocks as Array<Dictionary>;
 
     function initialize() {
@@ -32,6 +34,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mCurrentSegment = 0;
         mSegmentStartMs = 0;
         mBlocks = [] as Array<Dictionary>;
+        mProgrammeName = "";
 
         var cached = Application.Storage.getValue("programme");
         if (cached instanceof Dictionary) {
@@ -81,12 +84,15 @@ class leadout_datafieldView extends WatchUi.DataField {
             if (mCurrentSegment < segments.size() - 1) {
                 mCurrentSegment += 1;
                 mSegmentStartMs = System.getTimer();
+                alertSegment();
             } else if (mCurrentBlock < mBlocks.size() - 1) {
                 mCurrentBlock += 1;
                 mCurrentSegment = 0;
                 mState = STATE_WAITING;
+                alertBlockComplete();
             } else {
                 mState = STATE_COMPLETE;
+                alertSessionComplete();
             }
         }
     }
@@ -113,9 +119,44 @@ class leadout_datafieldView extends WatchUi.DataField {
             });
         }
         mBlocks = blocks;
+        mProgrammeName = data["name"] as String;
         mState = STATE_WAITING;
         mCurrentBlock = 0;
         mCurrentSegment = 0;
+    }
+
+    // Single short beep + brief vibe — segment within a block changes.
+    hidden function alertSegment() as Void {
+        if (Attention has :playTone) {
+            Attention.playTone(Attention.TONE_LAP);
+        }
+        if (Attention has :vibrate) {
+            Attention.vibrate([new Attention.VibeProfile(100, 250)] as Array<Attention.VibeProfile>);
+        }
+    }
+
+    // Two beeps + double vibe — block finished, waiting for lap to start next.
+    hidden function alertBlockComplete() as Void {
+        if (Attention has :playTone) {
+            Attention.playTone(Attention.TONE_INTERVAL_ALERT);
+        }
+        if (Attention has :vibrate) {
+            Attention.vibrate([
+                new Attention.VibeProfile(100, 300),
+                new Attention.VibeProfile(0,   200),
+                new Attention.VibeProfile(100, 300)
+            ] as Array<Attention.VibeProfile>);
+        }
+    }
+
+    // Long beep + long vibe — all blocks done.
+    hidden function alertSessionComplete() as Void {
+        if (Attention has :playTone) {
+            Attention.playTone(Attention.TONE_RESET);
+        }
+        if (Attention has :vibrate) {
+            Attention.vibrate([new Attention.VibeProfile(100, 1000)] as Array<Attention.VibeProfile>);
+        }
     }
 
     hidden function currentSegments() as Array<Dictionary> {
@@ -177,12 +218,12 @@ class leadout_datafieldView extends WatchUi.DataField {
         var h = dc.getHeight();
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h / 4 - 20, Graphics.FONT_XTINY,
+        dc.drawText(cx, h / 4 - 28, Graphics.FONT_XTINY,
             "Programme",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, h / 4 + 14, Graphics.FONT_MEDIUM,
-            currentBlockName(),
+            mProgrammeName,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.drawText(cx, h / 2, Graphics.FONT_SMALL,
@@ -190,12 +231,11 @@ class leadout_datafieldView extends WatchUi.DataField {
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        var first = currentSegments()[0];
-        dc.drawText(cx, h * 3 / 4 - 18, Graphics.FONT_XTINY,
+        dc.drawText(cx, h * 3 / 4 - 28, Graphics.FONT_XTINY,
             "Next",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         dc.drawText(cx, h * 3 / 4 + 4, Graphics.FONT_TINY,
-            (first[:name] as String) + " " + formatTime(first[:duration] as Number),
+            currentBlockName(),
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
     }
@@ -223,14 +263,14 @@ class leadout_datafieldView extends WatchUi.DataField {
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         if (mCurrentSegment < segments.size() - 1) {
             var next = segments[mCurrentSegment + 1];
-            dc.drawText(cx, h * 3 / 4 - 18, Graphics.FONT_XTINY,
+            dc.drawText(cx, h * 3 / 4 - 28, Graphics.FONT_XTINY,
                 "Next",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             dc.drawText(cx, h * 3 / 4 + 4, Graphics.FONT_TINY,
                 (next[:name] as String) + " " + formatTime(next[:duration] as Number),
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else if (mCurrentBlock < mBlocks.size() - 1) {
-            dc.drawText(cx, h * 3 / 4 - 18, Graphics.FONT_XTINY,
+            dc.drawText(cx, h * 3 / 4 - 28, Graphics.FONT_XTINY,
                 "Next",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             dc.drawText(cx, h * 3 / 4 + 4, Graphics.FONT_TINY,
