@@ -1,0 +1,20 @@
+# Temporary / exploratory files
+tmp/
+
+# Monkey C build artifacts
+datafield/leadout-datafield/bin/
+
+# Garmin developer key — never commit; generate with VS Code → 'Monkey C: Generate Developer Key'
+*.key
+developer_key
+
+# Node.js
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,16 @@
+{
+  "enabledPlugins": {
+    "allium@juxt-plugins": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(jar tf *)",
+      "Bash(javap *)",
+      "Bash(objdump *)",
+      "mcp__ha-mcp__ha_search_entities",
+      "mcp__ha-mcp__ha_config_get_automation",
+      "mcp__ha-mcp__ha_get_state",
+      "mcp__ha-mcp__ha_config_get_dashboard"
+    ]
+  }
+}
