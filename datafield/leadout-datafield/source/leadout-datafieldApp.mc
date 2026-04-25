@@ -13,7 +13,7 @@ class leadout_datafieldApp extends Application.AppBase {
 
     function onStart(state as Dictionary?) as Void {
         Communications.makeWebRequest(
-            "https://leadout.oliy.co.uk/programme/latest",
+            "https://leadout.oliy.co.uk/api/public/programme/latest",
             null,
             {
                 :method => Communications.HTTP_REQUEST_METHOD_GET,

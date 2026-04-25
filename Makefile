@@ -9,7 +9,8 @@ PRG_SIM     := $(DATAFIELD)/bin/leadoutdatafield-sim.prg
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
-.PHONY: env datafield datafield-sim install-datafield sim sim-lap screenshot
+.PHONY: env datafield datafield-sim install-datafield sim sim-lap screenshot \
+        ui-install ui-dev ui-build server-install server-start server-dev dev
 
 env:
 	scripts/setup-env.sh
@@ -47,3 +48,28 @@ sim: datafield-sim
 
 sim-lap:
 	scripts/sim-button.sh esc
+
+ui-install:
+	cd ui && npm install
+
+ui-dev: ui-install
+	cd ui && npm run dev
+
+ui-build: ui-install
+	cd ui && npm run build && rm -rf server/public && cp -r ui/dist server/public
+
+server-install:
+	cd server && npm install
+
+server-start: server-install
+	cd server && npm start
+
+server-dev: server-install
+	cd server && npm run dev
+
+# Run API server + Vite together; Ctrl-C stops both
+dev: server-install ui-install
+	@trap 'kill 0' INT; \
+	  (cd server && npm run dev) & \
+	  (cd ui && npm run dev) & \
+	  wait
