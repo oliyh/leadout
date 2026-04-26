@@ -36,13 +36,27 @@ external entity Instructor {
     oauth_id: String
 }
 
--- Participant identity: anonymous token generated on first watch app install.
--- The server knows only "device X is subscribed to channel Y".
-external entity Participant {
-    device_token: String
+-- ── Entities ───────────────────────────────────────────────────────────────
+
+-- Participant web identity: created on first Google sign-in.
+-- No personal information stored beyond the stable identifier from the auth provider.
+entity Account {
+    google_id: String
+    created_at: Timestamp
+    subscriptions: Subscription with account = this
+    devices: Device with account = this
 }
 
--- ── Entities ───────────────────────────────────────────────────────────────
+-- A watch installation of the Leadout data field. The device_code is a stable
+-- hash derived from the device + app identifiers, displayed on the watch so the
+-- participant can enter it on the website to register.
+entity Device {
+    device_code: String
+    account: Account
+    registered_at: Timestamp
+    last_synced_at: Timestamp?
+    sync_records: ProgrammeSyncRecord with device = this
+}
 
 -- A named channel owned by an instructor, shared via a permanent link.
 -- Participants subscribe to a channel to receive all future programmes.
@@ -65,6 +79,13 @@ entity Programme {
     pace_assumption: Pace
     blocks: List<Block>
     published_at: Timestamp
+
+    -- Updated whenever the programme or any of its blocks or segments are modified.
+    -- Used for sync telemetry: devices record the updated_at they received so
+    -- instructors can see which devices have the current version.
+    updated_at: Timestamp
+
+    sync_records: ProgrammeSyncRecord with programme = this
 
     -- A programme is expired once its scheduled date is in the past.
     -- The server excludes expired programmes from its API; the watch may purge
@@ -150,8 +171,21 @@ variant DistancePyramid : PyramidTemplate {
 
 -- A device's subscription to a channel. Created once; persists indefinitely.
 entity Subscription {
-    participant: Participant
+    account: Account
     channel: Channel
+}
+
+-- Records the last time a device received a specific programme and which version it got.
+-- Created or updated on each successful device poll. Used by the instructor to see
+-- how many of their subscriber devices have the current version of a published programme.
+entity ProgrammeSyncRecord {
+    device: Device
+    programme: Programme
+    synced_at: Timestamp
+    programme_version: Timestamp
+
+    -- True when the device's copy matches the programme's current updated_at.
+    is_current: programme_version = programme.updated_at
 }
 
 -- The active watch session for a device. Absent when no programme is selected.
@@ -160,7 +194,7 @@ entity Subscription {
 -- between blocks; it reaches complete only after the last segment of the last
 -- block finishes.
 entity Session {
-    participant: Participant
+    device: Device
     programme: Programme
     status: waiting | active | complete
     current_block_index: Integer when status = waiting | active
@@ -229,21 +263,25 @@ rule InstructorCreatesProgramme {
         name: name,
         scheduled_date: scheduled_date,
         pace_assumption: pace_assumption ?? config.default_pace_assumption,
-        published_at: now
+        published_at: now,
+        updated_at: now
     )
 }
 
 -- Clone a programme within the same channel: all blocks and segments are
 -- copied verbatim; the instructor chooses a new scheduled_date. Every other
 -- field (name, pace_assumption, block/segment structure) is inherited from
--- the source. The deep copy is expressed declaratively via a deferred spec.
+-- the source. The cloned programme gets updated_at: now (it is a fresh
+-- programme from the sync system's perspective). The deep copy is expressed
+-- declaratively via a deferred spec.
 rule ProgrammeCloned {
     when: InstructorClonesProgramme(instructor, source, new_scheduled_date)
     requires: source.channel.instructor = instructor
     ensures: ProgrammeCopy.from(
         source: source,
         scheduled_date: new_scheduled_date,
-        published_at: now
+        published_at: now,
+        updated_at: now
     )
 }
 
@@ -258,7 +296,8 @@ rule ProgrammeCreatedFromTemplate {
             name: name,
             scheduled_date: scheduled_date,
             pace_assumption: pace_assumption ?? config.default_pace_assumption,
-            published_at: now
+            published_at: now,
+            updated_at: now
         )
         TemplateExpansion.into(programme: programme, template: template, position: 0)
 }
@@ -278,6 +317,15 @@ rule ProgrammeEdited {
             programme.scheduled_date = new_scheduled_date
         if new_pace_assumption != null:
             programme.pace_assumption = new_pace_assumption
+    ensures: ProgrammeModified(programme)
+}
+
+-- Refreshes the programme's updated_at any time the programme or any of its
+-- blocks or segments are modified. Subscribed to via chained trigger from
+-- every editing rule (top-level edits, block edits, segment edits).
+rule ProgrammeModifiedTimestamp {
+    when: ProgrammeModified(programme)
+    ensures: programme.updated_at = now
 }
 
 -- A programme expires once its scheduled date falls into the past. On the
@@ -300,6 +348,7 @@ rule InstructorAddsBlankBlock {
         name: name,
         position: programme.blocks.count
     )
+    ensures: ProgrammeModified(programme)
 }
 
 -- Add a block generated from a template to an existing programme.
@@ -312,13 +361,16 @@ rule BlockGeneratedFromTemplate {
         template: template,
         position: programme.blocks.count
     )
+    ensures: ProgrammeModified(programme)
 }
 
 rule InstructorReordersBlock {
     when: InstructorReordersBlock(instructor, block, new_position)
     requires: block.programme.channel.instructor = instructor
     requires: not block.programme.is_expired
+    let p = block.programme
     ensures: block.position = new_position
+    ensures: ProgrammeModified(p)
     @guidance
         -- Implementations must keep Block.position values a contiguous 0..n-1
         -- sequence within a programme after any reorder. Specification of the
@@ -330,7 +382,9 @@ rule InstructorDeletesBlock {
     when: InstructorDeletesBlock(instructor, block)
     requires: block.programme.channel.instructor = instructor
     requires: not block.programme.is_expired
+    let p = block.programme
     ensures: not exists block
+    ensures: ProgrammeModified(p)
 }
 
 -- Segment management
@@ -341,6 +395,7 @@ rule InstructorAddsSegment {
     requires: not block.programme.is_expired
     ensures: segment.block = block
     ensures: segment.position = block.segments.count
+    ensures: ProgrammeModified(block.programme)
 }
 
 rule InstructorConfiguresSegment {
@@ -352,6 +407,7 @@ rule InstructorConfiguresSegment {
             segment.name = new_name
         if new_target_pace != null:
             segment.target_pace = new_target_pace
+    ensures: ProgrammeModified(segment.block.programme)
     @guidance
         -- Kind-specific fields (duration, target_distance, waypoint,
         -- trigger_radius) are edited via variant-specific triggers. Specifying
@@ -363,33 +419,91 @@ rule InstructorReordersSegment {
     requires: segment.block.programme.channel.instructor = instructor
     requires: not segment.block.programme.is_expired
     ensures: segment.position = new_position
+    ensures: ProgrammeModified(segment.block.programme)
 }
 
 rule InstructorDeletesSegment {
     when: InstructorDeletesSegment(instructor, segment)
     requires: segment.block.programme.channel.instructor = instructor
     requires: not segment.block.programme.is_expired
+    let p = segment.block.programme
     ensures: not exists segment
+    ensures: ProgrammeModified(p)
 }
 
 -- Participant subscription and programme selection
 
 rule ParticipantSubscribes {
-    when: ParticipantSubscribes(p, ch)
-    requires: not exists Subscription where participant = p and channel = ch
-    ensures: Subscription.created(participant: p, channel: ch)
+    when: ParticipantSubscribes(account, channel)
+    requires: not exists Subscription where account = account and channel = channel
+    ensures: Subscription.created(account: account, channel: channel)
 }
 
 -- Participant selects a programme for today's session.
 -- Primary surface is the Watch Widget; App Settings handles persistent defaults.
 rule ParticipantSelectsProgramme {
-    when: ParticipantSelectsProgramme(p, programme)
+    when: ParticipantSelectsProgramme(device, programme)
     requires: programme.is_for_today
-    requires: exists Subscription where participant = p and channel = programme.channel
+    requires: exists Subscription where account = device.account and channel = programme.channel
     ensures: Session.created(
-        participant: p,
+        device: device,
         programme: programme
     )
+}
+
+-- Account and device registration
+
+-- Creates an Account the first time a participant signs in with Google.
+rule ParticipantFirstSignIn {
+    when: ParticipantSignsIn(google_id)
+    requires: not exists Account{google_id}
+    ensures: Account.created(google_id: google_id, created_at: now)
+}
+
+-- Links a device_code to an Account. The participant enters the code shown on
+-- their watch into the registration page on the website. A device_code can only
+-- be registered to one account; the server rejects duplicate claims.
+rule ParticipantRegistersDevice {
+    when: ParticipantRegistersDevice(account, device_code)
+    requires: not exists Device{device_code}
+    ensures: Device.created(
+        device_code: device_code,
+        account: account,
+        registered_at: now
+    )
+}
+
+-- Registered device polls the server. Returns all non-expired programmes across
+-- all of the account's subscribed channels; the watch replaces its local storage
+-- with the full returned set. Creates or updates a ProgrammeSyncRecord per programme.
+rule RegisteredDevicePoll {
+    when: DevicePollsServer(device_code)
+    let device = Device{device_code}
+    requires: exists device
+    ensures: device.last_synced_at = now
+    ensures:
+        for sub in device.account.subscriptions:
+            for programme in sub.channel.upcoming_programmes:
+                let record = ProgrammeSyncRecord{device, programme}
+                if exists record:
+                    record.synced_at = now
+                    record.programme_version = programme.updated_at
+                else:
+                    ProgrammeSyncRecord.created(
+                        device: device,
+                        programme: programme,
+                        synced_at: now,
+                        programme_version: programme.updated_at
+                    )
+}
+
+-- Unregistered device polls the server. The device_code is not found in the
+-- system; the server signals that registration is required. The watch continues
+-- to display the device_code and registration URL.
+rule UnregisteredDevicePoll {
+    when: DevicePollsServer(device_code)
+    requires: not exists Device{device_code}
+    ensures: WatchRegistrationRequired(device_code)
 }
 
 -- Session lifecycle
@@ -596,9 +710,9 @@ surface InstructorProgrammeEditor {
 }
 
 -- Mobile web page opened from the instructor's WhatsApp link.
--- Participant authenticates with Garmin and subscribes to the channel.
+-- Participant authenticates with Google and subscribes to the channel.
 surface ParticipantSubscriptionPage {
-    facing visitor: Participant
+    facing visitor: Account
 
     context channel: Channel
 
@@ -610,14 +724,24 @@ surface ParticipantSubscriptionPage {
         ParticipantSubscribes(visitor, channel)
 }
 
+-- Website registration page where participants link their watch's device_code to
+-- their account. The participant must be signed in. Once registered, the device
+-- will receive programmes on its next poll.
+surface DeviceRegistrationPage {
+    facing account: Account
+
+    provides:
+        ParticipantRegistersDevice(account, device_code)
+}
+
 -- Watch widget: the runner picks today's programme from programmes that
 -- have already synced locally. Only programmes scheduled for the current
 -- date are offered.
 surface WatchWidget {
-    facing runner: Participant
+    facing runner: Device
 
     exposes:
-        for sub in Subscription where participant = runner:
+        for sub in Subscription where account = runner.account:
             sub.channel.name
             for programme in sub.channel.programmes where is_for_today:
                 programme.name
@@ -631,9 +755,9 @@ surface WatchWidget {
 -- Watch data field: interval guidance during the run.
 -- Overlaid on the native run activity; run recording continues independently.
 surface WatchDataField {
-    facing runner: Participant
+    facing runner: Device
 
-    context session: Session where participant = runner
+    context session: Session where device = runner
 
     exposes:
         session.programme.name when session.status = waiting
@@ -660,15 +784,54 @@ surface WatchDataField {
 -- These are emitted by the watch's GPS, accelerometer and pace algorithms,
 -- not by any user interaction. They are implementation-delivered domain events.
 surface WatchRunSensors {
-    facing runner: Participant
+    facing runner: Device
 
-    context session: Session where participant = runner
+    context session: Session where device = runner
 
     provides:
         DistanceCovered(session, distance)
             when session.status = active and session.current_segment.kind = DistanceBased
         WaypointReached(session)
             when session.status = active and session.current_segment.kind = LocationBased
+}
+
+-- Watch-facing sync API. A data field sends its device_code; the server either
+-- returns all non-expired programmes (registered device) or signals that
+-- registration is required (unregistered device).
+-- Two sync modes on the watch:
+--   Aggressive (60s foreground loop): while device has never successfully synced.
+--   Passive (best-effort on open): after first sync; a failed sync never wipes
+--     local storage.
+-- A background temporal event (target: every 30 minutes) runs independently
+-- of whether the data field is open.
+surface WatchSyncAPI {
+    provides:
+        DevicePollsServer(device_code)
+}
+
+-- Instructor view of sync propagation for a published programme.
+-- Shows how many subscriber devices have received the current version, letting
+-- the instructor know if a late edit may not have reached all participants.
+surface InstructorProgrammePropagation {
+    facing instructor: Instructor
+    context programme: Programme where channel.instructor = instructor
+
+    let subscriptions = Subscription where channel = programme.channel
+
+    exposes:
+        programme.name
+        programme.updated_at
+        subscriptions.count
+        for record in programme.sync_records:
+            record.device.device_code
+            record.synced_at
+            record.is_current
+
+    @guidance
+        -- A programme is fully propagated when every subscriber account has at
+        -- least one device with is_current = true. Show a green state when this
+        -- holds. When programme.is_for_today is true and some devices do not have
+        -- the current version, reinforce the ProgrammeEdited late-edit warning.
 }
 
 -- ── Deferred specifications ────────────────────────────────────────────────
@@ -696,3 +859,15 @@ open question "Maximum name length — block names, segment names and programme 
 open question "Instructor-created templates — only system-provided templates exist now. Allowing instructors to author and save their own templates (including sharing within a channel) is deferred."
 
 open question "Date semantics — Date is modelled as a value type with year, month, day. The 'today' comparison used in Programme.is_expired and Programme.is_for_today assumes a single timezone reference. Per-instructor or per-channel timezone handling is deferred."
+
+open question "Background temporal event for data fields — the sync model assumes a data field can register a periodic background task (target: every 30 minutes). This needs to be proven out in an early implementation spike; if it is not supported, the entire offline-first sync model needs revisiting."
+
+open question "Preferred programme — when a participant is subscribed to multiple channels and more than one non-expired programme is scheduled for the same date, the server could expose a preference flag settable on the website. Deferred; implement single-programme-per-day display first."
+
+open question "Watch programme selection UI — if multiple programmes are available for today, the watch might allow the runner to choose via swipe gestures on the data field. Depends on the Connect IQ data field interaction model. Deferred."
+
+open question "Background sync interval — the target polling interval for the background temporal event is 30 minutes. This should be a config value; the platform minimum is 5 minutes."
+
+open question "Instructor authentication — the original design used Garmin Connect OAuth for instructor sign-in. If Garmin Developer Programme access cannot be obtained, instructors also need an alternative auth provider (e.g. Google OAuth). Not yet resolved."
+
+open question "Device deregistration — can a participant remove a device from their account? Useful if a watch is lost or replaced. Not yet specified."

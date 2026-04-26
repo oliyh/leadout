@@ -3,8 +3,8 @@ import Toybox.Application;
 import Toybox.Attention;
 import Toybox.Graphics;
 import Toybox.Lang;
-import Toybox.WatchUi;
 import Toybox.System;
+import Toybox.WatchUi;
 
 class leadout_datafieldView extends WatchUi.DataField {
 
@@ -100,6 +100,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     // ── Helpers ───────────────────────────────────────────────────────────
 
     hidden function loadProgramme(data as Dictionary) as Void {
+        System.println("loadProgramme: name=" + data["name"] + " blocks=" + (data["blocks"] != null ? (data["blocks"] as Array<Object>).size() : "null"));
         var jsonBlocks = data["blocks"] as Array<Dictionary>;
         var blocks = [] as Array<Dictionary>;
         for (var i = 0; i < jsonBlocks.size(); i++) {
@@ -120,9 +121,12 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
         mBlocks = blocks;
         mProgrammeName = data["name"] as String;
-        mState = STATE_WAITING;
         mCurrentBlock = 0;
         mCurrentSegment = 0;
+        if (blocks.size() > 0) {
+            mState = STATE_WAITING;
+        }
+        // If blocks is empty, stay in STATE_SYNCING — no session to run.
     }
 
     // Single short beep + brief vibe — segment within a block changes.
