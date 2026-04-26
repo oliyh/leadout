@@ -111,3 +111,7 @@ leadout/
 - Possible to add "pause" segment in programme, where it will go back to waiting mode
 - Generate .gitignore
 - How much can be built / tested in github actions?
+- devcontainer to install all the sdk stuff in? can stil run the sim somehow?
+- needs to work better on mobile
+- postgres on coolify? need to dump out a backup regularly
+- when device unregistered, pressing lap can actually open a url with a query param containing the device code, so users don't actually have to type it in at all - will lap work if you haven't started a run?

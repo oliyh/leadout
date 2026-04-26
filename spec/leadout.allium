@@ -86,6 +86,8 @@ entity Programme {
     updated_at: Timestamp
 
     sync_records: ProgrammeSyncRecord with programme = this
+    participations: Participation with programme = this
+    participation_count: participations.count
 
     -- A programme is expired once its scheduled date is in the past.
     -- The server excludes expired programmes from its API; the watch may purge
@@ -186,6 +188,15 @@ entity ProgrammeSyncRecord {
 
     -- True when the device's copy matches the programme's current updated_at.
     is_current: programme_version = programme.updated_at
+}
+
+-- Records that a device actually started a programme (pressed LAP to begin
+-- block 0), as opposed to merely receiving it via sync. Distinct from
+-- ProgrammeSyncRecord, which only tracks receipt.
+entity Participation {
+    device: Device
+    programme: Programme
+    started_at: Timestamp
 }
 
 -- The active watch session for a device. Absent when no programme is selected.
@@ -439,6 +450,12 @@ rule ParticipantSubscribes {
     ensures: Subscription.created(account: account, channel: channel)
 }
 
+rule ParticipantUnsubscribes {
+    when: ParticipantUnsubscribes(account, channel)
+    requires: exists Subscription where account = account and channel = channel
+    ensures: not exists Subscription where account = account and channel = channel
+}
+
 -- Participant selects a programme for today's session.
 -- Primary surface is the Watch Widget; App Settings handles persistent defaults.
 rule ParticipantSelectsProgramme {
@@ -525,6 +542,19 @@ rule BlockStarted {
     ensures: session.segment_started_at = now
 }
 
+-- Fired the first time a device presses LAP for a given programme — i.e.
+-- when block 0 starts. Records a Participation. The SessionStarted trigger
+-- is emitted by the watch data field as the session transitions from
+-- waiting to active on block 0.
+rule ParticipantStartsSession {
+    when: SessionStarted(device, programme)
+    ensures: Participation.created(
+        device: device,
+        programme: programme,
+        started_at: now
+    )
+}
+
 -- Time-based: driven by derived temporal condition on Session.
 rule TimeSegmentComplete {
     when: session: Session.segment_timer_elapsed
@@ -602,6 +632,40 @@ surface InstructorChannelAdmin {
 
     provides:
         InstructorCreatesChannel(instructor, name)
+}
+
+-- A single channel's full detail for its owning instructor: all programmes
+-- (including expired ones for history), subscriber count and per-programme
+-- participation stats.
+surface InstructorChannelPage {
+    facing instructor: Instructor
+    context channel: Channel where instructor = instructor
+
+    let subscriptions = Subscription where channel = channel
+
+    exposes:
+        channel.name
+        channel.created_at
+        subscriptions.count
+        for programme in channel.programmes:
+            programme.name
+            programme.scheduled_date
+            programme.is_expired
+            programme.is_for_today
+            programme.updated_at
+            programme.participation_count
+            for record in programme.sync_records:
+                record.device.device_code
+                record.synced_at
+                record.is_current
+
+    provides:
+        InstructorCreatesProgramme(instructor, channel, name, scheduled_date, pace_assumption?)
+        InstructorClonesProgramme(instructor, source, new_scheduled_date)
+            when exists source in channel.programmes
+        InstructorCreatesProgrammeFromTemplate(
+            instructor, channel, name, scheduled_date, template, pace_assumption?
+        )
 }
 
 -- Programme explorer: the instructor's starting point for authoring.
@@ -724,6 +788,49 @@ surface ParticipantSubscriptionPage {
         ParticipantSubscribes(visitor, channel)
 }
 
+-- The participant's home view. Shows their devices (with onboarding guidance
+-- when none are registered) and their channel subscriptions.
+surface ParticipantDashboard {
+    facing account: Account
+
+    exposes:
+        for device in account.devices:
+            device.device_code
+            device.registered_at
+            device.last_synced_at
+
+        for sub in account.subscriptions:
+            sub.channel.name
+            for programme in sub.channel.upcoming_programmes:
+                programme.name
+                programme.scheduled_date
+                programme.is_for_today
+
+    provides:
+        ParticipantRegistersDevice(account, device_code)
+        ParticipantUnsubscribes(account, channel)
+            when exists sub in account.subscriptions where channel = channel
+}
+
+-- Detail view of a single subscribed channel, showing its upcoming programmes
+-- and allowing unsubscribe.
+surface ParticipantSubscriptionView {
+    facing account: Account
+    context channel: Channel
+
+    exposes:
+        channel.name
+        channel.instructor
+        for programme in channel.upcoming_programmes:
+            programme.name
+            programme.scheduled_date
+            programme.is_for_today
+
+    provides:
+        ParticipantUnsubscribes(account, channel)
+            when exists Subscription where account = account and channel = channel
+}
+
 -- Website registration page where participants link their watch's device_code to
 -- their account. The participant must be signed in. Once registered, the device
 -- will receive programmes on its next poll.
@@ -772,6 +879,8 @@ surface WatchDataField {
     provides:
         LapButtonPressed(session)
             when session.status = waiting
+        SessionStarted(runner, session.programme)
+            when session.status = waiting and session.current_block_index = 0
 
     @guarantee PaceIndication
         -- When the current segment has a target_pace, the watch indicates
@@ -821,6 +930,7 @@ surface InstructorProgrammePropagation {
     exposes:
         programme.name
         programme.updated_at
+        programme.participation_count
         subscriptions.count
         for record in programme.sync_records:
             record.device.device_code
@@ -871,3 +981,5 @@ open question "Background sync interval — the target polling interval for the 
 open question "Instructor authentication — the original design used Garmin Connect OAuth for instructor sign-in. If Garmin Developer Programme access cannot be obtained, instructors also need an alternative auth provider (e.g. Google OAuth). Not yet resolved."
 
 open question "Device deregistration — can a participant remove a device from their account? Useful if a watch is lost or replaced. Not yet specified."
+
+open question "Participation deduplication — if a participant presses LAP, stops the run, and restarts, should a second Participation record be created? Assumed no: one Participation per device per programme. Deferred."

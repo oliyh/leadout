@@ -1,6 +1,7 @@
 import Toybox.Activity;
 import Toybox.Application;
 import Toybox.Attention;
+import Toybox.Communications;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.System;
@@ -71,6 +72,12 @@ class leadout_datafieldView extends WatchUi.DataField {
     // ── Input ─────────────────────────────────────────────────────────────
 
     function onTimerLap() as Void {
+        if (mState == STATE_UNREGISTERED) {
+            if (Communications has :openWebPage) {
+                Communications.openWebPage(API_BASE + "/register", null, null);
+            }
+            return;
+        }
         if (mState == STATE_WAITING) {
             mState = STATE_ACTIVE;
             mCurrentSegment = 0;
@@ -230,28 +237,28 @@ class leadout_datafieldView extends WatchUi.DataField {
     }
 
     // Shown when the server says this device_code is not registered.
-    // The participant visits /register on the Leadout website and types the code.
+    // Pressing LAP opens leadout.oliy.co.uk/register in the paired phone browser.
     hidden function drawUnregistered(dc as Dc, cx as Number, cy as Number, fgColor as ColorValue) as Void {
         var h = dc.getHeight();
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, h / 4, Graphics.FONT_XTINY,
-            "Register at",
-            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h / 4 + 22, Graphics.FONT_XTINY,
-            "leadout.app/register",
+            "leadout.oliy.co.uk/register",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h / 2 - 10, Graphics.FONT_XTINY,
+        dc.drawText(cx, h / 2 - 14, Graphics.FONT_XTINY,
             "Device code",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 3 / 4 - 10, Graphics.FONT_MEDIUM,
+        dc.drawText(cx, h / 2 + 14, Graphics.FONT_MEDIUM,
             mDeviceCode,
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h * 3 / 4 + 10, Graphics.FONT_XTINY,
+            "LAP to open on phone",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
