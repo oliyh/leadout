@@ -82,6 +82,10 @@ export class DomainStore {
         return [...this._programmes.values()].find(p => p.scheduled_date === date) ?? null;
     }
 
+    async deleteProgramme(id) {
+        return this._programmes.delete(id);
+    }
+
     // ── Subscriptions ─────────────────────────────────────────────────────────
 
     async findSubscription(account_id, channel_id) {

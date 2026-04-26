@@ -9,7 +9,8 @@ export default defineConfig({
     server: {
         proxy: {
             '/api': 'http://localhost:3000',
-            '/programme': 'http://localhost:3000',
         },
+        // Allow client-side routes like /join/:id and /register on hard refresh
+        historyApiFallback: true,
     },
 });

@@ -56,7 +56,7 @@ ui-dev: ui-install
 	cd ui && npm run dev
 
 ui-build: ui-install
-	cd ui && npm run build && rm -rf server/public && cp -r ui/dist server/public
+	cd ui && npm run build && cd .. && rm -rf server/public && cp -r ui/dist server/public
 
 server-install:
 	cd server && npm install
