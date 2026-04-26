@@ -9,27 +9,28 @@ import Toybox.WatchUi;
 class leadout_datafieldApp extends Application.AppBase {
 
     hidden var mView as leadout_datafieldView?;
+    hidden var mDeviceCode as String = "";
 
     function initialize() {
         AppBase.initialize();
+        // Stable per-device identifier — generated once, persisted forever.
+        // Displayed on screen so the participant can register at /register.
+        mDeviceCode = getOrCreateDeviceCode();
     }
 
     function onStart(state as Dictionary?) as Void {
-        // Register background temporal sync — 5 minutes (platform minimum).
-        // Fires while the native activity app is running. This call persists the
-        // registration across app launches; re-calling on each start is safe.
         Background.registerForTemporalEvent(new Time.Duration(5 * 60));
 
-        // Foreground sync: best-effort on open. A failed sync never wipes local
-        // storage — the view falls back to the last successfully cached programme.
+        // Foreground sync on open. A failed sync never wipes local storage —
+        // the view falls back to the last successfully cached programme.
         Communications.makeWebRequest(
-            API_BASE + "/api/public/programme/latest",
+            API_BASE + "/api/sync/" + mDeviceCode,
             null,
             {
                 :method => Communications.HTTP_REQUEST_METHOD_GET,
                 :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
             },
-            method(:onProgrammeFetched)
+            method(:onSyncResponse)
         );
     }
 
@@ -45,6 +46,8 @@ class leadout_datafieldApp extends Application.AppBase {
         return [mView];
     }
 
+    // Called when the background temporal sync completes and passes back a
+    // programme dictionary (or null on failure/unregistered).
     function onBackgroundData(data as Application.PersistableType) as Void {
         var view = mView;
         if (data instanceof Dictionary && view != null) {
@@ -52,14 +55,26 @@ class leadout_datafieldApp extends Application.AppBase {
         }
     }
 
-    function onProgrammeFetched(responseCode as Number, data as Dictionary?) as Void {
-        System.println("onProgrammeFetched: code=" + responseCode + " data=" + (data != null ? data.toString() : "null"));
+    // Handles the response from /api/sync/:device_code.
+    // 200 → { "programmes": [...] } — find today's and load it.
+    // 404 → device not registered — show code on screen.
+    // Other → network error, keep whatever is cached.
+    function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
+        System.println("onSyncResponse: code=" + responseCode);
         var view = mView;
         if (responseCode == 200 && data != null) {
-            Application.Storage.setValue("programme", data);
-            Application.Storage.setValue("lastSyncTime", System.getTimer());
+            var programmes = data["programmes"] as Array<Dictionary>;
+            var prog = findTodaysProgramme(programmes);
+            if (prog != null) {
+                Application.Storage.setValue("programme", prog);
+                Application.Storage.setValue("lastSyncTime", System.getTimer());
+                if (view != null) {
+                    view.setProgramme(prog as Dictionary);
+                }
+            }
+        } else if (responseCode == 404) {
             if (view != null) {
-                view.setProgramme(data);
+                view.setRegistrationRequired(mDeviceCode);
             }
         } else {
             if (view != null) {

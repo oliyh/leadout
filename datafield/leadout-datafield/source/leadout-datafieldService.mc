@@ -4,13 +4,10 @@ import Toybox.Communications;
 import Toybox.Lang;
 import Toybox.System;
 
-// Background service delegate — fires every 5 minutes via a temporal event
-// registered in App.onStart. Syncs the programme from the server into
-// Application.Storage so the data field can read it without network access.
-//
-// NOTE: For data fields, background temporal events only fire while the
-// corresponding native activity app is running. This is the primary assumption
-// this spike is testing.
+// Background service delegate — fires every 5 minutes via a temporal event.
+// Reads the device_code from Application.Storage (written by App.initialize),
+// calls /api/sync/:device_code, and on success passes today's programme back
+// to the foreground via Background.exit so the view can update.
 (:background)
 class LeadoutServiceDelegate extends System.ServiceDelegate {
 
@@ -19,8 +16,14 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
     }
 
     function onTemporalEvent() as Void {
+        var deviceCode = Application.Storage.getValue("device_code");
+        if (!(deviceCode instanceof String)) {
+            // Device code not yet generated (app never opened foreground). Skip.
+            Background.exit(null);
+            return;
+        }
         Communications.makeWebRequest(
-            API_BASE + "/api/public/programme/latest",
+            API_BASE + "/api/sync/" + (deviceCode as String),
             null,
             {
                 :method => Communications.HTTP_REQUEST_METHOD_GET,
@@ -32,12 +35,16 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
 
     function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
         if (responseCode == 200 && data != null) {
-            Application.Storage.setValue("programme", data);
-            Application.Storage.setValue("lastSyncTime", System.getTimer());
-            Background.exit(data);
-        } else {
-            Background.exit(null);
+            var programmes = data["programmes"] as Array<Dictionary>;
+            var prog = findTodaysProgramme(programmes);
+            if (prog != null) {
+                Application.Storage.setValue("programme", prog);
+                Application.Storage.setValue("lastSyncTime", System.getTimer());
+                Background.exit(prog);
+                return;
+            }
         }
+        Background.exit(null);
     }
 
 }

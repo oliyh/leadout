@@ -11,14 +11,16 @@ class leadout_datafieldView extends WatchUi.DataField {
     // ── State ─────────────────────────────────────────────────────────────
 
     enum SessionState {
-        STATE_SYNCING,   // no programme loaded yet
-        STATE_WAITING,   // programme loaded — lap press starts the next block
-        STATE_ACTIVE,    // running through segments in the current block
-        STATE_COMPLETE   // all blocks done
+        STATE_SYNCING,       // registered, no programme received yet
+        STATE_UNREGISTERED,  // device not registered — show device code
+        STATE_WAITING,       // programme loaded — lap press starts the next block
+        STATE_ACTIVE,        // running through segments in the current block
+        STATE_COMPLETE       // all blocks done
     }
 
     hidden var mState as SessionState;
     hidden var mFetchFailed as Boolean;
+    hidden var mDeviceCode as String;
     hidden var mCurrentBlock as Number;
     hidden var mCurrentSegment as Number;
     hidden var mSegmentStartMs as Number;
@@ -30,6 +32,7 @@ class leadout_datafieldView extends WatchUi.DataField {
 
         mState = STATE_SYNCING;
         mFetchFailed = false;
+        mDeviceCode = "";
         mCurrentBlock = 0;
         mCurrentSegment = 0;
         mSegmentStartMs = 0;
@@ -57,6 +60,12 @@ class leadout_datafieldView extends WatchUi.DataField {
             mFetchFailed = true;
             WatchUi.requestUpdate();
         }
+    }
+
+    function setRegistrationRequired(deviceCode as String) as Void {
+        mDeviceCode = deviceCode;
+        mState = STATE_UNREGISTERED;
+        WatchUi.requestUpdate();
     }
 
     // ── Input ─────────────────────────────────────────────────────────────
@@ -126,7 +135,6 @@ class leadout_datafieldView extends WatchUi.DataField {
         if (blocks.size() > 0) {
             mState = STATE_WAITING;
         }
-        // If blocks is empty, stay in STATE_SYNCING — no session to run.
     }
 
     // Single short beep + brief vibe — segment within a block changes.
@@ -190,6 +198,9 @@ class leadout_datafieldView extends WatchUi.DataField {
             case STATE_SYNCING:
                 drawSyncing(dc, cx, cy, fgColor);
                 break;
+            case STATE_UNREGISTERED:
+                drawUnregistered(dc, cx, cy, fgColor);
+                break;
             case STATE_WAITING:
                 drawWaiting(dc, cx, cy, fgColor);
                 break;
@@ -216,6 +227,32 @@ class leadout_datafieldView extends WatchUi.DataField {
                 "Syncing...",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
+    }
+
+    // Shown when the server says this device_code is not registered.
+    // The participant visits /register on the Leadout website and types the code.
+    hidden function drawUnregistered(dc as Dc, cx as Number, cy as Number, fgColor as ColorValue) as Void {
+        var h = dc.getHeight();
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h / 4, Graphics.FONT_XTINY,
+            "Register at",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h / 4 + 22, Graphics.FONT_XTINY,
+            "leadout.app/register",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h / 2 - 10, Graphics.FONT_XTINY,
+            "Device code",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h * 3 / 4 - 10, Graphics.FONT_MEDIUM,
+            mDeviceCode,
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     hidden function drawWaiting(dc as Dc, cx as Number, cy as Number, fgColor as ColorValue) as Void {
