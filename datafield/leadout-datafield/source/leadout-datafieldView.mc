@@ -261,7 +261,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
-            formatTime(remaining),
+            formatDuration(remaining),
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
@@ -271,7 +271,7 @@ class leadout_datafieldView extends WatchUi.DataField {
                 "Next",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             dc.drawText(cx, h * 3 / 4 + 4, Graphics.FONT_TINY,
-                (next[:name] as String) + " " + formatTime(next[:duration] as Number),
+                (next[:name] as String) + " " + formatDuration(next[:duration] as Number),
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else if (mCurrentBlock < mBlocks.size() - 1) {
             dc.drawText(cx, h * 3 / 4 - 28, Graphics.FONT_XTINY,
@@ -282,10 +282,6 @@ class leadout_datafieldView extends WatchUi.DataField {
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
         dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
-    }
-
-    hidden function formatTime(secs as Number) as String {
-        return (secs / 60).format("%d") + ":" + (secs % 60).format("%02d");
     }
 
     hidden function drawComplete(dc as Dc, cx as Number, cy as Number) as Void {

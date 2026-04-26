@@ -1,6 +1,6 @@
 project.manifest = manifest.xml
 base.resourcePath = resources
-base.sourcePath = source
+base.sourcePath = source;source/tests
 
 # URL target switching — see source/Config.mc.
 # Simulator build: uses (:sim) constant → localhost.

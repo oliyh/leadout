@@ -9,8 +9,8 @@ PRG_SIM     := $(DATAFIELD)/bin/leadoutdatafield-sim.prg
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
-.PHONY: env datafield datafield-sim install-datafield sim sim-lap screenshot \
-        ui-install ui-dev ui-build server-install server-start server-dev dev
+.PHONY: env datafield datafield-sim datafield-test install-datafield sim sim-lap screenshot \
+        ui-install ui-dev ui-build server-install server-start server-dev server-test dev
 
 env:
 	scripts/setup-env.sh
@@ -66,6 +66,20 @@ server-start: server-install
 
 server-dev: server-install
 	cd server && npm run dev
+
+server-test: server-install
+	cd server && npm test
+
+datafield-test:
+	$(JAVA) -Xms1g \
+		-Dfile.encoding=UTF-8 \
+		-Dapple.awt.UIElement=true \
+		-jar $(SDK_JAR) \
+		-o $(DATAFIELD)/bin/leadoutdatafield-test.prg \
+		-f $(DATAFIELD)/monkey.jungle \
+		-y $(DEV_KEY) \
+		-d $(DEVICE_SIM) \
+		--unit-test -w
 
 # Run API server + Vite together; Ctrl-C stops both
 dev: server-install ui-install
