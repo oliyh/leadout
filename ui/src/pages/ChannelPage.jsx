@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { instructorApi } from '../store/api.js';
-import { createProgramme, loadChannels } from '../store/dashboard.js';
+import { createProgramme, loadChannels, showProgrammeEditor } from '../store/dashboard.js';
+import { openExternalProgramme } from '../store/programmes.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -134,6 +135,10 @@ export function ChannelPage({ channelId }) {
                                 {p.participation_count} started
                             </span>
                             <PropagationBadge programmeId={p.id} />
+                            <button class="btn-ghost btn-sm" onClick={() => {
+                                openExternalProgramme(p);
+                                showProgrammeEditor(p.id);
+                            }}>Edit</button>
                         </div>
                     </div>
                 ))}

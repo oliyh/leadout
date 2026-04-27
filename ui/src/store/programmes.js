@@ -81,6 +81,16 @@ function makeSegment(data, position) {
     };
 }
 
+// ── Open a programme from an external source (e.g. ChannelPage) ──────────────
+
+export function openExternalProgramme(prog) {
+    const existing = programmes.value.find(p => p.id === prog.id);
+    if (!existing) {
+        programmes.value = [...programmes.value, prog];
+    }
+    selectedId.value = prog.id;
+}
+
 // ── Load ──────────────────────────────────────────────────────────────────────
 
 export async function load() {

@@ -26,6 +26,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mCurrentSegment as Number;
     hidden var mSegmentStartMs as Number;
     hidden var mProgrammeName as String;
+    hidden var mProgrammeId as String;
     hidden var mBlocks as Array<Dictionary>;
 
     function initialize() {
@@ -39,6 +40,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mSegmentStartMs = 0;
         mBlocks = [] as Array<Dictionary>;
         mProgrammeName = "";
+        mProgrammeId = "";
 
         var cached = Application.Storage.getValue("programme");
         if (cached instanceof Dictionary) {
@@ -69,6 +71,10 @@ class leadout_datafieldView extends WatchUi.DataField {
         WatchUi.requestUpdate();
     }
 
+    function setDeviceCode(deviceCode as String) as Void {
+        mDeviceCode = deviceCode;
+    }
+
     // ── Input ─────────────────────────────────────────────────────────────
 
     function onTimerLap() as Void {
@@ -82,6 +88,9 @@ class leadout_datafieldView extends WatchUi.DataField {
             mState = STATE_ACTIVE;
             mCurrentSegment = 0;
             mSegmentStartMs = System.getTimer();
+            if (mCurrentBlock == 0 && !mDeviceCode.equals("") && !mProgrammeId.equals("")) {
+                recordParticipation();
+            }
         }
     }
 
@@ -137,11 +146,30 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
         mBlocks = blocks;
         mProgrammeName = data["name"] as String;
+        mProgrammeId = (data["id"] instanceof String) ? data["id"] as String : "";
         mCurrentBlock = 0;
         mCurrentSegment = 0;
         if (blocks.size() > 0) {
             mState = STATE_WAITING;
         }
+    }
+
+    // Fire-and-forget POST to /api/sessions/start. No retry on failure.
+    hidden function recordParticipation() as Void {
+        Communications.makeWebRequest(
+            API_BASE + "/api/sessions/start",
+            { "device_code" => mDeviceCode, "programme_id" => mProgrammeId },
+            {
+                :method       => Communications.HTTP_REQUEST_METHOD_POST,
+                :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON,
+                :headers      => { "Content-Type" => "application/json" }
+            },
+            method(:onParticipationResponse)
+        );
+    }
+
+    function onParticipationResponse(responseCode as Number, data as Dictionary?) as Void {
+        System.println("participation: " + responseCode);
     }
 
     // Single short beep + brief vibe — segment within a block changes.

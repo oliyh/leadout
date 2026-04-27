@@ -48,4 +48,5 @@ export const currentView = signal(null);
 
 export function showChannel(id) { currentView.value = { type: 'channel', id }; }
 export function showSubscription(channel_id) { currentView.value = { type: 'subscription', channel_id }; }
+export function showProgrammeEditor(id) { currentView.value = { type: 'programme', id }; }
 export function showHome() { currentView.value = null; }

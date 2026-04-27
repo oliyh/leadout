@@ -648,6 +648,18 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     font-size: 14px;
 }
 
+/* ── Programme editor (from channel) ─────────────────────────────────────── */
+
+.editor-view { padding: 0; }
+
+.back-btn {
+    display: block;
+    padding: 12px 24px 0;
+    color: #888;
+    font-size: 13px;
+}
+.back-btn:hover { color: #333; background: transparent; }
+
 /* ── Subscription view ────────────────────────────────────────────────────── */
 
 .confirm-unsubscribe { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #555; }

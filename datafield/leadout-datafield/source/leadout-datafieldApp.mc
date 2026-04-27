@@ -43,6 +43,7 @@ class leadout_datafieldApp extends Application.AppBase {
 
     function getInitialView() as [Views] or [Views, InputDelegates] {
         mView = new leadout_datafieldView();
+        mView.setDeviceCode(mDeviceCode);
         return [mView];
     }
 
