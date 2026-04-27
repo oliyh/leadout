@@ -33,7 +33,7 @@ function MainArea() {
         return (
             <div class="main-content editor-view">
                 <button class="btn-ghost back-btn"
-                    onClick={() => prog ? showChannel(prog.channel_id) : showHome()}>
+                    onClick={() => showChannel(view.channel_id)}>
                     ← Back to channel
                 </button>
                 {prog ? <Editor prog={prog} /> : <p class="loading">Loading…</p>}

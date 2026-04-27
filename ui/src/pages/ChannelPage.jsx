@@ -179,7 +179,7 @@ export function ChannelPage({ channelId }) {
                             <PropagationBadge programmeId={p.id} />
                             <button class="btn-ghost btn-sm" onClick={() => {
                                 openExternalProgramme(p);
-                                showProgrammeEditor(p.id);
+                                showProgrammeEditor(p.id, channelId);
                             }}>Edit</button>
                         </div>
                     </div>

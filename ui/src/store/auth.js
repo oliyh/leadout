@@ -75,7 +75,12 @@ export async function restoreSession() {
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ google_id: googleId }),
         });
-        if (!res.ok) { localStorage.removeItem(LS_ACCOUNT_ID); return; }
+        // Only clear local session if the account is definitively gone (404).
+        // Transient server errors should not sign the user out.
+        if (!res.ok) {
+            if (res.status === 404) localStorage.removeItem(LS_ACCOUNT_ID);
+            return;
+        }
         const account = await res.json();
         localStorage.setItem(LS_ACCOUNT_ID, account.id);
         accountId.value = account.id;

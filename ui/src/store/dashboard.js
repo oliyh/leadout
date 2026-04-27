@@ -1,4 +1,4 @@
-import { signal, computed } from '@preact/signals';
+import { signal, effect } from '@preact/signals';
 import { accountId } from './auth.js';
 import { instructorApi, participantApi } from './api.js';
 
@@ -42,11 +42,38 @@ export async function unsubscribe(channel_id) {
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-// view: null | { type: 'channel', id } | { type: 'subscription', channel_id }
+// view:
+//   null                                    → home
+//   { type: 'channel',      id }            → channel page
+//   { type: 'programme',    id, channel_id} → programme editor
+//   { type: 'subscription', channel_id }    → subscription view
 
-export const currentView = signal(null);
+function viewFromURL() {
+    const p = window.location.pathname;
+    let m;
+    if ((m = p.match(/^\/channels\/([^/]+)$/)))      return { type: 'channel', id: m[1] };
+    if ((m = p.match(/^\/subscriptions\/([^/]+)$/))) return { type: 'subscription', channel_id: m[1] };
+    // Programme view is not restored on hard refresh (needs in-memory data);
+    // the URL stays as /channels/:channel_id so the channel page loads instead.
+    return null;
+}
 
-export function showChannel(id) { currentView.value = { type: 'channel', id }; }
+export const currentView = signal(viewFromURL());
+
+// Keep browser URL in sync with currentView.
+effect(() => {
+    const view = currentView.value;
+    let url = '/';
+    if (view?.type === 'channel')         url = `/channels/${view.id}`;
+    else if (view?.type === 'subscription') url = `/subscriptions/${view.channel_id}`;
+    else if (view?.type === 'programme')   url = `/channels/${view.channel_id}`;
+    if (window.location.pathname !== url) history.pushState(null, '', url);
+});
+
+// Handle browser back / forward.
+window.addEventListener('popstate', () => { currentView.value = viewFromURL(); });
+
+export function showChannel(id)            { currentView.value = { type: 'channel', id }; }
 export function showSubscription(channel_id) { currentView.value = { type: 'subscription', channel_id }; }
-export function showProgrammeEditor(id) { currentView.value = { type: 'programme', id }; }
-export function showHome() { currentView.value = null; }
+export function showProgrammeEditor(id, channel_id) { currentView.value = { type: 'programme', id, channel_id }; }
+export function showHome()                 { currentView.value = null; }
