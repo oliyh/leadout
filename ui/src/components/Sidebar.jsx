@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'preact/hooks';
 import { accountId, signOut, isSignedIn } from '../store/auth.js';
 import {
-    channels, subscriptions, currentView,
+    channels, subscriptions, devices, currentView,
     createChannel, showChannel, showSubscription, showHome,
+    unsubscribe, removeDevice,
 } from '../store/dashboard.js';
 import { GoogleSignInButton } from './GoogleSignInButton.jsx';
 
@@ -11,6 +12,12 @@ function today() { return new Date().toISOString().slice(0, 10); }
 function formatDate(iso) {
     const d = new Date(iso + 'T00:00:00');
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function formatDateTime(iso) {
+    if (!iso) return 'never';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 function NewChannelForm({ onDone }) {
@@ -64,13 +71,26 @@ function ChannelItem({ ch }) {
 
 function SubscriptionItem({ sub }) {
     const t = today();
+    const [busy, setBusy] = useState(false);
     const isSelected = currentView.value?.type === 'subscription' && currentView.value.channel_id === sub.channel_id;
+
+    async function handleUnsubscribe(e) {
+        e.stopPropagation();
+        setBusy(true);
+        try { await unsubscribe(sub.channel_id); } finally { setBusy(false); }
+    }
+
     return (
-        <div
-            class={`sub-item${isSelected ? ' active' : ''}`}
-            onClick={() => showSubscription(sub.channel_id)}
-        >
-            <span class="sub-channel-name">{sub.channel?.name ?? sub.channel_id}</span>
+        <div class={`sub-item${isSelected ? ' active' : ''}`}>
+            <div class="sub-item-row" onClick={() => showSubscription(sub.channel_id)}>
+                <span class="sub-channel-name">{sub.channel?.name ?? sub.channel_id}</span>
+                <button
+                    class="btn-icon btn-danger btn-xs"
+                    disabled={busy}
+                    onClick={handleUnsubscribe}
+                    title="Unsubscribe"
+                >✕</button>
+            </div>
             {sub.programmes?.filter(p => p.scheduled_date >= t).map(p => (
                 <div key={p.id} class="prog-item prog-item-nested prog-item-sub">
                     <span class="prog-item-name">{p.name}</span>
@@ -79,6 +99,32 @@ function SubscriptionItem({ sub }) {
                     </span>
                 </div>
             ))}
+        </div>
+    );
+}
+
+function DeviceItem({ device }) {
+    const [busy, setBusy] = useState(false);
+
+    async function handleRemove() {
+        setBusy(true);
+        try { await removeDevice(device.id); } finally { setBusy(false); }
+    }
+
+    return (
+        <div class="sidebar-device-item">
+            <div class="sidebar-device-item-row">
+                <span class="sidebar-device-code">{device.device_code}</span>
+                <button
+                    class="btn-icon btn-danger btn-xs"
+                    disabled={busy}
+                    onClick={handleRemove}
+                    title="Remove device"
+                >✕</button>
+            </div>
+            <span class="sidebar-device-meta">
+                Synced: {formatDateTime(device.last_synced_at)}
+            </span>
         </div>
     );
 }
@@ -134,10 +180,18 @@ export function Sidebar() {
             {/* ── Participant: subscriptions ───────────────────────────── */}
             {subscriptions.value.length > 0 && (
                 <div class="sidebar-section">
-                    <div class="sidebar-section-title">Subscriptions</div>
+                    <div class="sidebar-section-title">My subscriptions</div>
                     {subscriptions.value.map(sub => (
                         <SubscriptionItem key={sub.id} sub={sub} />
                     ))}
+                </div>
+            )}
+
+            {/* ── Participant: devices ─────────────────────────────────── */}
+            {devices.value.length > 0 && (
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">My devices</div>
+                    {devices.value.map(d => <DeviceItem key={d.id} device={d} />)}
                 </div>
             )}
         </aside>

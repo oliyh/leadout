@@ -51,8 +51,12 @@ class leadout_datafieldApp extends Application.AppBase {
     // programme dictionary (or null on failure/unregistered).
     function onBackgroundData(data as Application.PersistableType) as Void {
         var view = mView;
-        if (data instanceof Dictionary && view != null) {
-            view.setProgramme(data as Dictionary);
+        if (!(data instanceof Dictionary) || view == null) { return; }
+        var dict = data as Dictionary;
+        if (dict.hasKey("registration_required")) {
+            view.setRegistrationRequired(mDeviceCode);
+        } else {
+            view.setProgramme(dict);
         }
     }
 

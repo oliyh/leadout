@@ -31,6 +31,8 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mCurrentPaceSec as Number;      // live pace in sec/km, 0 = no signal
     hidden var mSegmentStartDistM as Float;    // distance at segment start, -1 = uncaptured
     hidden var mElapsedDistM as Float;         // latest elapsed distance from Activity.Info
+    hidden var mPolling as Boolean;            // registration poll in flight
+    hidden var mLastPollMs as Number;          // last registration poll timestamp
 
     function initialize() {
         DataField.initialize();
@@ -47,6 +49,8 @@ class leadout_datafieldView extends WatchUi.DataField {
         mCurrentPaceSec = 0;
         mSegmentStartDistM = -1.0f;
         mElapsedDistM = 0.0f;
+        mPolling = false;
+        mLastPollMs = 0;
 
         var cached = Application.Storage.getValue("programme");
         if (cached instanceof Dictionary) {
@@ -86,7 +90,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     function onTimerLap() as Void {
         if (mState == STATE_UNREGISTERED) {
             if (Communications has :openWebPage) {
-                Communications.openWebPage(API_BASE + "/register", null, null);
+                Communications.openWebPage(API_BASE + "/register?code=" + mDeviceCode, null, null);
             }
             return;
         }
@@ -115,6 +119,22 @@ class leadout_datafieldView extends WatchUi.DataField {
             mElapsedDistM = info.elapsedDistance as Float;
             if (mSegmentStartDistM < 0.0f) {
                 mSegmentStartDistM = mElapsedDistM;
+            }
+        }
+
+        // While unregistered, poll every 10 s so the watch detects registration automatically.
+        if (mState == STATE_UNREGISTERED && !mPolling) {
+            var now = System.getTimer();
+            if (now - mLastPollMs > 10000) {
+                mLastPollMs = now;
+                mPolling = true;
+                Communications.makeWebRequest(
+                    API_BASE + "/api/sync/" + mDeviceCode,
+                    null,
+                    { :method => Communications.HTTP_REQUEST_METHOD_GET,
+                      :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON },
+                    method(:onRegistrationPoll)
+                );
             }
         }
 
@@ -211,6 +231,26 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     function onParticipationResponse(responseCode as Number, data as Dictionary?) as Void {
         System.println("participation: " + responseCode);
+    }
+
+    // Callback for the registration poll that fires every 10 s in STATE_UNREGISTERED.
+    // 200 → now registered; load the programme (or show syncing if no programme today).
+    // 404 → still unregistered; keep polling.
+    // Other → network error; keep polling.
+    function onRegistrationPoll(responseCode as Number, data as Dictionary?) as Void {
+        mPolling = false;
+        if (responseCode == 200 && data != null) {
+            var programmes = data["programmes"] as Array<Dictionary>;
+            var prog = findTodaysProgramme(programmes);
+            if (prog != null) {
+                Application.Storage.setValue("programme", prog);
+                loadProgramme(prog);
+            } else {
+                mState = STATE_SYNCING;  // registered but no programme scheduled today
+            }
+            WatchUi.requestUpdate();
+        }
+        // 404 = still unregistered; other = network issue — mPolling=false lets next compute() retry
     }
 
     // Single short beep + brief vibe — segment within a block changes.

@@ -47,6 +47,10 @@ export class DomainStore {
         return updated;
     }
 
+    async getDevice(id) { return this._devices.get(id) ?? null; }
+
+    async deleteDevice(id) { return this._devices.delete(id); }
+
     async findDevicesByAccount(account_id) {
         return [...this._devices.values()].filter(d => d.account_id === account_id);
     }

@@ -43,6 +43,10 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
                 Background.exit(prog);
                 return;
             }
+        } else if (responseCode == 404) {
+            // Device was unregistered — signal the foreground to show re-registration screen.
+            Background.exit({ "registration_required" => true });
+            return;
         }
         Background.exit(null);
     }

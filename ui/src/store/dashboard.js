@@ -41,6 +41,11 @@ export async function unsubscribe(channel_id) {
     await loadParticipantData();
 }
 
+export async function removeDevice(device_id) {
+    await participantApi.removeDevice(device_id, accountId.value);
+    await loadParticipantData();
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 // view:
 //   null                                    → home

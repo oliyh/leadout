@@ -80,7 +80,7 @@ export function ParticipantPanel() {
                                 </li>
                             ))}
                         </ul>
-                        <p class="hint">To add another device, visit <a href="/register">/register</a> from your watch.</p>
+                        <p class="hint">To add another device <a href="/register">register here</a>.</p>
                     </>
                 )
             }

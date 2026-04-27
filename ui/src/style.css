@@ -515,14 +515,35 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 .prog-item-sub { opacity: 0.85; }
 
 .sub-item {
-    padding: 6px 16px;
-    cursor: pointer;
+    padding: 4px 16px 6px;
     border-left: 3px solid transparent;
     transition: background 0.1s;
 }
 .sub-item:hover { background: #313244; }
 .sub-item.active { background: #313244; border-left-color: #89b4fa; }
-.sub-channel-name { font-size: 12px; font-weight: 600; color: #cdd6f4; display: block; margin-bottom: 2px; }
+.sub-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    gap: 4px;
+}
+.sub-channel-name { font-size: 12px; font-weight: 600; color: #cdd6f4; }
+
+.sidebar-device-item {
+    padding: 4px 16px 6px;
+    border-left: 3px solid transparent;
+}
+.sidebar-device-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+.sidebar-device-code { font-family: monospace; font-size: 13px; font-weight: 700; color: #cdd6f4; letter-spacing: 0.08em; }
+.sidebar-device-meta { font-size: 11px; color: #6c7086; margin-top: 1px; }
+
+.btn-xs { padding: 1px 5px; font-size: 11px; line-height: 1.4; }
 
 .btn-add {
     display: block;

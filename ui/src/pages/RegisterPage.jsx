@@ -8,8 +8,9 @@ const STATE_FORM     = 'form';
 const STATE_SUCCESS  = 'success';
 
 export function RegisterPage() {
+    const codeFromUrl = new URLSearchParams(window.location.search).get('code') ?? '';
     const [flowState, setFlowState] = useState(isSignedIn() ? STATE_FORM : STATE_SIGN_IN);
-    const [deviceCode, setDeviceCode] = useState('');
+    const [deviceCode, setDeviceCode] = useState(codeFromUrl.toUpperCase());
     const [registering, setRegistering] = useState(false);
     const [regError, setRegError] = useState(null);
 

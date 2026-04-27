@@ -80,6 +80,16 @@ export function createApp(store) {
         res.status(201).json(device);
     });
 
+    app.delete('/api/devices/:id', async (req, res) => {
+        const { account_id } = req.body;
+        if (!account_id) return res.status(400).json({ error: 'account_id required' });
+        const device = await store.getDevice(req.params.id);
+        if (!device) return res.status(404).json({ error: 'device not found' });
+        if (device.account_id !== account_id) return res.status(403).json({ error: 'forbidden' });
+        await store.deleteDevice(req.params.id);
+        res.status(204).end();
+    });
+
     // ── Channel management (InstructorCreatesChannel) ─────────────────────────
 
     app.post('/api/channels', async (req, res) => {

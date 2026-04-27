@@ -50,6 +50,7 @@ export const participantApi = {
     unsubscribe:     (channelId, account_id)  => req('DELETE', `/api/channels/${channelId}/subscribe`, { account_id }),
     registerDevice:  (account_id, device_code) => req('POST',  '/api/devices', { account_id, device_code }),
     getDevices:      (account_id)             => req('GET',    `/api/accounts/${account_id}/devices`),
+    removeDevice:    (device_id, account_id)  => req('DELETE', `/api/devices/${device_id}`, { account_id }),
     getSubscriptions:(account_id)             => req('GET',    `/api/accounts/${account_id}/subscriptions`),
     startSession:    (device_code, programme_id) => req('POST', '/api/sessions/start', { device_code, programme_id }),
 };

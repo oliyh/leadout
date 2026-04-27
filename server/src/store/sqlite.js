@@ -109,6 +109,14 @@ export class SqliteStore {
         return device;
     }
 
+    async getDevice(id) {
+        return this._db.prepare('SELECT * FROM devices WHERE id = ?').get(id) ?? null;
+    }
+
+    async deleteDevice(id) {
+        return this._db.prepare('DELETE FROM devices WHERE id = ?').run(id).changes > 0;
+    }
+
     async updateDevice(id, updates) {
         const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
         this._db.prepare(`UPDATE devices SET ${sets} WHERE id = ?`).run(...Object.values(updates), id);
