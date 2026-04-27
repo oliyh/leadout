@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { signal } from '@preact/signals';
-import { accountId, isSignedIn, signIn, signingIn, signInError } from '../store/auth.js';
+import { accountId, isSignedIn } from '../store/auth.js';
+import { GoogleSignInButton } from '../components/GoogleSignInButton.jsx';
 import { participantApi } from '../store/api.js';
 
 // States for the subscription flow
@@ -69,14 +70,7 @@ export function JoinPage({ channelId }) {
             <Page>
                 <div class="join-channel-name">{channel.name}</div>
                 <p>Sign in to subscribe to this channel and receive session programmes on your watch.</p>
-                {signInError.value && <p class="error">{signInError.value}</p>}
-                <button
-                    class="btn-primary btn-wide"
-                    onClick={signIn}
-                    disabled={signingIn.value}
-                >
-                    {signingIn.value ? 'Signing in…' : 'Sign in with Google'}
-                </button>
+                <GoogleSignInButton />
             </Page>
         );
     }

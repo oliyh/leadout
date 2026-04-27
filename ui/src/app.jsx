@@ -1,10 +1,11 @@
 import { useEffect } from 'preact/hooks';
 import { Sidebar } from './components/Sidebar.jsx';
 import { Editor } from './components/Editor.jsx';
+import { Modal } from './components/Modal.jsx';
 import { ChannelPage } from './pages/ChannelPage.jsx';
 import { SubscriptionView } from './pages/SubscriptionView.jsx';
 import { ParticipantPanel } from './pages/ParticipantPanel.jsx';
-import { isSignedIn, accountId } from './store/auth.js';
+import { isSignedIn, accountId, restoreSession } from './store/auth.js';
 import { currentView, channels, subscriptions, loadChannels, loadParticipantData, showChannel, showHome } from './store/dashboard.js';
 import { selected } from './store/programmes.js';
 
@@ -57,8 +58,19 @@ function MainArea() {
 }
 
 export function App() {
+    // On first mount: silently restore existing session then load data.
     useEffect(() => {
-        if (isSignedIn()) {
+        restoreSession().then(() => {
+            if (isSignedIn()) {
+                loadChannels();
+                loadParticipantData();
+            }
+        });
+    }, []);
+
+    // Whenever accountId changes (sign-in or sign-out), reload or clear data.
+    useEffect(() => {
+        if (accountId.value) {
             loadChannels();
             loadParticipantData();
         }
@@ -70,6 +82,7 @@ export function App() {
             <main class="main">
                 <MainArea />
             </main>
+            <Modal />
         </div>
     );
 }

@@ -28,6 +28,9 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mProgrammeName as String;
     hidden var mProgrammeId as String;
     hidden var mBlocks as Array<Dictionary>;
+    hidden var mCurrentPaceSec as Number;      // live pace in sec/km, 0 = no signal
+    hidden var mSegmentStartDistM as Float;    // distance at segment start, -1 = uncaptured
+    hidden var mElapsedDistM as Float;         // latest elapsed distance from Activity.Info
 
     function initialize() {
         DataField.initialize();
@@ -41,6 +44,9 @@ class leadout_datafieldView extends WatchUi.DataField {
         mBlocks = [] as Array<Dictionary>;
         mProgrammeName = "";
         mProgrammeId = "";
+        mCurrentPaceSec = 0;
+        mSegmentStartDistM = -1.0f;
+        mElapsedDistM = 0.0f;
 
         var cached = Application.Storage.getValue("programme");
         if (cached instanceof Dictionary) {
@@ -88,6 +94,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             mState = STATE_ACTIVE;
             mCurrentSegment = 0;
             mSegmentStartMs = System.getTimer();
+            mSegmentStartDistM = -1.0f;  // will be captured on first compute()
             if (mCurrentBlock == 0 && !mDeviceCode.equals("") && !mProgrammeId.equals("")) {
                 recordParticipation();
             }
@@ -97,18 +104,46 @@ class leadout_datafieldView extends WatchUi.DataField {
     // ── Logic ─────────────────────────────────────────────────────────────
 
     function compute(info as Activity.Info) as Void {
+        // Update live pace from GPS speed (m/s → sec/km)
+        if (info.currentSpeed instanceof Float) {
+            var spd = info.currentSpeed as Float;
+            mCurrentPaceSec = (spd > 0.5f) ? (1000.0f / spd).toNumber() : 0;
+        }
+
+        // Update elapsed distance for distance-segment transitions
+        if (info.elapsedDistance instanceof Float) {
+            mElapsedDistM = info.elapsedDistance as Float;
+            if (mSegmentStartDistM < 0.0f) {
+                mSegmentStartDistM = mElapsedDistM;
+            }
+        }
+
         if (mState != STATE_ACTIVE) {
             return;
         }
 
         var segments = currentSegments();
-        var duration = segments[mCurrentSegment][:duration] as Number;
-        var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
+        var seg = segments[mCurrentSegment];
+        var advance = false;
 
-        if (elapsedSecs >= duration) {
+        var kind = seg[:kind] as String;
+        if (kind.equals("distance")) {
+            var distTarget = seg[:distance] as Float;
+            if (mSegmentStartDistM >= 0.0f) {
+                advance = (mElapsedDistM - mSegmentStartDistM) >= distTarget;
+            }
+        } else {
+            // time-based (default)
+            var duration = seg[:duration] as Number;
+            var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
+            advance = elapsedSecs >= duration;
+        }
+
+        if (advance) {
             if (mCurrentSegment < segments.size() - 1) {
                 mCurrentSegment += 1;
                 mSegmentStartMs = System.getTimer();
+                mSegmentStartDistM = mElapsedDistM;
                 alertSegment();
             } else if (mCurrentBlock < mBlocks.size() - 1) {
                 mCurrentBlock += 1;
@@ -134,9 +169,15 @@ class leadout_datafieldView extends WatchUi.DataField {
             var segs = [] as Array<Dictionary>;
             for (var j = 0; j < jsonSegs.size(); j++) {
                 var js = jsonSegs[j] as Dictionary;
+                var segKind = (js["kind"] instanceof String) ? js["kind"] as String : "time";
+                var segDist = (js["distance"] instanceof Float) ? js["distance"] as Float :
+                              (js["distance"] instanceof Number) ? (js["distance"] as Number).toFloat() : 0.0f;
                 segs.add({
-                    :name => js["name"] as String,
-                    :duration => js["duration"] as Number
+                    :name       => js["name"] as String,
+                    :kind       => segKind,
+                    :duration   => (js["duration"] instanceof Number) ? js["duration"] as Number : 0,
+                    :distance   => segDist,
+                    :target_pace => (js["target_pace"] instanceof Number) ? js["target_pace"] as Number : null
                 });
             }
             blocks.add({
@@ -321,35 +362,76 @@ class leadout_datafieldView extends WatchUi.DataField {
         var segments = currentSegments();
         var seg = segments[mCurrentSegment];
         var segName = seg[:name] as String;
-        var segDuration = seg[:duration] as Number;
+        var segKind = seg[:kind] as String;
+        var targetPace = seg[:target_pace];  // Number sec/km or null
 
-        var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
-        var remaining = segDuration - elapsedSecs;
-        if (remaining < 0) { remaining = 0; }
-
+        // ── Segment name ──────────────────────────────────────────────────
         dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, h / 4, Graphics.FONT_MEDIUM,
             segName,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
-            formatDuration(remaining),
-            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        // ── Main counter (time remaining or distance remaining) ────────────
+        if (segKind.equals("distance")) {
+            var distTarget = seg[:distance] as Float;
+            var distDone = (mSegmentStartDistM >= 0.0f) ? (mElapsedDistM - mSegmentStartDistM) : 0.0f;
+            var distRemaining = distTarget - distDone;
+            if (distRemaining < 0.0f) { distRemaining = 0.0f; }
+            dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
+                distRemaining.format("%d") + "m",
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else {
+            var duration = seg[:duration] as Number;
+            var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
+            var remaining = duration - elapsedSecs;
+            if (remaining < 0) { remaining = 0; }
+            dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
+                formatDuration(remaining),
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        }
 
+        // ── Bottom area: pace (when target set) or next segment ───────────
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        if (mCurrentSegment < segments.size() - 1) {
+        if (targetPace != null) {
+            // Two-column pace display: Target | Actual
+            var leftX  = cx / 2;
+            var rightX = cx + cx / 2;
+            var labelY = h * 3 / 4 - 14;
+            var valueY = h * 3 / 4 + 10;
+
+            dc.drawText(leftX, labelY, Graphics.FONT_XTINY,
+                "Target",
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(leftX, valueY, Graphics.FONT_TINY,
+                formatDuration(targetPace as Number),
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(rightX, labelY, Graphics.FONT_XTINY,
+                "Actual",
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(rightX, valueY, Graphics.FONT_TINY,
+                (mCurrentPaceSec > 0) ? formatDuration(mCurrentPaceSec) : "--:--",
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else if (mCurrentSegment < segments.size() - 1) {
             var next = segments[mCurrentSegment + 1];
-            dc.drawText(cx, h * 3 / 4 - 28, Graphics.FONT_XTINY,
+            var nextKind = next[:kind] as String;
+            var nextLabel = nextKind.equals("distance")
+                ? (next[:name] as String) + " " + (next[:distance] as Float).format("%d") + "m"
+                : (next[:name] as String) + " " + formatDuration(next[:duration] as Number);
+            dc.drawText(cx, h * 3 / 4 - 14, Graphics.FONT_XTINY,
                 "Next",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            dc.drawText(cx, h * 3 / 4 + 4, Graphics.FONT_TINY,
-                (next[:name] as String) + " " + formatDuration(next[:duration] as Number),
+            dc.drawText(cx, h * 3 / 4 + 10, Graphics.FONT_TINY,
+                nextLabel,
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else if (mCurrentBlock < mBlocks.size() - 1) {
-            dc.drawText(cx, h * 3 / 4 - 28, Graphics.FONT_XTINY,
+            dc.drawText(cx, h * 3 / 4 - 14, Graphics.FONT_XTINY,
                 "Next",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            dc.drawText(cx, h * 3 / 4 + 4, Graphics.FONT_TINY,
+            dc.drawText(cx, h * 3 / 4 + 10, Graphics.FONT_TINY,
                 (mBlocks[mCurrentBlock + 1][:name] as String),
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }

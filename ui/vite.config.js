@@ -12,5 +12,6 @@ export default defineConfig({
         },
         // Allow client-side routes like /join/:id and /register on hard refresh
         historyApiFallback: true,
+        host: true,
     },
 });

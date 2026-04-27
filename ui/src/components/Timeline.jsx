@@ -1,3 +1,4 @@
+import { useRef } from 'preact/hooks';
 import { activeSegment, selectSegment } from '../store/editor.js';
 import { addBlock, updateBlock, deleteBlock, moveBlock, addSegment, moveSegment } from '../store/programmes.js';
 import { SegmentPanel } from './SegmentPanel.jsx';
@@ -11,29 +12,106 @@ function fmtDuration(sec) {
 }
 
 function blockTotal(block) {
-    return block.segments.reduce((sum, s) => sum + s.duration, 0);
+    return block.segments.reduce((sum, s) => sum + (s.duration ?? 0), 0);
+}
+
+function segLabel(seg) {
+    if (seg.kind === 'distance') return `${seg.distance ?? '?'}m`;
+    return fmtDuration(seg.duration ?? 0);
+}
+
+function segWidth(seg) {
+    if (seg.kind === 'distance') return Math.max(MIN_SEG_PX, (seg.distance ?? 0) * 0.25);
+    return Math.max(MIN_SEG_PX, (seg.duration ?? 0) * PX_PER_SEC);
 }
 
 const PX_PER_SEC = 1.5;
 const MIN_SEG_PX = 100;
 
-function BlockRow({ prog, block, index, total }) {
-    const act = activeSegment.value;
-    const total_ = blockTotal(block);
-
-    function onNameBlur(e) {
-        const val = e.target.value.trim();
-        if (val && val !== block.name) updateBlock(prog.id, block.id, { name: val });
-    }
+function SegmentStrip({ prog, block, act }) {
+    const dragSrc = useRef(null);
+    const dragOver = useRef(null);
 
     function onAddSegment() {
         const seg = addSegment(prog.id, block.id, { name: 'Segment', duration: 60 });
         selectSegment(prog.id, block.id, seg.id);
     }
 
+    function onDragStart(e, segId) {
+        dragSrc.current = segId;
+        e.dataTransfer.effectAllowed = 'move';
+        e.currentTarget.style.opacity = '0.4';
+    }
+
+    function onDragEnd(e) {
+        e.currentTarget.style.opacity = '';
+        dragOver.current = null;
+    }
+
+    function onDragOver(e, segId) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        dragOver.current = segId;
+    }
+
+    function onDrop(e, targetSegId) {
+        e.preventDefault();
+        const srcId = dragSrc.current;
+        if (srcId && srcId !== targetSegId) {
+            // Compute direction by index
+            const segs = block.segments;
+            const srcIdx = segs.findIndex(s => s.id === srcId);
+            const tgtIdx = segs.findIndex(s => s.id === targetSegId);
+            const steps = Math.abs(tgtIdx - srcIdx);
+            const dir = tgtIdx > srcIdx ? 'right' : 'left';
+            for (let i = 0; i < steps; i++) {
+                moveSegment(prog.id, block.id, srcId, dir);
+            }
+        }
+        dragSrc.current = null;
+    }
+
+    return (
+        <div class="timeline-segments-row">
+            <div class="timeline-segments">
+                {block.segments.map(seg => {
+                    const isActive = act?.blockId === block.id && act?.segId === seg.id;
+                    const width = segWidth(seg);
+                    return (
+                        <div
+                            key={seg.id}
+                            class={`timeline-segment${isActive ? ' selected' : ''}${seg.kind === 'distance' ? ' seg-distance' : ''}`}
+                            style={{ width: `${width}px` }}
+                            draggable
+                            onClick={() => selectSegment(prog.id, block.id, seg.id)}
+                            onDragStart={e => onDragStart(e, seg.id)}
+                            onDragEnd={onDragEnd}
+                            onDragOver={e => onDragOver(e, seg.id)}
+                            onDrop={e => onDrop(e, seg.id)}
+                            title={`${seg.name} · ${segLabel(seg)} — drag to reorder`}
+                        >
+                            <span class="seg-label">{seg.name}</span>
+                            <span class="seg-dur">{segLabel(seg)}</span>
+                        </div>
+                    );
+                })}
+                <button class="timeline-add-seg" onClick={onAddSegment} title="Add segment">+</button>
+            </div>
+        </div>
+    );
+}
+
+function BlockRow({ prog, block, index, total }) {
+    const act = activeSegment.value;
+    const total_ = blockTotal(block);
     const activeSeg = act?.blockId === block.id
         ? block.segments.find(s => s.id === act.segId)
         : null;
+
+    function onNameBlur(e) {
+        const val = e.target.value.trim();
+        if (val && val !== block.name) updateBlock(prog.id, block.id, { name: val });
+    }
 
     return (
         <div class="timeline-row">
@@ -54,42 +132,7 @@ function BlockRow({ prog, block, index, total }) {
                         onClick={() => deleteBlock(prog.id, block.id)} title="Delete block">✕</button>
                 </div>
             </div>
-            <div class="timeline-segments-row">
-                <div class="timeline-segments">
-                    {block.segments.map((seg, si) => {
-                        const isActive = act?.blockId === block.id && act?.segId === seg.id;
-                        const width = Math.max(MIN_SEG_PX, seg.duration * PX_PER_SEC);
-                        return (
-                            <div
-                                key={seg.id}
-                                class={`timeline-segment${isActive ? ' selected' : ''}`}
-                                style={{ width: `${width}px` }}
-                                onClick={() => selectSegment(prog.id, block.id, seg.id)}
-                                title={`${seg.name} · ${fmtDuration(seg.duration)}`}
-                            >
-                                <span class="seg-label">{seg.name}</span>
-                                <span class="seg-dur">{fmtDuration(seg.duration)}</span>
-                                <span class="seg-arrows">
-                                    {si > 0 && (
-                                        <button class="seg-move" title="Move left"
-                                            onClick={e => { e.stopPropagation(); moveSegment(prog.id, block.id, seg.id, 'left'); }}>
-                                            ‹
-                                        </button>
-                                    )}
-                                    {si < block.segments.length - 1 && (
-                                        <button class="seg-move" title="Move right"
-                                            onClick={e => { e.stopPropagation(); moveSegment(prog.id, block.id, seg.id, 'right'); }}>
-                                            ›
-                                        </button>
-                                    )}
-                                </span>
-                            </div>
-                        );
-                    })}
-                    <button class="timeline-add-seg" onClick={onAddSegment} title="Add segment">+</button>
-                </div>
-            </div>
-
+            <SegmentStrip prog={prog} block={block} act={act} />
             {activeSeg && (
                 <SegmentPanel key={act.segId} progId={prog.id} blockId={block.id} seg={activeSeg} />
             )}

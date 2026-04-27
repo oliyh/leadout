@@ -27,6 +27,8 @@ export const instructorApi = {
         req('GET', `/api/accounts/${account_id}/channels`),
     getChannel:     (id) =>
         req('GET', `/api/channels/${id}`),
+    updateChannel:  (id, name) =>
+        req('PUT', `/api/channels/${id}`, { name }),
     getChannelProgrammes: (channel_id) =>
         req('GET', `/api/channels/${channel_id}/programmes`),
     getSubscribers: (channel_id) =>

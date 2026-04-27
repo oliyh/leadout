@@ -133,6 +133,12 @@ export class SqliteStore {
         return this._db.prepare('SELECT * FROM channels WHERE id = ?').get(id) ?? null;
     }
 
+    async updateChannel(id, updates) {
+        const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+        this._db.prepare(`UPDATE channels SET ${sets} WHERE id = ?`).run(...Object.values(updates), id);
+        return this._db.prepare('SELECT * FROM channels WHERE id = ?').get(id) ?? null;
+    }
+
     async findChannelsByInstructor(instructor_oauth_id) {
         return this._db.prepare('SELECT * FROM channels WHERE instructor_oauth_id = ? ORDER BY created_at').all(instructor_oauth_id);
     }

@@ -61,6 +61,14 @@ export class DomainStore {
 
     async getChannel(id) { return this._channels.get(id) ?? null; }
 
+    async updateChannel(id, updates) {
+        const channel = this._channels.get(id);
+        if (!channel) return null;
+        const updated = { ...channel, ...updates };
+        this._channels.set(id, updated);
+        return updated;
+    }
+
     async findChannelsByInstructor(instructor_oauth_id) {
         return [...this._channels.values()].filter(c => c.instructor_oauth_id === instructor_oauth_id);
     }

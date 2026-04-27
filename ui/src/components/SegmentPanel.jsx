@@ -13,14 +13,18 @@ function parsePace(str) {
 }
 
 export function SegmentPanel({ progId, blockId, seg }) {
-    const [name, setName] = useState(seg.name);
-    const [duration, setDuration] = useState(String(seg.duration));
-    const [pace, setPace] = useState(seg.target_pace ? fmtPace(seg.target_pace) : '');
+    const [name, setName]         = useState(seg.name);
+    const [kind, setKind]         = useState(seg.kind || 'time');
+    const [duration, setDuration] = useState(String(seg.duration ?? 60));
+    const [distance, setDistance] = useState(String(seg.distance ?? ''));
+    const [pace, setPace]         = useState(seg.target_pace ? fmtPace(seg.target_pace) : '');
 
     function onSave() {
         updateSegment(progId, blockId, seg.id, {
-            name: name.trim() || seg.name,
-            duration: Number(duration) || seg.duration,
+            name:        name.trim() || seg.name,
+            kind,
+            duration:    kind === 'time' ? (Number(duration) || seg.duration) : null,
+            distance:    kind === 'distance' ? (Number(distance) || null) : null,
             target_pace: pace ? parsePace(pace) : null,
         });
         clearSelection();
@@ -39,11 +43,28 @@ export function SegmentPanel({ progId, blockId, seg }) {
                     <input value={name} onInput={e => setName(e.target.value)} />
                 </div>
                 <div class="seg-field">
-                    <label>Duration (s)</label>
-                    <input type="number" min="1" value={duration} onInput={e => setDuration(e.target.value)} />
+                    <label>Type</label>
+                    <select value={kind} onChange={e => setKind(e.target.value)} style="width:100px">
+                        <option value="time">Time</option>
+                        <option value="distance">Distance</option>
+                    </select>
                 </div>
+                {kind === 'time' && (
+                    <div class="seg-field">
+                        <label>Duration (s)</label>
+                        <input type="number" min="1" value={duration}
+                            onInput={e => setDuration(e.target.value)} />
+                    </div>
+                )}
+                {kind === 'distance' && (
+                    <div class="seg-field">
+                        <label>Distance (m)</label>
+                        <input type="number" min="1" value={distance} placeholder="400"
+                            onInput={e => setDistance(e.target.value)} />
+                    </div>
+                )}
                 <div class="seg-field">
-                    <label>Target pace (m:ss)</label>
+                    <label>Target pace (m:ss/km)</label>
                     <input placeholder="5:30" value={pace} onInput={e => setPace(e.target.value)} />
                 </div>
             </div>

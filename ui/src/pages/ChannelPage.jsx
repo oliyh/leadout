@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { instructorApi } from '../store/api.js';
 import { createProgramme, loadChannels, showProgrammeEditor } from '../store/dashboard.js';
 import { openExternalProgramme } from '../store/programmes.js';
@@ -8,6 +8,50 @@ function today() { return new Date().toISOString().slice(0, 10); }
 function formatDate(iso) {
     const d = new Date(iso + 'T00:00:00');
     return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function ChannelNameEditor({ channel, onRenamed }) {
+    const [editing, setEditing] = useState(false);
+    const [name, setName] = useState(channel.name);
+    const inputRef = useRef(null);
+
+    function startEdit() { setName(channel.name); setEditing(true); }
+
+    async function commit() {
+        const trimmed = name.trim();
+        if (trimmed && trimmed !== channel.name) {
+            await instructorApi.updateChannel(channel.id, trimmed);
+            onRenamed(trimmed);
+        }
+        setEditing(false);
+    }
+
+    function onKey(e) {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') setEditing(false);
+    }
+
+    if (editing) {
+        return (
+            <div class="channel-name-editor">
+                <input
+                    ref={inputRef}
+                    class="channel-name-input"
+                    value={name}
+                    onInput={e => setName(e.target.value)}
+                    onBlur={commit}
+                    onKeyDown={onKey}
+                    autoFocus
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div class="channel-name-editor">
+            <h1 onClick={startEdit} title="Click to rename" class="channel-name-heading">{channel.name}</h1>
+        </div>
+    );
 }
 
 function NewProgrammeForm({ channelId, onDone }) {
@@ -100,11 +144,9 @@ export function ChannelPage({ channelId }) {
 
     return (
         <div class="main-content channel-page">
-            <div class="channel-page-header">
-                <h1>{channel.name}</h1>
-                <div class="channel-stats">
-                    <span>{subscribers.length} subscriber{subscribers.length !== 1 ? 's' : ''}</span>
-                </div>
+            <ChannelNameEditor channel={channel} onRenamed={name => setChannel({ ...channel, name })} />
+            <div class="channel-stats" style="margin-bottom:20px">
+                <span>{subscribers.length} subscriber{subscribers.length !== 1 ? 's' : ''}</span>
             </div>
 
             <section class="channel-section">

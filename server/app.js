@@ -27,8 +27,31 @@ export function createApp(store) {
     const app = express();
     app.use(express.json());
 
-    // ── Participant auth (ParticipantFirstSignIn) ──────────────────────────────
-    // Idempotent: returns existing account for a known google_id.
+    // ── Auth: verify Google id_token ──────────────────────────────────────────
+    // Accepts a real Google id_token JWT from Google Identity Services.
+    // Verifies via Google's tokeninfo endpoint, extracts the stable `sub` claim.
+
+    app.post('/api/auth/google-token', async (req, res) => {
+        const { token } = req.body;
+        if (!token) return res.status(400).json({ error: 'token required' });
+        try {
+            const r = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
+            if (!r.ok) return res.status(401).json({ error: 'invalid token' });
+            const payload = await r.json();
+            const clientId = process.env.GOOGLE_CLIENT_ID;
+            if (clientId && payload.aud !== clientId) {
+                return res.status(401).json({ error: 'token audience mismatch' });
+            }
+            const account = await store.findOrCreateAccount(payload.sub);
+            res.json(account);
+        } catch {
+            res.status(500).json({ error: 'auth failed' });
+        }
+    });
+
+    // ── Participant auth (restoreSession) ─────────────────────────────────────
+    // Idempotent: re-authenticates a known google_id without a fresh id_token.
+    // Used by the UI on page load to restore a previously-established session.
 
     app.post('/api/auth/google', async (req, res) => {
         const { google_id } = req.body;
@@ -73,6 +96,15 @@ export function createApp(store) {
     app.get('/api/channels/:id', async (req, res) => {
         const channel = await store.getChannel(req.params.id);
         channel ? res.json(channel) : res.status(404).end();
+    });
+
+    app.put('/api/channels/:id', async (req, res) => {
+        const { name } = req.body;
+        if (!name) return res.status(400).json({ error: 'name required' });
+        const channel = await store.getChannel(req.params.id);
+        if (!channel) return res.status(404).end();
+        const updated = await store.updateChannel(req.params.id, { name });
+        res.json(updated);
     });
 
     // ── Subscription (ParticipantSubscribes / ParticipantUnsubscribes) ────────
@@ -178,7 +210,7 @@ export function createApp(store) {
             channel_id,
             name,
             scheduled_date:  scheduled_date || today(),
-            pace_assumption: pace_assumption || { seconds_per_km: 330 },
+            pace_assumption: pace_assumption || 330,
             blocks:          blocks || [],
             published_at:    now,
             updated_at:      now,

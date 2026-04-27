@@ -1,9 +1,10 @@
-import { useState } from 'preact/hooks';
-import { accountId, signIn, signOut, isSignedIn } from '../store/auth.js';
+import { useState, useEffect } from 'preact/hooks';
+import { accountId, signOut, isSignedIn } from '../store/auth.js';
 import {
     channels, subscriptions, currentView,
     createChannel, showChannel, showSubscription, showHome,
 } from '../store/dashboard.js';
+import { GoogleSignInButton } from './GoogleSignInButton.jsx';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -84,26 +85,40 @@ function SubscriptionItem({ sub }) {
 
 export function Sidebar() {
     const [addingChannel, setAddingChannel] = useState(false);
+    const [open, setOpen] = useState(false);
+
+    // Close sidebar when navigating on mobile
+    useEffect(() => { setOpen(false); }, [currentView.value]);
+
+    const toggle = () => setOpen(o => !o);
+    const close  = () => setOpen(false);
 
     if (!isSignedIn()) {
         return (
-            <aside class="sidebar">
-                <div class="sidebar-header">
-                    <span class="logo" onClick={showHome} style="cursor:pointer">Leadout</span>
-                </div>
-                <div class="sidebar-signin">
-                    <p>Sign in to manage channels and subscriptions.</p>
-                    <button class="btn-primary" onClick={signIn}>Sign in</button>
-                </div>
-            </aside>
+            <>
+                <button class="burger" onClick={toggle} aria-label="Menu">☰</button>
+                <aside class={`sidebar${open ? ' sidebar-open' : ''}`}>
+                    <div class="sidebar-header">
+                        <span class="logo" onClick={() => { showHome(); close(); }} style="cursor:pointer">Leadout</span>
+                        <button class="btn-ghost btn-sm sidebar-close" onClick={close}>✕</button>
+                    </div>
+                    <div class="sidebar-signin">
+                        <p>Sign in to manage channels and subscriptions.</p>
+                        <GoogleSignInButton />
+                    </div>
+                </aside>
+                {open && <div class="sidebar-backdrop" onClick={close} />}
+            </>
         );
     }
 
     return (
-        <aside class="sidebar">
+        <>
+        <button class="burger" onClick={toggle} aria-label="Menu">☰</button>
+        <aside class={`sidebar${open ? ' sidebar-open' : ''}`}>
             <div class="sidebar-header">
-                <span class="logo" onClick={showHome} style="cursor:pointer">Leadout</span>
-                <button class="btn-ghost btn-sm" onClick={signOut} title="Sign out">↩</button>
+                <span class="logo" onClick={() => { showHome(); close(); }} style="cursor:pointer">Leadout</span>
+                <button class="btn-ghost btn-sm sidebar-close" onClick={() => { signOut(); close(); }} title="Sign out">↩</button>
             </div>
 
             {/* ── Instructor: my channels ──────────────────────────────── */}
@@ -126,5 +141,7 @@ export function Sidebar() {
                 </div>
             )}
         </aside>
+        {open && <div class="sidebar-backdrop" onClick={close} />}
+        </>
     );
 }

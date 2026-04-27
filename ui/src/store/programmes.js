@@ -72,10 +72,11 @@ function mutate(progId, fn) {
 
 function makeSegment(data, position) {
     return {
-        id: data.id || newId(),
-        name: data.name || 'Segment',
-        kind: data.kind || 'time',
-        duration: Number(data.duration) || 60,
+        id:          data.id || newId(),
+        name:        data.name || 'Segment',
+        kind:        data.kind || 'time',
+        duration:    data.kind === 'distance' ? null : (Number(data.duration) || 60),
+        distance:    data.kind === 'distance' ? (Number(data.distance) || null) : null,
         target_pace: data.target_pace ? Number(data.target_pace) : null,
         position,
     };

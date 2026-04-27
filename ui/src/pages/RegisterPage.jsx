@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
-import { accountId, isSignedIn, signIn, signingIn, signInError } from '../store/auth.js';
+import { accountId, isSignedIn } from '../store/auth.js';
+import { GoogleSignInButton } from '../components/GoogleSignInButton.jsx';
 import { participantApi } from '../store/api.js';
 
 const STATE_SIGN_IN  = 'sign_in';
@@ -41,14 +42,7 @@ export function RegisterPage() {
                 <>
                     <h2>Register your watch</h2>
                     <p>Sign in first so we can link your watch to your account.</p>
-                    {signInError.value && <p class="error">{signInError.value}</p>}
-                    <button
-                        class="btn-primary btn-wide"
-                        onClick={async () => { await signIn(); setFlowState(STATE_FORM); }}
-                        disabled={signingIn.value}
-                    >
-                        {signingIn.value ? 'Signing in…' : 'Sign in with Google'}
-                    </button>
+                    <GoogleSignInButton />
                 </>
             )}
 
