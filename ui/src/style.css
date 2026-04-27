@@ -719,6 +719,13 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 
 /* ── Channel name inline editor ──────────────────────────────────────────── */
 
+.channel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 4px;
+}
 .channel-name-editor { margin-bottom: 8px; }
 
 .channel-name-heading {

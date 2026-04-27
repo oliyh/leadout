@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { instructorApi } from '../store/api.js';
 import { createProgramme, loadChannels, showProgrammeEditor } from '../store/dashboard.js';
 import { openExternalProgramme } from '../store/programmes.js';
@@ -142,9 +142,23 @@ export function ChannelPage({ channelId }) {
     const upcoming = programmes.filter(p => p.scheduled_date >= t);
     const past     = programmes.filter(p => p.scheduled_date < t);
 
+    const [copied, setCopied] = useState(false);
+    function copyShareLink() {
+        const url = `${window.location.origin}/join/${channelId}`;
+        navigator.clipboard.writeText(url).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    }
+
     return (
         <div class="main-content channel-page">
-            <ChannelNameEditor channel={channel} onRenamed={name => setChannel({ ...channel, name })} />
+            <div class="channel-header">
+                <ChannelNameEditor channel={channel} onRenamed={name => setChannel({ ...channel, name })} />
+                <button class="btn-secondary btn-sm share-btn" onClick={copyShareLink}>
+                    {copied ? '✓ Copied!' : 'Share link'}
+                </button>
+            </div>
             <div class="channel-stats" style="margin-bottom:20px">
                 <span>{subscribers.length} subscriber{subscribers.length !== 1 ? 's' : ''}</span>
             </div>
