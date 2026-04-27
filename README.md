@@ -114,4 +114,10 @@ leadout/
 - devcontainer to install all the sdk stuff in? can stil run the sim somehow?
 - needs to work better on mobile
 - postgres on coolify? need to dump out a backup regularly
-- when device unregistered, pressing lap can actually open a url with a query param containing the device code, so users don't actually have to type it in at all - will lap work if you haven't started a run?
+- when device unregistered, pressing lap can actually open a url with a query param containing the device code, so users don't actually have to type it in at all - will lap work if you haven't started a run? - seems not
+- homepage showing all your things
+- separate pages to show 1. channels 2. devices 3. subscriptions
+- clicking anywhere on a programme should take you to the edit screen
+- when watch syncs an empty list of programmes, it should no longer say syncing but instead say "no subscriptions - visit leadout to find channels" if you have no subs, or "no programmes on your channels"
+- join link doesn't work - should land you on your subscriptions page, listing all your subs, and highlight the newly joined one
+- prefilled code on register page opened from watch still doesn't work

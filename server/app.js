@@ -234,11 +234,12 @@ export function createApp(store) {
         if (prog.scheduled_date < today()) {
             return res.status(409).json({ error: 'programme is expired' });
         }
-        const { name, scheduled_date, pace_assumption } = req.body;
+        const { name, scheduled_date, pace_assumption, blocks } = req.body;
         const updated = await store.updateProgramme(req.params.id, {
-            ...(name            && { name }),
-            ...(scheduled_date  && { scheduled_date }),
-            ...(pace_assumption && { pace_assumption }),
+            ...(name            !== undefined && { name }),
+            ...(scheduled_date  !== undefined && { scheduled_date }),
+            ...(pace_assumption !== undefined && { pace_assumption }),
+            ...(blocks          !== undefined && { blocks }),
             updated_at: new Date().toISOString(),
         });
         res.json(updated);
@@ -337,10 +338,12 @@ export function createApp(store) {
     priv.put('/programmes/:id', async (req, res) => {
         const prog = await store.getProgramme(req.params.id);
         if (!prog) return res.status(404).end();
+        const { name, scheduled_date, pace_assumption, blocks } = req.body;
         const updated = await store.updateProgramme(req.params.id, {
-            ...req.body,
-            id:         req.params.id,
-            channel_id: prog.channel_id,
+            ...(name             !== undefined && { name }),
+            ...(scheduled_date   !== undefined && { scheduled_date }),
+            ...(pace_assumption  !== undefined && { pace_assumption }),
+            ...(blocks           !== undefined && { blocks }),
             updated_at: new Date().toISOString(),
         });
         res.json(updated);

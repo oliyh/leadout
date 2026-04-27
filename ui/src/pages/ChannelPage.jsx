@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { instructorApi } from '../store/api.js';
 import { createProgramme, loadChannels, showProgrammeEditor } from '../store/dashboard.js';
 import { openExternalProgramme } from '../store/programmes.js';
