@@ -75,8 +75,7 @@ export function createApp(store) {
         channel ? res.json(channel) : res.status(404).end();
     });
 
-    // ── Subscription (ParticipantSubscribes) ──────────────────────────────────
-    // Idempotency guard: duplicate subscription is rejected.
+    // ── Subscription (ParticipantSubscribes / ParticipantUnsubscribes) ────────
 
     app.post('/api/channels/:id/subscribe', async (req, res) => {
         const { account_id } = req.body;
@@ -90,6 +89,80 @@ export function createApp(store) {
         }
         const sub = await store.createSubscription({ account_id, channel_id });
         res.status(201).json(sub);
+    });
+
+    app.delete('/api/channels/:id/subscribe', async (req, res) => {
+        const { account_id } = req.body;
+        const channel_id = req.params.id;
+        if (!account_id) return res.status(400).json({ error: 'account_id required' });
+        const deleted = await store.deleteSubscription(account_id, channel_id);
+        deleted ? res.status(204).end() : res.status(404).json({ error: 'subscription not found' });
+    });
+
+    // ── Account views ─────────────────────────────────────────────────────────
+
+    app.get('/api/accounts/:id/channels', async (req, res) => {
+        if (!await store.getAccount(req.params.id)) return res.status(404).end();
+        // instructor_oauth_id is the account id (stub auth; will be Garmin userId with real OAuth)
+        const channels = await store.findChannelsByInstructor(req.params.id);
+        const result = await Promise.all(channels.map(async ch => ({
+            ...ch,
+            programmes: await store.findProgrammesByChannel(ch.id),
+            subscriber_count: (await store.findSubscriptionsByChannel(ch.id)).length,
+        })));
+        res.json(result);
+    });
+
+    app.get('/api/accounts/:id/devices', async (req, res) => {
+        if (!await store.getAccount(req.params.id)) return res.status(404).end();
+        res.json(await store.findDevicesByAccount(req.params.id));
+    });
+
+    app.get('/api/accounts/:id/subscriptions', async (req, res) => {
+        if (!await store.getAccount(req.params.id)) return res.status(404).end();
+        const subs = await store.findSubscriptionsByAccount(req.params.id);
+        const result = await Promise.all(subs.map(async sub => {
+            const channel = await store.getChannel(sub.channel_id);
+            const programmes = await store.findProgrammesByChannel(sub.channel_id);
+            return { ...sub, channel, programmes };
+        }));
+        res.json(result);
+    });
+
+    // ── Channel detail (instructor channel page) ──────────────────────────────
+
+    app.get('/api/channels/:id/programmes', async (req, res) => {
+        if (!await store.getChannel(req.params.id)) return res.status(404).end();
+        const programmes = await store.findProgrammesByChannel(req.params.id);
+        const result = await Promise.all(programmes.map(async prog => ({
+            ...prog,
+            participation_count: (await store.findParticipationsByProgramme(prog.id)).length,
+            sync_count: (await store.findSyncRecordsByProgramme(prog.id)).length,
+        })));
+        res.json(result);
+    });
+
+    app.get('/api/channels/:id/subscribers', async (req, res) => {
+        if (!await store.getChannel(req.params.id)) return res.status(404).end();
+        res.json(await store.findSubscriptionsByChannel(req.params.id));
+    });
+
+    // ── Participation (ParticipantStartsSession) ──────────────────────────────
+
+    app.post('/api/sessions/start', async (req, res) => {
+        const { device_code, programme_id } = req.body;
+        if (!device_code || !programme_id) {
+            return res.status(400).json({ error: 'device_code and programme_id required' });
+        }
+        const device = await store.findDeviceByCode(device_code);
+        if (!device) return res.status(404).json({ error: 'device not registered' });
+        if (!await store.getProgramme(programme_id)) {
+            return res.status(404).json({ error: 'programme not found' });
+        }
+        const part = await store.createParticipation({
+            device_id: device.id, programme_id, started_at: new Date().toISOString()
+        });
+        res.status(201).json(part);
     });
 
     // ── Programme management ──────────────────────────────────────────────────

@@ -2,12 +2,13 @@ import { randomUUID } from 'crypto';
 
 export class DomainStore {
     constructor() {
-        this._accounts      = new Map();
-        this._devices       = new Map();
-        this._channels      = new Map();
-        this._programmes    = new Map();
-        this._subscriptions = new Map();
-        this._syncRecords   = new Map();
+        this._accounts       = new Map();
+        this._devices        = new Map();
+        this._channels       = new Map();
+        this._programmes     = new Map();
+        this._subscriptions  = new Map();
+        this._syncRecords    = new Map();
+        this._participations = new Map();
     }
 
     // ── Accounts ──────────────────────────────────────────────────────────────
@@ -46,6 +47,10 @@ export class DomainStore {
         return updated;
     }
 
+    async findDevicesByAccount(account_id) {
+        return [...this._devices.values()].filter(d => d.account_id === account_id);
+    }
+
     // ── Channels ──────────────────────────────────────────────────────────────
 
     async createChannel(data) {
@@ -55,6 +60,10 @@ export class DomainStore {
     }
 
     async getChannel(id) { return this._channels.get(id) ?? null; }
+
+    async findChannelsByInstructor(instructor_oauth_id) {
+        return [...this._channels.values()].filter(c => c.instructor_oauth_id === instructor_oauth_id);
+    }
 
     // ── Programmes ────────────────────────────────────────────────────────────
 
@@ -105,6 +114,20 @@ export class DomainStore {
         return [...this._subscriptions.values()].filter(s => s.account_id === account_id);
     }
 
+    async findSubscriptionsByChannel(channel_id) {
+        return [...this._subscriptions.values()].filter(s => s.channel_id === channel_id);
+    }
+
+    async deleteSubscription(account_id, channel_id) {
+        for (const [key, sub] of this._subscriptions.entries()) {
+            if (sub.account_id === account_id && sub.channel_id === channel_id) {
+                this._subscriptions.delete(key);
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ── Sync records ──────────────────────────────────────────────────────────
 
     async upsertSyncRecord({ device_id, programme_id, synced_at, programme_version }) {
@@ -129,5 +152,20 @@ export class DomainStore {
 
     async findSyncRecordsByProgramme(programme_id) {
         return [...this._syncRecords.values()].filter(r => r.programme_id === programme_id);
+    }
+
+    // ── Participations ────────────────────────────────────────────────────────
+
+    async createParticipation({ device_id, programme_id, started_at }) {
+        for (const p of this._participations.values()) {
+            if (p.device_id === device_id && p.programme_id === programme_id) return p;
+        }
+        const part = { id: randomUUID(), device_id, programme_id, started_at };
+        this._participations.set(part.id, part);
+        return part;
+    }
+
+    async findParticipationsByProgramme(programme_id) {
+        return [...this._participations.values()].filter(p => p.programme_id === programme_id);
     }
 }

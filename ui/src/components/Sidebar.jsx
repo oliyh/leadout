@@ -1,5 +1,9 @@
-import { programmes, selectedId, pendingSync } from '../store/programmes.js';
-import { openNewProgramme } from '../store/modal.js';
+import { useState } from 'preact/hooks';
+import { accountId, signIn, signOut, isSignedIn } from '../store/auth.js';
+import {
+    channels, subscriptions, currentView,
+    createChannel, showChannel, showSubscription, showHome,
+} from '../store/dashboard.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -8,32 +12,119 @@ function formatDate(iso) {
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-export function Sidebar() {
+function NewChannelForm({ onDone }) {
+    const [name, setName] = useState('');
+    async function submit(e) {
+        e.preventDefault();
+        if (!name.trim()) return;
+        await createChannel(name.trim());
+        onDone();
+    }
+    return (
+        <form class="new-channel-form" onSubmit={submit}>
+            <input
+                autoFocus
+                value={name}
+                onInput={e => setName(e.target.value)}
+                placeholder="Channel name"
+            />
+            <button type="submit" class="btn-primary btn-sm">Add</button>
+            <button type="button" class="btn-ghost btn-sm" onClick={onDone}>Cancel</button>
+        </form>
+    );
+}
+
+function ChannelItem({ ch }) {
     const t = today();
-    const pending = pendingSync.value;
+    const isSelected = currentView.value?.type === 'channel' && currentView.value.id === ch.id;
+    const upcoming = ch.programmes.filter(p => p.scheduled_date >= t);
+
+    return (
+        <div class={`channel-item${isSelected ? ' active' : ''}`}>
+            <div class="channel-name" onClick={() => showChannel(ch.id)}>
+                <span>{ch.name}</span>
+                <span class="channel-meta">{ch.subscriber_count} subscribers</span>
+            </div>
+            {upcoming.map(p => (
+                <div
+                    key={p.id}
+                    class="prog-item prog-item-nested"
+                    onClick={() => showChannel(ch.id)}
+                >
+                    <span class="prog-item-name">{p.name}</span>
+                    <span class={`prog-item-meta${p.scheduled_date === t ? ' prog-item-today' : ''}`}>
+                        {p.scheduled_date === t ? 'Today' : formatDate(p.scheduled_date)}
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function SubscriptionItem({ sub }) {
+    const t = today();
+    const isSelected = currentView.value?.type === 'subscription' && currentView.value.channel_id === sub.channel_id;
+    return (
+        <div
+            class={`sub-item${isSelected ? ' active' : ''}`}
+            onClick={() => showSubscription(sub.channel_id)}
+        >
+            <span class="sub-channel-name">{sub.channel?.name ?? sub.channel_id}</span>
+            {sub.programmes?.filter(p => p.scheduled_date >= t).map(p => (
+                <div key={p.id} class="prog-item prog-item-nested prog-item-sub">
+                    <span class="prog-item-name">{p.name}</span>
+                    <span class={`prog-item-meta${p.scheduled_date === t ? ' prog-item-today' : ''}`}>
+                        {p.scheduled_date === t ? 'Today' : formatDate(p.scheduled_date)}
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+export function Sidebar() {
+    const [addingChannel, setAddingChannel] = useState(false);
+
+    if (!isSignedIn()) {
+        return (
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <span class="logo" onClick={showHome} style="cursor:pointer">Leadout</span>
+                </div>
+                <div class="sidebar-signin">
+                    <p>Sign in to manage channels and subscriptions.</p>
+                    <button class="btn-primary" onClick={signIn}>Sign in</button>
+                </div>
+            </aside>
+        );
+    }
+
     return (
         <aside class="sidebar">
             <div class="sidebar-header">
-                <span class="logo">Leadout</span>
-                <button class="btn-primary" onClick={openNewProgramme}>+ New</button>
+                <span class="logo" onClick={showHome} style="cursor:pointer">Leadout</span>
+                <button class="btn-ghost btn-sm" onClick={signOut} title="Sign out">↩</button>
             </div>
-            <div id="programme-list">
-                {programmes.value.map(p => (
-                    <div
-                        key={p.id}
-                        class={`prog-item${selectedId.value === p.id ? ' active' : ''}`}
-                        onClick={() => selectedId.value = p.id}
-                    >
-                        <div class="prog-item-name">
-                            {p.name}
-                            {pending.has(p.id) && <span class="sync-dot" title="Changes not yet synced to server" />}
-                        </div>
-                        <div class={`prog-item-meta${p.scheduled_date === t ? ' prog-item-today' : ''}`}>
-                            {p.scheduled_date === t ? 'Today' : formatDate(p.scheduled_date)}
-                        </div>
-                    </div>
-                ))}
+
+            {/* ── Instructor: my channels ──────────────────────────────── */}
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">My channels</div>
+                {channels.value.map(ch => <ChannelItem key={ch.id} ch={ch} />)}
+                {addingChannel
+                    ? <NewChannelForm onDone={() => setAddingChannel(false)} />
+                    : <button class="btn-ghost btn-add" onClick={() => setAddingChannel(true)}>+ New channel</button>
+                }
             </div>
+
+            {/* ── Participant: subscriptions ───────────────────────────── */}
+            {subscriptions.value.length > 0 && (
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Subscriptions</div>
+                    {subscriptions.value.map(sub => (
+                        <SubscriptionItem key={sub.id} sub={sub} />
+                    ))}
+                </div>
+            )}
         </aside>
     );
 }
