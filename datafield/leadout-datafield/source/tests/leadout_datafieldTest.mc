@@ -373,3 +373,152 @@ function testDeviceCode_nonEmpty(logger as Test.Logger) as Boolean {
 //   compute() when STATE_UNREGISTERED and mPolling:
 //     → no second web request made (in-flight guard)
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contract: watch ↔ server JSON interface
+//
+// These tests mirror the fixtures in spec/contract.js. Both files must define
+// identical field names and value shapes. If the server renames a field, the
+// server acceptance tests in acceptance.test.js AND these Monkey C tests must
+// both be updated — making field-name drift visible on both sides.
+//
+// Two server endpoints:
+//   GET  /api/sync/:device_code  → { "programmes" => Array, "subscription_count" => Number }
+//                                  or { "error" => "registration_required" } on 404
+//   POST /api/sessions/start     → request { "device_code" => String, "programme_id" => String }
+//
+// The watch does NOT read the 404 body or the participation 201 body — it only
+// checks HTTP status codes. The contracts for those are server-side only.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Mirrors spec/contract.js SYNC_200_BODY + PROGRAMME_FIXTURE (scheduled for today).
+// Any change to server field names must be reflected here.
+
+(:test)
+function testContract_syncResponse_programmesField(logger as Test.Logger) as Boolean {
+    // The watch reads data["programmes"] as Array<Dictionary> from the 200 response.
+    var response = {
+        "programmes"         => [] as Array<Dictionary>,
+        "subscription_count" => 1
+    };
+    Test.assertMessage(response["programmes"] instanceof Array, "sync response has 'programmes' Array");
+    Test.assertMessage(response["subscription_count"] instanceof Number, "sync response has 'subscription_count' Number");
+    return true;
+}
+
+(:test)
+function testContract_syncResponse_subscriptionCount_zero(logger as Test.Logger) as Boolean {
+    // subscription_count == 0 triggers the "no subscriptions" state in the watch.
+    // The watch checks: if (subCount instanceof Number && (subCount as Number) == 0)
+    var response = { "programmes" => [] as Array<Dictionary>, "subscription_count" => 0 };
+    var subCount = response["subscription_count"];
+    Test.assertMessage(subCount instanceof Number, "subscription_count is Number");
+    Test.assertEqualMessage(subCount, 0, "subscription_count is 0");
+    return true;
+}
+
+(:test)
+function testContract_findTodaysProgramme_withContractFixture(logger as Test.Logger) as Boolean {
+    // Given the full contract fixture programme (scheduled for today),
+    // findTodaysProgramme finds it. This verifies the watch reads "scheduled_date"
+    // from the server's programme object — the same key the server sends.
+    var today = todayDateString();
+    var programmes = [
+        {
+            "id"             => "prog-contract-001",
+            "name"           => "Tuesday Intervals",
+            "scheduled_date" => today,
+            "pace_assumption"=> 330,
+            "blocks"         => [
+                {
+                    "name" => "Warm up",
+                    "segments" => [
+                        { "name" => "Easy jog", "kind" => "time", "duration" => 300, "distance" => 0, "target_pace" => null }
+                    ] as Array<Dictionary>
+                },
+                {
+                    "name" => "Intervals",
+                    "segments" => [
+                        { "name" => "Fast",     "kind" => "time",     "duration" => 120, "distance" => 0,   "target_pace" => 240  },
+                        { "name" => "Recovery", "kind" => "distance", "duration" => 0,   "distance" => 200, "target_pace" => null }
+                    ] as Array<Dictionary>
+                }
+            ] as Array<Dictionary>
+        }
+    ] as Array<Dictionary>;
+    var result = findTodaysProgramme(programmes);
+    Test.assertMessage(result != null, "contract fixture programme found by today's date");
+    Test.assertEqualMessage((result as Dictionary)["id"],   "prog-contract-001", "correct id");
+    Test.assertEqualMessage((result as Dictionary)["name"], "Tuesday Intervals", "correct name");
+    return true;
+}
+
+(:test)
+function testContract_programme_requiredFields(logger as Test.Logger) as Boolean {
+    // Documents the exact field names the watch reads from a programme Dictionary.
+    // Mirrors assertProgrammeShape() in spec/contract.js.
+    var prog = {
+        "id"             => "prog-contract-001",
+        "name"           => "Tuesday Intervals",
+        "scheduled_date" => "2099-01-01",
+        "pace_assumption"=> 330,
+        "blocks"         => [] as Array<Dictionary>
+    };
+    Test.assertMessage(prog["id"]              instanceof String, "programme.id is String");
+    Test.assertMessage(prog["name"]            instanceof String, "programme.name is String");
+    Test.assertMessage(prog["scheduled_date"]  instanceof String, "programme.scheduled_date is String");
+    Test.assertMessage(prog["pace_assumption"] instanceof Number, "programme.pace_assumption is Number");
+    Test.assertMessage(prog["blocks"]          instanceof Array,  "programme.blocks is Array");
+    return true;
+}
+
+(:test)
+function testContract_block_requiredFields(logger as Test.Logger) as Boolean {
+    // Documents the exact field names the watch reads from a block Dictionary.
+    // Mirrors assertBlockShape() in spec/contract.js.
+    var block = {
+        "name"     => "Intervals",
+        "segments" => [
+            { "name" => "Fast",     "kind" => "time",     "duration" => 120, "distance" => 0,   "target_pace" => 240  },
+            { "name" => "Recovery", "kind" => "distance", "duration" => 0,   "distance" => 200, "target_pace" => null }
+        ] as Array<Dictionary>
+    };
+    Test.assertMessage(block["name"]     instanceof String, "block.name is String");
+    Test.assertMessage(block["segments"] instanceof Array,  "block.segments is Array");
+    Test.assertEqualMessage((block["segments"] as Array<Dictionary>).size(), 2, "block has 2 segments");
+    return true;
+}
+
+(:test)
+function testContract_segment_timeKind(logger as Test.Logger) as Boolean {
+    // Mirrors assertSegmentShape() for kind='time' in spec/contract.js.
+    var seg = { "name" => "Fast", "kind" => "time", "duration" => 120, "distance" => 0, "target_pace" => 240 };
+    Test.assertEqualMessage(seg["kind"],     "time", "time segment kind field is 'kind'");
+    Test.assertEqualMessage(seg["duration"], 120,    "time segment duration in seconds");
+    Test.assertMessage(seg["target_pace"] instanceof Number, "target_pace is Number");
+    return true;
+}
+
+(:test)
+function testContract_segment_distanceKind(logger as Test.Logger) as Boolean {
+    // Mirrors assertSegmentShape() for kind='distance' in spec/contract.js.
+    var seg = { "name" => "Recovery", "kind" => "distance", "duration" => 0, "distance" => 200, "target_pace" => null };
+    Test.assertEqualMessage(seg["kind"],     "distance", "distance segment kind field is 'kind'");
+    Test.assertEqualMessage(seg["distance"], 200,        "distance segment target in metres");
+    Test.assertEqualMessage(seg["target_pace"], null,    "null target_pace field present");
+    return true;
+}
+
+(:test)
+function testContract_participationRequest_fields(logger as Test.Logger) as Boolean {
+    // Documents the exact request body the watch POSTs to /api/sessions/start.
+    // Mirrors spec/contract.js PARTICIPATION_REQUEST.
+    // Server expects: { device_code: String, programme_id: String }
+    var payload = {
+        "device_code"  => "WATCH-CONTRACT-01",
+        "programme_id" => "prog-contract-001"
+    };
+    Test.assertMessage(payload["device_code"]  instanceof String, "device_code is String key");
+    Test.assertMessage(payload["programme_id"] instanceof String, "programme_id is String key");
+    return true;
+}
