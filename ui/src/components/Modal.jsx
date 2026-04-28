@@ -1,8 +1,8 @@
 import { useState } from 'preact/hooks';
 import { modal, closeModal } from '../store/modal.js';
-import { programmes, createProgramme, deleteProgramme, cloneProgramme, addBlock } from '../store/programmes.js';
+import { programmes, createProgramme, deleteProgramme, cloneProgramme, addBlock, openExternalProgramme } from '../store/programmes.js';
 import { pyramidSegments, pyramidPreview } from '../store/templates.js';
-import { unsubscribe, removeDevice } from '../store/dashboard.js';
+import { unsubscribe, removeDevice, createProgramme as createChannelProgramme, showProgrammeEditor } from '../store/dashboard.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -197,6 +197,47 @@ function ConfirmRemoveDeviceModal({ deviceId, deviceCode }) {
     );
 }
 
+// ── Clone Programme ───────────────────────────────────────────────────────────
+
+function CloneProgrammeModal({ prog, channelId }) {
+    const [name, setName] = useState(prog.name);
+    const [date, setDate] = useState(today());
+    const [busy, setBusy] = useState(false);
+
+    async function onSave() {
+        setBusy(true);
+        const newProg = await createChannelProgramme(channelId, {
+            name: name.trim() || prog.name,
+            scheduled_date: date,
+            pace_assumption: prog.pace_assumption,
+            blocks: prog.blocks,
+        });
+        openExternalProgramme(newProg);
+        showProgrammeEditor(newProg.id, channelId);
+        closeModal();
+    }
+
+    return (
+        <>
+            <h2>Clone programme</h2>
+            <div class="form-field">
+                <label>Name</label>
+                <input autoFocus value={name} onInput={e => setName(e.target.value)} placeholder={prog.name} />
+            </div>
+            <div class="form-field">
+                <label>Date</label>
+                <input type="date" value={date} onInput={e => setDate(e.target.value)} />
+            </div>
+            <div class="modal-actions">
+                <button class="btn-ghost" onClick={closeModal} disabled={busy}>Cancel</button>
+                <button class="btn-primary" onClick={onSave} disabled={busy || !name.trim()}>
+                    {busy ? 'Cloning…' : 'Clone'}
+                </button>
+            </div>
+        </>
+    );
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────────
 
 export function Modal() {
@@ -211,6 +252,7 @@ export function Modal() {
                 {m.type === 'confirm-delete'        && <ConfirmDeleteModal progId={m.progId} />}
                 {m.type === 'confirm-unsubscribe'   && <ConfirmUnsubscribeModal channelId={m.channelId} channelName={m.channelName} />}
                 {m.type === 'confirm-remove-device' && <ConfirmRemoveDeviceModal deviceId={m.deviceId} deviceCode={m.deviceCode} />}
+                {m.type === 'clone-programme'       && <CloneProgrammeModal prog={m.prog} channelId={m.channelId} />}
             </div>
         </div>
     );

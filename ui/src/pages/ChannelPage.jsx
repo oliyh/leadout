@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { instructorApi } from '../store/api.js';
 import { createProgramme, loadChannels, showProgrammeEditor } from '../store/dashboard.js';
 import { openExternalProgramme } from '../store/programmes.js';
+import { openCloneProgramme } from '../store/modal.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -195,6 +196,9 @@ export function ChannelPage({ channelId }) {
                                 {p.participation_count} started
                             </span>
                             <PropagationBadge programmeId={p.id} />
+                            <button class="btn-ghost btn-sm" onClick={e => { e.stopPropagation(); openCloneProgramme(p, channelId); }}>
+                                Clone
+                            </button>
                         </div>
                     </div>
                 ))}
@@ -212,6 +216,9 @@ export function ChannelPage({ channelId }) {
                             <div class="prog-row-meta">
                                 <span class="participation-count">{p.participation_count} started</span>
                                 <PropagationBadge programmeId={p.id} />
+                                <button class="btn-ghost btn-sm" onClick={() => openCloneProgramme(p, channelId)}>
+                                    Clone
+                                </button>
                             </div>
                         </div>
                     ))}
