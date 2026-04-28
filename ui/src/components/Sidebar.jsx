@@ -92,7 +92,10 @@ export function Sidebar() {
     if (!isSignedIn()) {
         return (
             <>
-                <button class="burger" onClick={toggle} aria-label="Menu">☰</button>
+                <div class="mobile-header">
+                    <button class="burger" onClick={toggle} aria-label="Menu">☰</button>
+                    <span class="logo" onClick={() => { showHome(); close(); }} style="cursor:pointer">Leadout</span>
+                </div>
                 <aside class={`sidebar${open ? ' sidebar-open' : ''}`}>
                     <div class="sidebar-header">
                         <span class="logo" onClick={() => { showHome(); close(); }} style="cursor:pointer">Leadout</span>
@@ -110,7 +113,10 @@ export function Sidebar() {
 
     return (
         <>
-        <button class="burger" onClick={toggle} aria-label="Menu">☰</button>
+        <div class="mobile-header">
+            <button class="burger" onClick={toggle} aria-label="Menu">☰</button>
+            <span class="logo" onClick={() => { showHome(); close(); }} style="cursor:pointer">Leadout</span>
+        </div>
         <aside class={`sidebar${open ? ' sidebar-open' : ''}`}>
             <div class="sidebar-header">
                 <span class="logo" onClick={() => { showHome(); close(); }} style="cursor:pointer">Leadout</span>

@@ -146,6 +146,58 @@ function NewChannelForm({ onDone }) {
     );
 }
 
+function WeekCalendar() {
+    const subs = subscriptions.value;
+    const chs  = channels.value;
+    const t = today();
+
+    const progMap = new Map();
+    for (const sub of subs) {
+        for (const p of (sub.programmes ?? [])) {
+            if (!progMap.has(p.id))
+                progMap.set(p.id, { name: p.name, date: p.scheduled_date, onClick: () => showSubscription(sub.channel_id) });
+        }
+    }
+    for (const ch of chs) {
+        for (const p of (ch.programmes ?? [])) {
+            if (!progMap.has(p.id))
+                progMap.set(p.id, { name: p.name, date: p.scheduled_date, onClick: () => showChannel(ch.id) });
+        }
+    }
+
+    const days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() + i);
+        return d.toISOString().slice(0, 10);
+    });
+
+    return (
+        <section class="home-section">
+            <h2 class="home-section-title">This week</h2>
+            <div class="week-calendar">
+                {days.map(date => {
+                    const isToday = date === t;
+                    const d = new Date(date + 'T00:00:00');
+                    const dayProgs = [...progMap.values()].filter(p => p.date === date);
+                    return (
+                        <div key={date} class={`cal-day${isToday ? ' cal-day-today' : ''}`}>
+                            <div class="cal-day-header">
+                                <span class="cal-day-name">{isToday ? 'Today' : d.toLocaleDateString('en-GB', { weekday: 'short' })}</span>
+                                <span class="cal-day-num">{d.getDate()}</span>
+                            </div>
+                            <div class="cal-day-body">
+                                {dayProgs.map((p, i) => (
+                                    <div key={i} class="cal-prog" onClick={p.onClick}>{p.name}</div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
 function ChannelRow({ ch }) {
     const t = today();
     const upcoming = (ch.programmes ?? []).filter(p => p.scheduled_date >= t);
@@ -182,6 +234,8 @@ export function HomePage() {
                     <RegisterForm />
                 </section>
             )}
+
+            {(subs.length > 0 || chs.length > 0) && <WeekCalendar />}
 
             <section class="home-section">
                 <h2 class="home-section-title">My subscriptions</h2>
