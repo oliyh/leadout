@@ -652,6 +652,8 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     margin-bottom: 6px;
     gap: 12px;
 }
+.prog-row-clickable { cursor: pointer; }
+.prog-row-clickable:hover { background: #f8f8f8; border-color: #d0d0d0; }
 .prog-row-past { opacity: 0.7; }
 .prog-row-info { display: flex; flex-direction: column; gap: 2px; }
 .prog-row-name { font-weight: 600; font-size: 14px; }

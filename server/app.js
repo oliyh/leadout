@@ -100,6 +100,11 @@ export function createApp(store) {
         const channel = await store.createChannel({
             instructor_oauth_id, name, created_at: new Date().toISOString()
         });
+        // Instructor is automatically subscribed to their own channel so their
+        // watch syncs the programmes they publish.
+        if (!await store.findSubscription(instructor_oauth_id, channel.id)) {
+            await store.createSubscription({ account_id: instructor_oauth_id, channel_id: channel.id });
+        }
         res.status(201).json(channel);
     });
 

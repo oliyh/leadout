@@ -179,7 +179,10 @@ export function ChannelPage({ channelId }) {
                     <p class="empty-hint">No upcoming programmes. Create one to get started.</p>
                 )}
                 {upcoming.map(p => (
-                    <div key={p.id} class="prog-row">
+                    <div key={p.id} class="prog-row prog-row-clickable" onClick={() => {
+                        openExternalProgramme(p);
+                        showProgrammeEditor(p.id, channelId);
+                    }}>
                         <div class="prog-row-info">
                             <span class="prog-row-name">{p.name}</span>
                             <span class={`prog-row-date${p.scheduled_date === t ? ' prog-item-today' : ''}`}>
@@ -191,10 +194,6 @@ export function ChannelPage({ channelId }) {
                                 {p.participation_count} started
                             </span>
                             <PropagationBadge programmeId={p.id} />
-                            <button class="btn-ghost btn-sm" onClick={() => {
-                                openExternalProgramme(p);
-                                showProgrammeEditor(p.id, channelId);
-                            }}>Edit</button>
                         </div>
                     </div>
                 ))}
