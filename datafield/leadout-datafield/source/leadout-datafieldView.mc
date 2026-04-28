@@ -12,11 +12,13 @@ class leadout_datafieldView extends WatchUi.DataField {
     // ── State ─────────────────────────────────────────────────────────────
 
     enum SessionState {
-        STATE_SYNCING,       // registered, no programme received yet
-        STATE_UNREGISTERED,  // device not registered — show device code
-        STATE_WAITING,       // programme loaded — lap press starts the next block
-        STATE_ACTIVE,        // running through segments in the current block
-        STATE_COMPLETE       // all blocks done
+        STATE_SYNCING,           // registered, waiting for first successful sync
+        STATE_UNREGISTERED,      // device not registered — show device code
+        STATE_NO_SUBSCRIPTIONS,  // synced OK but account has no channel subscriptions
+        STATE_NO_PROGRAMME,      // synced OK, subscribed, but no programme today
+        STATE_WAITING,           // programme loaded — lap press starts the next block
+        STATE_ACTIVE,            // running through segments in the current block
+        STATE_COMPLETE           // all blocks done
     }
 
     hidden var mState as SessionState;
@@ -83,6 +85,16 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     function setDeviceCode(deviceCode as String) as Void {
         mDeviceCode = deviceCode;
+    }
+
+    function setNoSubscriptions() as Void {
+        mState = STATE_NO_SUBSCRIPTIONS;
+        WatchUi.requestUpdate();
+    }
+
+    function setNoProgramme() as Void {
+        mState = STATE_NO_PROGRAMME;
+        WatchUi.requestUpdate();
     }
 
     // ── Input ─────────────────────────────────────────────────────────────
@@ -246,7 +258,12 @@ class leadout_datafieldView extends WatchUi.DataField {
                 Application.Storage.setValue("programme", prog);
                 loadProgramme(prog);
             } else {
-                mState = STATE_SYNCING;  // registered but no programme scheduled today
+                var subCount = data["subscription_count"];
+                if (subCount instanceof Number && (subCount as Number) == 0) {
+                    mState = STATE_NO_SUBSCRIPTIONS;
+                } else {
+                    mState = STATE_NO_PROGRAMME;
+                }
             }
             WatchUi.requestUpdate();
         }
@@ -317,6 +334,12 @@ class leadout_datafieldView extends WatchUi.DataField {
             case STATE_UNREGISTERED:
                 drawUnregistered(dc, cx, cy, fgColor);
                 break;
+            case STATE_NO_SUBSCRIPTIONS:
+                drawNoSubscriptions(dc, cx, cy, fgColor);
+                break;
+            case STATE_NO_PROGRAMME:
+                drawNoProgramme(dc, cx, cy, fgColor);
+                break;
             case STATE_WAITING:
                 drawWaiting(dc, cx, cy, fgColor);
                 break;
@@ -343,6 +366,28 @@ class leadout_datafieldView extends WatchUi.DataField {
                 "Syncing...",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
+    }
+
+    hidden function drawNoSubscriptions(dc as Dc, cx as Number, cy as Number, fgColor as ColorValue) as Void {
+        dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - 12, Graphics.FONT_SMALL,
+            "No subscriptions",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + 16, Graphics.FONT_XTINY,
+            "Visit leadout to find channels",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    hidden function drawNoProgramme(dc as Dc, cx as Number, cy as Number, fgColor as ColorValue) as Void {
+        dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - 12, Graphics.FONT_SMALL,
+            "No programme today",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + 16, Graphics.FONT_XTINY,
+            "Check your channel",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     // Shown when the server says this device_code is not registered.

@@ -47,21 +47,25 @@ class leadout_datafieldApp extends Application.AppBase {
         return [mView];
     }
 
-    // Called when the background temporal sync completes and passes back a
-    // programme dictionary (or null on failure/unregistered).
+    // Called when the background temporal sync completes and passes back data.
     function onBackgroundData(data as Application.PersistableType) as Void {
         var view = mView;
         if (!(data instanceof Dictionary) || view == null) { return; }
         var dict = data as Dictionary;
         if (dict.hasKey("registration_required")) {
             view.setRegistrationRequired(mDeviceCode);
+        } else if (dict.hasKey("no_subscriptions")) {
+            view.setNoSubscriptions();
+        } else if (dict.hasKey("no_programme")) {
+            view.setNoProgramme();
         } else {
             view.setProgramme(dict);
         }
     }
 
     // Handles the response from /api/sync/:device_code.
-    // 200 → { "programmes": [...] } — find today's and load it.
+    // 200 → { "programmes": [...], "subscription_count": N } — find today's and load it,
+    //        or show the appropriate empty state.
     // 404 → device not registered — show code on screen.
     // Other → network error, keep whatever is cached.
     function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
@@ -75,6 +79,13 @@ class leadout_datafieldApp extends Application.AppBase {
                 Application.Storage.setValue("lastSyncTime", System.getTimer());
                 if (view != null) {
                     view.setProgramme(prog as Dictionary);
+                }
+            } else if (view != null) {
+                var subCount = data["subscription_count"];
+                if (subCount instanceof Number && (subCount as Number) == 0) {
+                    view.setNoSubscriptions();
+                } else {
+                    view.setNoProgramme();
                 }
             }
         } else if (responseCode == 404) {

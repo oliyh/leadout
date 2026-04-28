@@ -43,6 +43,14 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
                 Background.exit(prog);
                 return;
             }
+            // Registered but no programme today — signal which empty state to show.
+            var subCount = data["subscription_count"];
+            if (subCount instanceof Number && (subCount as Number) == 0) {
+                Background.exit({ "no_subscriptions" => true });
+            } else {
+                Background.exit({ "no_programme" => true });
+            }
+            return;
         } else if (responseCode == 404) {
             // Device was unregistered — signal the foreground to show re-registration screen.
             Background.exit({ "registration_required" => true });

@@ -282,7 +282,7 @@ export function createApp(store) {
             }
         }
 
-        res.json({ programmes });
+        res.json({ programmes, subscription_count: subs.length });
     });
 
     // ── Instructor sync propagation view ──────────────────────────────────────
