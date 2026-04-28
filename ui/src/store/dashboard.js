@@ -66,13 +66,16 @@ function viewFromURL() {
 export const currentView = signal(viewFromURL());
 
 // Keep browser URL in sync with currentView.
+// Skip rewrite on standalone pages that manage their own URL space.
 effect(() => {
+    const current = window.location.pathname;
+    if (current.startsWith('/join/') || current.startsWith('/register')) return;
     const view = currentView.value;
     let url = '/';
-    if (view?.type === 'channel')         url = `/channels/${view.id}`;
+    if (view?.type === 'channel')           url = `/channels/${view.id}`;
     else if (view?.type === 'subscription') url = `/subscriptions/${view.channel_id}`;
-    else if (view?.type === 'programme')   url = `/channels/${view.channel_id}`;
-    if (window.location.pathname !== url) history.pushState(null, '', url);
+    else if (view?.type === 'programme')    url = `/channels/${view.channel_id}`;
+    if (current !== url) history.pushState(null, '', url);
 });
 
 // Handle browser back / forward.

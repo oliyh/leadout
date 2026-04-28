@@ -1,22 +1,18 @@
 import { useEffect, useState } from 'preact/hooks';
-import { signal } from '@preact/signals';
 import { accountId, isSignedIn } from '../store/auth.js';
 import { GoogleSignInButton } from '../components/GoogleSignInButton.jsx';
 import { participantApi } from '../store/api.js';
 
-// States for the subscription flow
-const STATE_LOADING    = 'loading';
-const STATE_NOT_FOUND  = 'not_found';
-const STATE_SIGN_IN    = 'sign_in';
-const STATE_SUBSCRIBE  = 'subscribe';
-const STATE_SUBSCRIBED = 'subscribed';
-const STATE_ERROR      = 'error';
+const STATE_LOADING   = 'loading';
+const STATE_NOT_FOUND = 'not_found';
+const STATE_SIGN_IN   = 'sign_in';
+const STATE_SUBSCRIBE = 'subscribe';
 
 export function JoinPage({ channelId }) {
-    const [channel, setChannel]   = useState(null);
+    const [channel, setChannel]     = useState(null);
     const [flowState, setFlowState] = useState(STATE_LOADING);
     const [subscribing, setSubscribing] = useState(false);
-    const [subError, setSubError] = useState(null);
+    const [subError, setSubError]   = useState(null);
 
     useEffect(() => {
         participantApi.getChannel(channelId)
@@ -39,16 +35,14 @@ export function JoinPage({ channelId }) {
         setSubError(null);
         try {
             await participantApi.subscribe(channelId, accountId.value);
-            setFlowState(STATE_SUBSCRIBED);
+            window.location.href = `/subscriptions/${channelId}`;
         } catch (err) {
-            // 409 means already subscribed — treat that as success
             if (err.message === 'already subscribed') {
-                setFlowState(STATE_SUBSCRIBED);
+                window.location.href = `/subscriptions/${channelId}`;
             } else {
                 setSubError(err.message);
+                setSubscribing(false);
             }
-        } finally {
-            setSubscribing(false);
         }
     }
 
@@ -88,26 +82,6 @@ export function JoinPage({ channelId }) {
                 >
                     {subscribing ? 'Subscribing…' : 'Subscribe to this channel'}
                 </button>
-            </Page>
-        );
-    }
-
-    if (flowState === STATE_SUBSCRIBED) {
-        return (
-            <Page>
-                <div class="join-channel-name">{channel.name}</div>
-                <div class="success-state">
-                    <div class="success-icon">✓</div>
-                    <h2>You're subscribed!</h2>
-                    <p>
-                        Your watch will automatically sync upcoming session programmes.
-                        Make sure your Leadout data field is installed on your watch.
-                    </p>
-                </div>
-                <hr />
-                <p class="muted" style="margin-top: 1rem;">
-                    First time? <a href="/register">Register your watch</a> so it can receive programmes.
-                </p>
             </Page>
         );
     }

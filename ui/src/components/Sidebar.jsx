@@ -188,12 +188,11 @@ export function Sidebar() {
             )}
 
             {/* ── Participant: devices ─────────────────────────────────── */}
-            {devices.value.length > 0 && (
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">My devices</div>
-                    {devices.value.map(d => <DeviceItem key={d.id} device={d} />)}
-                </div>
-            )}
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">My devices</div>
+                {devices.value.map(d => <DeviceItem key={d.id} device={d} />)}
+                <a href="/register" class="btn-ghost btn-add">+ Register device</a>
+            </div>
         </aside>
         {open && <div class="sidebar-backdrop" onClick={close} />}
         </>
