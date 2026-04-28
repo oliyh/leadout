@@ -20,6 +20,17 @@ function segLabel(seg) {
     return fmtDuration(seg.duration ?? 0);
 }
 
+function segEstimate(seg, pace) {
+    if (!pace || pace <= 0) return null;
+    if (seg.kind === 'distance' && seg.distance) {
+        return `~${fmtDuration(Math.round(seg.distance / 1000 * pace))}`;
+    }
+    if (seg.kind !== 'distance' && seg.duration) {
+        return `~${Math.round(seg.duration / pace * 1000)}m`;
+    }
+    return null;
+}
+
 function segWidth(seg) {
     if (seg.kind === 'distance') return Math.max(MIN_SEG_PX, (seg.distance ?? 0) * 0.25);
     return Math.max(MIN_SEG_PX, (seg.duration ?? 0) * PX_PER_SEC);
@@ -92,6 +103,9 @@ function SegmentStrip({ prog, block, act }) {
                         >
                             <span class="seg-label">{seg.name}</span>
                             <span class="seg-dur">{segLabel(seg)}</span>
+                            {segEstimate(seg, prog.pace_assumption) && (
+                                <span class="seg-est">{segEstimate(seg, prog.pace_assumption)}</span>
+                            )}
                         </div>
                     );
                 })}

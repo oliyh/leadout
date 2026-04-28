@@ -291,6 +291,7 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 }
 
 .seg-dur { font-size: 10px; opacity: 0.85; line-height: 1; }
+.seg-est { font-size: 9px; opacity: 0.65; line-height: 1; }
 
 .seg-arrows { position: absolute; bottom: 1px; right: 2px; display: flex; gap: 1px; opacity: 0; transition: opacity 0.1s; }
 .timeline-segment:hover .seg-arrows { opacity: 1; }
