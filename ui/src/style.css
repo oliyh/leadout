@@ -528,7 +528,6 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 .prog-item-sub { opacity: 0.85; }
 
 .sub-item {
-    padding: 4px 16px 6px;
     border-left: 3px solid transparent;
     transition: background 0.1s;
 }
@@ -540,6 +539,7 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     justify-content: space-between;
     cursor: pointer;
     gap: 4px;
+    padding: 8px 16px 4px;
 }
 .sub-channel-name { font-size: 12px; font-weight: 600; color: #cdd6f4; }
 
