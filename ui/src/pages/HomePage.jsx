@@ -156,7 +156,7 @@ export function HomePage() {
 
             {!noDevices && (
                 <section class="home-section">
-                    <div class="section-header">
+                    <div class="home-section-header">
                         <h2 class="home-section-title">My devices</h2>
                         <a href="/register" class="btn-ghost btn-sm">+ Register another</a>
                     </div>

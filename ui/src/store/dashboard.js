@@ -13,7 +13,7 @@ export async function loadChannels() {
 
 export async function createChannel(name) {
     await instructorApi.createChannel(accountId.value, name);
-    await loadChannels();
+    await Promise.all([loadChannels(), loadParticipantData()]);
 }
 
 export async function createProgramme(channel_id, doc) {
