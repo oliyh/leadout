@@ -3,7 +3,7 @@ import { accountId } from '../store/auth.js';
 import { participantApi } from '../store/api.js';
 import {
     channels, subscriptions, devices,
-    loadParticipantData, showChannel, showSubscription,
+    loadParticipantData, showChannel, showSubscription, createChannel,
 } from '../store/dashboard.js';
 import { openConfirmUnsubscribe, openConfirmRemoveDevice } from '../store/modal.js';
 
@@ -118,6 +118,34 @@ function DeviceRow({ device }) {
     );
 }
 
+function NewChannelForm({ onDone }) {
+    const [name, setName] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    async function submit(e) {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setSubmitting(true);
+        await createChannel(name.trim());
+        onDone();
+    }
+    return (
+        <form class="home-register-form" onSubmit={submit}>
+            <div class="home-register-row">
+                <input
+                    autoFocus
+                    value={name}
+                    onInput={e => setName(e.target.value)}
+                    placeholder="Channel name"
+                />
+                <button type="submit" class="btn-primary" disabled={submitting || !name.trim()}>
+                    {submitting ? 'Creating…' : 'Create'}
+                </button>
+                <button type="button" class="btn-ghost" onClick={onDone}>Cancel</button>
+            </div>
+        </form>
+    );
+}
+
 function ChannelRow({ ch }) {
     const t = today();
     const upcoming = (ch.programmes ?? []).filter(p => p.scheduled_date >= t);
@@ -136,6 +164,7 @@ function ChannelRow({ ch }) {
 }
 
 export function HomePage() {
+    const [addingChannel, setAddingChannel] = useState(false);
     const devs = devices.value;
     const subs = subscriptions.value;
     const chs  = channels.value;
@@ -178,15 +207,22 @@ export function HomePage() {
                 </section>
             )}
 
-            {chs.length > 0 && (
-                <section class="home-section">
+            <section class="home-section">
+                <div class="home-section-header">
                     <h2 class="home-section-title">My channels</h2>
-                    <p class="home-section-desc">
-                        Channels you manage as an instructor — create programmes here for your subscribers.
-                    </p>
-                    {chs.map(ch => <ChannelRow key={ch.id} ch={ch} />)}
-                </section>
-            )}
+                    {!addingChannel && (
+                        <button class="btn-ghost btn-sm" onClick={() => setAddingChannel(true)}>+ New channel</button>
+                    )}
+                </div>
+                <p class="home-section-desc">
+                    Channels you manage as an instructor — create programmes here for your subscribers.
+                </p>
+                {chs.map(ch => <ChannelRow key={ch.id} ch={ch} />)}
+                {addingChannel
+                    ? <NewChannelForm onDone={() => setAddingChannel(false)} />
+                    : chs.length === 0 && <p class="empty-hint">No channels yet. Create one to start publishing programmes.</p>
+                }
+            </section>
 
         </div>
     );

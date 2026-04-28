@@ -2,7 +2,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { accountId, signOut, isSignedIn } from '../store/auth.js';
 import {
     channels, subscriptions, devices, currentView,
-    createChannel, showChannel, showSubscription, showHome,
+    showChannel, showSubscription, showHome,
 } from '../store/dashboard.js';
 import { GoogleSignInButton } from './GoogleSignInButton.jsx';
 
@@ -17,28 +17,6 @@ function formatDateTime(iso) {
     if (!iso) return 'never';
     const d = new Date(iso);
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-
-function NewChannelForm({ onDone }) {
-    const [name, setName] = useState('');
-    async function submit(e) {
-        e.preventDefault();
-        if (!name.trim()) return;
-        await createChannel(name.trim());
-        onDone();
-    }
-    return (
-        <form class="new-channel-form" onSubmit={submit}>
-            <input
-                autoFocus
-                value={name}
-                onInput={e => setName(e.target.value)}
-                placeholder="Channel name"
-            />
-            <button type="submit" class="btn-primary btn-sm">Add</button>
-            <button type="button" class="btn-ghost btn-sm" onClick={onDone}>Cancel</button>
-        </form>
-    );
 }
 
 function ChannelItem({ ch }) {
@@ -103,7 +81,6 @@ function DeviceItem({ device }) {
 }
 
 export function Sidebar() {
-    const [addingChannel, setAddingChannel] = useState(false);
     const [open, setOpen] = useState(false);
 
     // Close sidebar when navigating on mobile
@@ -141,14 +118,12 @@ export function Sidebar() {
             </div>
 
             {/* ── Instructor: my channels ──────────────────────────────── */}
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">My channels</div>
-                {channels.value.map(ch => <ChannelItem key={ch.id} ch={ch} />)}
-                {addingChannel
-                    ? <NewChannelForm onDone={() => setAddingChannel(false)} />
-                    : <button class="btn-ghost btn-add" onClick={() => setAddingChannel(true)}>+ New channel</button>
-                }
-            </div>
+            {channels.value.length > 0 && (
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">My channels</div>
+                    {channels.value.map(ch => <ChannelItem key={ch.id} ch={ch} />)}
+                </div>
+            )}
 
             {/* ── Participant: subscriptions ───────────────────────────── */}
             {subscriptions.value.length > 0 && (
@@ -161,11 +136,12 @@ export function Sidebar() {
             )}
 
             {/* ── Participant: devices ─────────────────────────────────── */}
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">My devices</div>
-                {devices.value.map(d => <DeviceItem key={d.id} device={d} />)}
-                <a href="/register" class="btn-ghost btn-add">+ Register device</a>
-            </div>
+            {devices.value.length > 0 && (
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">My devices</div>
+                    {devices.value.map(d => <DeviceItem key={d.id} device={d} />)}
+                </div>
+            )}
         </aside>
         {open && <div class="sidebar-backdrop" onClick={close} />}
         </>
