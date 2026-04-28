@@ -64,12 +64,13 @@ function NewProgrammeForm({ channelId, onDone }) {
         if (!name.trim()) return;
         setSubmitting(true);
         try {
-            await createProgramme(channelId, {
+            const prog = await createProgramme(channelId, {
                 name: name.trim(),
                 scheduled_date: date,
                 blocks: [],
             });
-            onDone();
+            openExternalProgramme(prog);
+            showProgrammeEditor(prog.id, channelId);
         } finally {
             setSubmitting(false);
         }

@@ -17,8 +17,9 @@ export async function createChannel(name) {
 }
 
 export async function createProgramme(channel_id, doc) {
-    await instructorApi.createProgramme(channel_id, doc);
+    const prog = await instructorApi.createProgramme(channel_id, doc);
     await loadChannels();
+    return prog;
 }
 
 // ── Participant state ─────────────────────────────────────────────────────────
