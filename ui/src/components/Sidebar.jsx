@@ -120,7 +120,6 @@ export function Sidebar() {
         <aside class={`sidebar${open ? ' sidebar-open' : ''}`}>
             <div class="sidebar-header">
                 <span class="logo" onClick={() => { showHome(); close(); }} style="cursor:pointer">Leadout</span>
-                <button class="btn-ghost btn-sm sidebar-close" onClick={() => { signOut(); close(); }} title="Sign out">↩</button>
             </div>
 
             {/* ── Instructor: my channels ──────────────────────────────── */}
@@ -148,6 +147,12 @@ export function Sidebar() {
                     {devices.value.map(d => <DeviceItem key={d.id} device={d} />)}
                 </div>
             )}
+
+            <div class="sidebar-footer">
+                <button class="btn-ghost sidebar-signout" onClick={() => { signOut(); close(); }}>
+                    Sign out
+                </button>
+            </div>
         </aside>
         {open && <div class="sidebar-backdrop" onClick={close} />}
         </>
