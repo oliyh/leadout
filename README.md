@@ -102,19 +102,16 @@ leadout/
 ```
 
 
-## Todo
-- Work out if claude can control the simulator at all by reverse engineering shell and tcp port
-- Correct display on the widget
-- Test as much as we can with unit tests. might be some small amount of manual testing for how it renders
-- Does it beep / vibrate when a segment ends? Don't think so
-- Possible for another lap press to cancel programme?
-- Possible to add "pause" segment in programme, where it will go back to waiting mode
-- Generate .gitignore
+## Future work
 - How much can be built / tested in github actions?
 - devcontainer to install all the sdk stuff in? can stil run the sim somehow?
 - needs to work better on mobile
 - postgres on coolify? need to dump out a backup regularly
-- when device unregistered, pressing lap can actually open a url with a query param containing the device code, so users don't actually have to type it in at all - will lap work if you haven't started a run? - seems not
+
+
+## Todo
+- Server doesn't work running inside docker, can't load app.js or something
+- Test as much as we can with unit tests. might be some small amount of manual testing for how it renders
 - homepage showing all your things
 - separate pages to show 1. channels 2. devices 3. subscriptions
 - clicking anywhere on a programme should take you to the edit screen
