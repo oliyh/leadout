@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { modal, closeModal } from '../store/modal.js';
 import { programmes, createProgramme, deleteProgramme, cloneProgramme, addBlock } from '../store/programmes.js';
 import { pyramidSegments, pyramidPreview } from '../store/templates.js';
+import { unsubscribe, removeDevice } from '../store/dashboard.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -141,6 +142,61 @@ function ConfirmDeleteModal({ progId }) {
     );
 }
 
+// ── Confirm Unsubscribe ───────────────────────────────────────────────────────
+
+function ConfirmUnsubscribeModal({ channelId, channelName }) {
+    const [busy, setBusy] = useState(false);
+
+    async function onConfirm() {
+        setBusy(true);
+        await unsubscribe(channelId);
+        closeModal();
+    }
+
+    return (
+        <>
+            <h2>Unsubscribe?</h2>
+            <p style="color:#555; margin-bottom:20px">
+                You will stop receiving programmes from <strong>{channelName}</strong> on your watch.
+            </p>
+            <div class="modal-actions">
+                <button class="btn-ghost" onClick={closeModal} disabled={busy}>Cancel</button>
+                <button class="btn-primary btn-danger" onClick={onConfirm} disabled={busy}>
+                    {busy ? 'Removing…' : 'Unsubscribe'}
+                </button>
+            </div>
+        </>
+    );
+}
+
+// ── Confirm Remove Device ─────────────────────────────────────────────────────
+
+function ConfirmRemoveDeviceModal({ deviceId, deviceCode }) {
+    const [busy, setBusy] = useState(false);
+
+    async function onConfirm() {
+        setBusy(true);
+        await removeDevice(deviceId);
+        closeModal();
+    }
+
+    return (
+        <>
+            <h2>Remove device?</h2>
+            <p style="color:#555; margin-bottom:20px">
+                Device <strong style="font-family:monospace">{deviceCode}</strong> will be unlinked from your account.
+                Your watch will need to be re-registered before it can sync programmes again.
+            </p>
+            <div class="modal-actions">
+                <button class="btn-ghost" onClick={closeModal} disabled={busy}>Cancel</button>
+                <button class="btn-primary btn-danger" onClick={onConfirm} disabled={busy}>
+                    {busy ? 'Removing…' : 'Remove device'}
+                </button>
+            </div>
+        </>
+    );
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────────
 
 export function Modal() {
@@ -150,9 +206,11 @@ export function Modal() {
     return (
         <div class="modal-overlay" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
             <div class="modal">
-                {m.type === 'new-programme'  && <NewProgrammeModal />}
-                {m.type === 'template'       && <TemplateModal progId={m.progId} />}
-                {m.type === 'confirm-delete' && <ConfirmDeleteModal progId={m.progId} />}
+                {m.type === 'new-programme'         && <NewProgrammeModal />}
+                {m.type === 'template'              && <TemplateModal progId={m.progId} />}
+                {m.type === 'confirm-delete'        && <ConfirmDeleteModal progId={m.progId} />}
+                {m.type === 'confirm-unsubscribe'   && <ConfirmUnsubscribeModal channelId={m.channelId} channelName={m.channelName} />}
+                {m.type === 'confirm-remove-device' && <ConfirmRemoveDeviceModal deviceId={m.deviceId} deviceCode={m.deviceCode} />}
             </div>
         </div>
     );

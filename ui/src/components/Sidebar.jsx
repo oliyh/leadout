@@ -3,7 +3,6 @@ import { accountId, signOut, isSignedIn } from '../store/auth.js';
 import {
     channels, subscriptions, devices, currentView,
     createChannel, showChannel, showSubscription, showHome,
-    unsubscribe, removeDevice,
 } from '../store/dashboard.js';
 import { GoogleSignInButton } from './GoogleSignInButton.jsx';
 
@@ -71,25 +70,12 @@ function ChannelItem({ ch }) {
 
 function SubscriptionItem({ sub }) {
     const t = today();
-    const [busy, setBusy] = useState(false);
     const isSelected = currentView.value?.type === 'subscription' && currentView.value.channel_id === sub.channel_id;
-
-    async function handleUnsubscribe(e) {
-        e.stopPropagation();
-        setBusy(true);
-        try { await unsubscribe(sub.channel_id); } finally { setBusy(false); }
-    }
 
     return (
         <div class={`sub-item${isSelected ? ' active' : ''}`}>
             <div class="sub-item-row" onClick={() => showSubscription(sub.channel_id)}>
                 <span class="sub-channel-name">{sub.channel?.name ?? sub.channel_id}</span>
-                <button
-                    class="btn-icon btn-danger btn-xs"
-                    disabled={busy}
-                    onClick={handleUnsubscribe}
-                    title="Unsubscribe"
-                >✕</button>
             </div>
             {sub.programmes?.filter(p => p.scheduled_date >= t).map(p => (
                 <div key={p.id} class="prog-item prog-item-nested prog-item-sub">
@@ -104,23 +90,10 @@ function SubscriptionItem({ sub }) {
 }
 
 function DeviceItem({ device }) {
-    const [busy, setBusy] = useState(false);
-
-    async function handleRemove() {
-        setBusy(true);
-        try { await removeDevice(device.id); } finally { setBusy(false); }
-    }
-
     return (
         <div class="sidebar-device-item">
             <div class="sidebar-device-item-row">
                 <span class="sidebar-device-code">{device.device_code}</span>
-                <button
-                    class="btn-icon btn-danger btn-xs"
-                    disabled={busy}
-                    onClick={handleRemove}
-                    title="Remove device"
-                >✕</button>
             </div>
             <span class="sidebar-device-meta">
                 Synced: {formatDateTime(device.last_synced_at)}

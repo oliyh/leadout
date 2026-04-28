@@ -705,7 +705,9 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 }
 .home-row-clickable { cursor: pointer; }
 .home-row-clickable:hover { background: #f8f8f8; border-color: #d0d0d0; }
-.home-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.home-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.home-row-main.home-row-clickable:hover { background: none; }
+.home-row-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .home-row-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-row-meta { font-size: 12px; color: #888; }
 .home-row-arrow { color: #bbb; font-size: 18px; flex-shrink: 0; }

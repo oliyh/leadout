@@ -5,6 +5,7 @@ import {
     channels, subscriptions, devices,
     loadParticipantData, showChannel, showSubscription,
 } from '../store/dashboard.js';
+import { openConfirmUnsubscribe, openConfirmRemoveDevice } from '../store/modal.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -72,8 +73,8 @@ function SubscriptionRow({ sub }) {
     const t = today();
     const upcoming = (sub.programmes ?? []).filter(p => p.scheduled_date >= t);
     return (
-        <div class="home-row home-row-clickable" onClick={() => showSubscription(sub.channel_id)}>
-            <div class="home-row-main">
+        <div class="home-row">
+            <div class="home-row-main home-row-clickable" onClick={() => showSubscription(sub.channel_id)}>
                 <span class="home-row-name">{sub.channel?.name ?? sub.channel_id}</span>
                 <span class="home-row-meta">
                     {upcoming.length === 0
@@ -84,7 +85,13 @@ function SubscriptionRow({ sub }) {
                     }
                 </span>
             </div>
-            <span class="home-row-arrow">›</span>
+            <div class="home-row-actions">
+                <button class="btn-ghost btn-sm"
+                    onClick={() => openConfirmUnsubscribe(sub.channel_id, sub.channel?.name ?? sub.channel_id)}>
+                    Unsubscribe
+                </button>
+                <span class="home-row-arrow" onClick={() => showSubscription(sub.channel_id)}>›</span>
+            </div>
         </div>
     );
 }
@@ -103,6 +110,10 @@ function DeviceRow({ device }) {
                     }
                 </span>
             </div>
+            <button class="btn-ghost btn-sm"
+                onClick={() => openConfirmRemoveDevice(device.id, device.device_code)}>
+                Remove
+            </button>
         </div>
     );
 }
