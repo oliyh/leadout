@@ -47,8 +47,9 @@ function RegisterForm() {
         <form class="home-register-form" onSubmit={submit}>
             <ol class="onboarding-steps">
                 <li>Install the Leadout data field from the Garmin Connect IQ Store</li>
-                <li>Add it as a data field on a run activity and start a run</li>
-                <li>The data field shows a short device code — enter it below</li>
+                <li>On your watch, start a Run activity, then go to <strong>Settings → Data Screens → Add New Screen</strong> and select Leadout as the <strong>only data field</strong> (full-screen layout)</li>
+                <li>Open that data screen — it shows a short device code</li>
+                <li>Enter the code below to link your watch to this account</li>
             </ol>
             <div class="home-register-row">
                 <input

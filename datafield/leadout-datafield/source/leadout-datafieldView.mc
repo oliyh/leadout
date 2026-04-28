@@ -35,6 +35,9 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mElapsedDistM as Float;         // latest elapsed distance from Activity.Info
     hidden var mPolling as Boolean;            // registration poll in flight
     hidden var mLastPollMs as Number;          // last registration poll timestamp
+    hidden var mSessionStartMs as Number;      // timer when first block started
+    hidden var mSessionEndMs as Number;        // timer when STATE_COMPLETE reached
+    hidden var mSessionStartDistM as Float;    // distance at session start
 
     function initialize() {
         DataField.initialize();
@@ -53,6 +56,9 @@ class leadout_datafieldView extends WatchUi.DataField {
         mElapsedDistM = 0.0f;
         mPolling = false;
         mLastPollMs = 0;
+        mSessionStartMs = 0;
+        mSessionEndMs = 0;
+        mSessionStartDistM = 0.0f;
 
         var cached = Application.Storage.getValue("programme");
         if (cached instanceof Dictionary) {
@@ -112,6 +118,9 @@ class leadout_datafieldView extends WatchUi.DataField {
             mSegmentStartMs = System.getTimer();
             mSegmentStartDistM = -1.0f;  // will be captured on first compute()
             if (mCurrentBlock == 0 && !mDeviceCode.equals("") && !mProgrammeId.equals("")) {
+                mSessionStartMs = System.getTimer();
+                mSessionStartDistM = mElapsedDistM;
+                Application.Storage.setValue("pending_participation_id", mProgrammeId);
                 recordParticipation();
             }
         }
@@ -188,6 +197,7 @@ class leadout_datafieldView extends WatchUi.DataField {
                 mState = STATE_WAITING;
                 alertBlockComplete();
             } else {
+                mSessionEndMs = System.getTimer();
                 mState = STATE_COMPLETE;
                 alertSessionComplete();
             }
@@ -352,7 +362,7 @@ class leadout_datafieldView extends WatchUi.DataField {
                 drawActive(dc, cx, cy, fgColor);
                 break;
             case STATE_COMPLETE:
-                drawComplete(dc, cx, cy);
+                drawComplete(dc, cx, cy, fgColor);
                 break;
         }
     }
@@ -528,13 +538,31 @@ class leadout_datafieldView extends WatchUi.DataField {
         dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
     }
 
-    hidden function drawComplete(dc as Dc, cx as Number, cy as Number) as Void {
-        dc.drawText(cx, cy - 10, Graphics.FONT_MEDIUM,
-            "Session",
-            Graphics.TEXT_JUSTIFY_CENTER);
-        dc.drawText(cx, cy + 20, Graphics.FONT_MEDIUM,
-            "complete!",
-            Graphics.TEXT_JUSTIFY_CENTER);
+    hidden function drawComplete(dc as Dc, cx as Number, cy as Number, fgColor as ColorValue) as Void {
+        var h = dc.getHeight();
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h / 4, Graphics.FONT_SMALL,
+            "Session complete",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        if (mSessionStartMs > 0) {
+            var elapsedSecs = (mSessionEndMs - mSessionStartMs) / 1000;
+            var distM = mElapsedDistM - mSessionStartDistM;
+
+            dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_MEDIUM,
+                formatDuration(elapsedSecs),
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            var distStr = (distM >= 1000.0f)
+                ? (distM / 1000.0f).format("%.2f") + " km"
+                : distM.format("%d") + " m";
+            dc.drawText(cx, h * 3 / 4, Graphics.FONT_MEDIUM,
+                distStr,
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        }
     }
 
 }

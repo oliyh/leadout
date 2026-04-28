@@ -23,8 +23,13 @@ class leadout_datafieldApp extends Application.AppBase {
 
         // Foreground sync on open. A failed sync never wipes local storage —
         // the view falls back to the last successfully cached programme.
+        var url = API_BASE + "/api/sync/" + mDeviceCode;
+        var modelName = System.getDeviceSettings().modelName;
+        if (modelName != null) {
+            url = url + "?model=" + Communications.encodeUrl(modelName);
+        }
         Communications.makeWebRequest(
-            API_BASE + "/api/sync/" + mDeviceCode,
+            url,
             null,
             {
                 :method => Communications.HTTP_REQUEST_METHOD_GET,
@@ -97,6 +102,28 @@ class leadout_datafieldApp extends Application.AppBase {
                 view.setFetchFailed();
             }
         }
+
+        // Retry any participation record that the immediate LAP-press POST may have missed.
+        if (responseCode == 200) {
+            var pendingId = Application.Storage.getValue("pending_participation_id");
+            if (pendingId instanceof String) {
+                Communications.makeWebRequest(
+                    API_BASE + "/api/sessions/start",
+                    { "device_code" => mDeviceCode, "programme_id" => pendingId as String },
+                    {
+                        :method       => Communications.HTTP_REQUEST_METHOD_POST,
+                        :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON,
+                        :headers      => { "Content-Type" => "application/json" }
+                    },
+                    method(:onParticipationRetryResponse)
+                );
+                Application.Storage.deleteValue("pending_participation_id");
+            }
+        }
+    }
+
+    function onParticipationRetryResponse(responseCode as Number, data as Dictionary?) as Void {
+        System.println("participation retry: " + responseCode);
     }
 
 }
