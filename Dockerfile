@@ -12,6 +12,7 @@ WORKDIR /app
 COPY server/package.json server/package-lock.json* ./
 RUN npm ci --omit=dev
 COPY server/server.js .
+COPY server/app.js .
 COPY server/src/ ./src/
 COPY --from=ui-builder /build/dist ./public
 EXPOSE 3000
