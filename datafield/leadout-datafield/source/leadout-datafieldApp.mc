@@ -24,13 +24,13 @@ class leadout_datafieldApp extends Application.AppBase {
         // Foreground sync on open. A failed sync never wipes local storage —
         // the view falls back to the last successfully cached programme.
         var url = API_BASE + "/api/sync/" + mDeviceCode;
-        var modelName = System.getDeviceSettings().modelName;
-        if (modelName != null) {
-            url = url + "?model=" + Communications.encodeUrl(modelName);
-        }
+        var modelName = System.getDeviceSettings().partNumber;
+        var params = {
+            "model" => modelName
+        };
         Communications.makeWebRequest(
             url,
-            null,
+            params,
             {
                 :method => Communications.HTTP_REQUEST_METHOD_GET,
                 :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON

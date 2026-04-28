@@ -118,3 +118,6 @@ leadout/
 - when watch syncs an empty list of programmes, it should no longer say syncing but instead say "no subscriptions - visit leadout to find channels" if you have no subs, or "no programmes on your channels"
 - join link doesn't work - should land you on your subscriptions page, listing all your subs, and highlight the newly joined one
 - prefilled code on register page opened from watch still doesn't work
+- partnumber can be looked up here: https://apps.garmin.com/api/appsLibraryExternalServices/api/asw/deviceTypes - do it on the server for rendering?
+- we read the part number 3 times, need to pull out a common function
+- had to comment out L508 of datafield test
