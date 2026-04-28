@@ -122,3 +122,9 @@ leadout/
 - we read the part number 3 times, need to pull out a common function
 - had to comment out L508 of datafield test
 - after registering it doesn't seem to be polling quickly, seems to be slow
+- settings file to nuke storage and state? currently stuck in unable to sync (and it references widget which doesnt exist)
+- if attempt to sync results in server saying this device isnt registered, it should go back to registration mode and show the code
+- makefile recipe to completely remove it from watch
+- totally empty sidebar when you set up a new account, looks a bit silly
+- device code still not populated on register page opened from watch
+- it also doesnt make you login first, so you just get account not recognised
