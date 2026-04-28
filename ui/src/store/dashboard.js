@@ -18,7 +18,7 @@ export async function createChannel(name) {
 
 export async function createProgramme(channel_id, doc) {
     const prog = await instructorApi.createProgramme(channel_id, doc);
-    await loadChannels();
+    await Promise.all([loadChannels(), loadParticipantData()]);
     return prog;
 }
 
@@ -86,3 +86,8 @@ export function showChannel(id)            { currentView.value = { type: 'channe
 export function showSubscription(channel_id) { currentView.value = { type: 'subscription', channel_id }; }
 export function showProgrammeEditor(id, channel_id) { currentView.value = { type: 'programme', id, channel_id }; }
 export function showHome()                 { currentView.value = null; }
+
+// Poll subscription data every minute so upcoming programmes stay fresh.
+setInterval(() => {
+    if (subscriptions.value.length > 0) loadParticipantData();
+}, 60_000);
