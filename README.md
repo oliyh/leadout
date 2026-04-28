@@ -121,3 +121,4 @@ leadout/
 - partnumber can be looked up here: https://apps.garmin.com/api/appsLibraryExternalServices/api/asw/deviceTypes - do it on the server for rendering?
 - we read the part number 3 times, need to pull out a common function
 - had to comment out L508 of datafield test
+- after registering it doesn't seem to be polling quickly, seems to be slow
