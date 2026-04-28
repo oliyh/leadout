@@ -102,6 +102,11 @@ function DeviceRow({ device }) {
             <div class="home-row-main">
                 <span class="home-row-name" style="font-family: monospace; letter-spacing: 0.1em">
                     {device.device_code}
+                    {device.model_name && (
+                        <span style="font-family: inherit; letter-spacing: normal; font-weight: 400; color: #888; margin-left: 8px; font-size: 13px">
+                            {device.model_name}
+                        </span>
+                    )}
                 </span>
                 <span class="home-row-meta">
                     {device.last_synced_at
@@ -148,7 +153,6 @@ function NewChannelForm({ onDone }) {
 
 function WeekCalendar() {
     const subs = subscriptions.value;
-    const chs  = channels.value;
     const t = today();
 
     const progMap = new Map();
@@ -156,12 +160,6 @@ function WeekCalendar() {
         for (const p of (sub.programmes ?? [])) {
             if (!progMap.has(p.id))
                 progMap.set(p.id, { name: p.name, date: p.scheduled_date, onClick: () => showSubscription(sub.channel_id) });
-        }
-    }
-    for (const ch of chs) {
-        for (const p of (ch.programmes ?? [])) {
-            if (!progMap.has(p.id))
-                progMap.set(p.id, { name: p.name, date: p.scheduled_date, onClick: () => showChannel(ch.id) });
         }
     }
 
@@ -235,7 +233,7 @@ export function HomePage() {
                 </section>
             )}
 
-            {(subs.length > 0 || chs.length > 0) && <WeekCalendar />}
+            {subs.length > 0 && <WeekCalendar />}
 
             <section class="home-section">
                 <h2 class="home-section-title">My subscriptions</h2>

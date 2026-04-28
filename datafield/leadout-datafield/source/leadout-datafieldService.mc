@@ -22,8 +22,13 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
             Background.exit(null);
             return;
         }
+        var url = API_BASE + "/api/sync/" + (deviceCode as String);
+        var modelName = System.getDeviceSettings().modelName;
+        if (modelName != null) {
+            url = url + "?model=" + Communications.encodeUrl(modelName);
+        }
         Communications.makeWebRequest(
-            API_BASE + "/api/sync/" + (deviceCode as String),
+            url,
             null,
             {
                 :method => Communications.HTTP_REQUEST_METHOD_GET,

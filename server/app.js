@@ -261,7 +261,9 @@ export function createApp(store) {
             return res.status(404).json({ error: 'registration_required' });
         }
 
-        await store.updateDevice(device.id, { last_synced_at: new Date().toISOString() });
+        const deviceUpdates = { last_synced_at: new Date().toISOString() };
+        if (req.query.model) deviceUpdates.model_name = req.query.model;
+        await store.updateDevice(device.id, deviceUpdates);
 
         const subs = await store.findSubscriptionsByAccount(device.account_id);
         const programmes = [];

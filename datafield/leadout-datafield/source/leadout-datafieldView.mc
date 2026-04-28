@@ -140,8 +140,13 @@ class leadout_datafieldView extends WatchUi.DataField {
             if (now - mLastPollMs > 10000) {
                 mLastPollMs = now;
                 mPolling = true;
+                var url = API_BASE + "/api/sync/" + mDeviceCode;
+                var modelName = System.getDeviceSettings().modelName;
+                if (modelName != null) {
+                    url = url + "?model=" + Communications.encodeUrl(modelName);
+                }
                 Communications.makeWebRequest(
-                    API_BASE + "/api/sync/" + mDeviceCode,
+                    url,
                     null,
                     { :method => Communications.HTTP_REQUEST_METHOD_GET,
                       :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON },

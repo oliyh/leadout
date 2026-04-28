@@ -79,6 +79,8 @@ export class SqliteStore {
         this._db.pragma('journal_mode = WAL');
         this._db.pragma('foreign_keys = ON');
         this._db.exec(SCHEMA);
+        // Migrations for columns added after initial schema
+        try { this._db.exec('ALTER TABLE devices ADD COLUMN model_name TEXT'); } catch {}
     }
 
     // ── Accounts ──────────────────────────────────────────────────────────────
