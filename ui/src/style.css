@@ -673,6 +673,46 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 
 .subscriber-list { font-size: 13px; color: #666; }
 
+/* ── Homepage ─────────────────────────────────────────────────────────────── */
+
+.home-page { display: flex; flex-direction: column; gap: 36px; }
+
+.home-section {}
+
+.home-section-cta {
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 24px;
+}
+
+.home-section-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+
+.home-section-desc { font-size: 13px; color: #888; margin-bottom: 16px; line-height: 1.5; }
+
+.home-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 7px;
+    margin-bottom: 6px;
+    gap: 12px;
+}
+.home-row-clickable { cursor: pointer; }
+.home-row-clickable:hover { background: #f8f8f8; border-color: #d0d0d0; }
+.home-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.home-row-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-row-meta { font-size: 12px; color: #888; }
+.home-row-arrow { color: #bbb; font-size: 18px; flex-shrink: 0; }
+
+.home-register-form { display: flex; flex-direction: column; gap: 14px; }
+.home-register-row { display: flex; gap: 10px; align-items: center; }
+.home-register-row .device-code-input { flex: 1; max-width: 180px; }
+.home-register-success { color: #2d7a50; font-size: 14px; font-weight: 500; }
+
 /* ── Participant panel ────────────────────────────────────────────────────── */
 
 .participant-panel { }

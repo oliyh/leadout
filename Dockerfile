@@ -1,5 +1,7 @@
 # Stage 1: build UI
 FROM node:22-alpine AS ui-builder
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 WORKDIR /build
 COPY ui/package.json ui/package-lock.json* ./
 RUN npm install

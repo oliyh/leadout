@@ -4,7 +4,7 @@ import { Editor } from './components/Editor.jsx';
 import { Modal } from './components/Modal.jsx';
 import { ChannelPage } from './pages/ChannelPage.jsx';
 import { SubscriptionView } from './pages/SubscriptionView.jsx';
-import { ParticipantPanel } from './pages/ParticipantPanel.jsx';
+import { HomePage } from './pages/HomePage.jsx';
 import { isSignedIn, accountId, restoreSession } from './store/auth.js';
 import { currentView, channels, subscriptions, loadChannels, loadParticipantData, showChannel, showHome } from './store/dashboard.js';
 import { selected } from './store/programmes.js';
@@ -46,15 +46,7 @@ function MainArea() {
     }
 
     // Default: home dashboard
-    return (
-        <div class="main-content home-dashboard">
-            <div class="dashboard-welcome">
-                <h2>Welcome back</h2>
-                <p>Select a channel from the sidebar to manage programmes, or click a subscription to view upcoming sessions.</p>
-            </div>
-            <ParticipantPanel />
-        </div>
-    );
+    return <HomePage />;
 }
 
 export function App() {
