@@ -1,6 +1,5 @@
 import Toybox.Application;
 import Toybox.Background;
-import Toybox.Communications;
 import Toybox.Lang;
 import Toybox.System;
 
@@ -22,20 +21,7 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
             Background.exit(null);
             return;
         }
-        var url = API_BASE + "/api/sync/" + (deviceCode as String);
-        var modelName = System.getDeviceSettings().partNumber;
-        var params = {
-            "model" => modelName
-        };
-        Communications.makeWebRequest(
-            url,
-            params,
-            {
-                :method => Communications.HTTP_REQUEST_METHOD_GET,
-                :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
-            },
-            method(:onSyncResponse)
-        );
+        makeSyncRequest(deviceCode as String, method(:onSyncResponse));
     }
 
     function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
@@ -57,7 +43,8 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
             }
             return;
         } else if (responseCode == 404) {
-            // Device was unregistered — signal the foreground to show re-registration screen.
+            // Device is no longer registered — wipe stale cache and signal foreground.
+            Application.Storage.deleteValue("programme");
             Background.exit({ "registration_required" => true });
             return;
         }

@@ -1,15 +1,18 @@
 JAVA        := /usr/lib/jvm/java-21-openjdk-amd64/bin/java
 SDK_JAR     := $(HOME)/.Garmin/ConnectIQ/Sdks/current/bin/monkeybrains.jar
+MONKEYDO    := $(HOME)/.Garmin/ConnectIQ/Sdks/current/bin/monkeydo
 DEV_KEY     := $(HOME)/dev/garmin-developer/developer_key
 DATAFIELD   := datafield/leadout-datafield
 PRG         := $(DATAFIELD)/bin/leadoutdatafield.prg
+PRG_TEST    := $(DATAFIELD)/bin/leadoutdatafield-test.prg
 DEVICE      := fr265s
 DEVICE_SIM  := fr265s_sim
 PRG_SIM     := $(DATAFIELD)/bin/leadoutdatafield-sim.prg
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
-.PHONY: env datafield datafield-sim datafield-test install-datafield sim sim-lap screenshot \
+.PHONY: env datafield datafield-sim datafield-test datafield-run-tests install-datafield \
+        sim sim-lap screenshot \
         ui-install ui-dev ui-build server-install server-start server-dev server-test dev
 
 env:
@@ -22,7 +25,7 @@ datafield:
 		-Dapple.awt.UIElement=true \
 		-jar $(SDK_JAR) \
 		-o $(PRG) \
-		-f $(DATAFIELD)/monkey.jungle \
+		-f $(DATAFIELD)/monkey-device.jungle \
 		-y $(DEV_KEY) \
 		-d $(DEVICE) -w
 
@@ -32,7 +35,7 @@ datafield-sim:
 		-Dapple.awt.UIElement=true \
 		-jar $(SDK_JAR) \
 		-o $(PRG_SIM) \
-		-f $(DATAFIELD)/monkey.jungle \
+		-f $(DATAFIELD)/monkey-sim.jungle \
 		-y $(DEV_KEY) \
 		-d $(DEVICE_SIM) -w
 
@@ -75,11 +78,23 @@ datafield-test:
 		-Dfile.encoding=UTF-8 \
 		-Dapple.awt.UIElement=true \
 		-jar $(SDK_JAR) \
-		-o $(DATAFIELD)/bin/leadoutdatafield-test.prg \
-		-f $(DATAFIELD)/monkey.jungle \
+		-o $(PRG_TEST) \
+		-f $(DATAFIELD)/monkey-sim.jungle \
 		-y $(DEV_KEY) \
 		-d $(DEVICE_SIM) \
 		--unit-test -w
+
+# Build test binary then run it via monkeydo against the simulator.
+# Starts the simulator automatically if not already running.
+# monkeydo exits non-zero even on success, so we detect pass/fail from output.
+datafield-run-tests: datafield-test
+	@if ! pgrep -x simulator > /dev/null; then \
+	    echo "Starting simulator..."; \
+	    DISPLAY=:0 GDK_BACKEND=x11 ciq-simulator & \
+	    sleep 6; \
+	fi
+	@$(MONKEYDO) $(PRG_TEST) $(DEVICE) -t 2>&1 | tee /tmp/datafield-test-results.txt; \
+	grep -q "^PASSED" /tmp/datafield-test-results.txt
 
 # Run API server + Vite together; Ctrl-C stops both
 dev: server-install ui-install

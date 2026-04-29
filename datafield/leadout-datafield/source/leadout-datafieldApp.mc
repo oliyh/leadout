@@ -23,20 +23,7 @@ class leadout_datafieldApp extends Application.AppBase {
 
         // Foreground sync on open. A failed sync never wipes local storage —
         // the view falls back to the last successfully cached programme.
-        var url = API_BASE + "/api/sync/" + mDeviceCode;
-        var modelName = System.getDeviceSettings().partNumber;
-        var params = {
-            "model" => modelName
-        };
-        Communications.makeWebRequest(
-            url,
-            params,
-            {
-                :method => Communications.HTTP_REQUEST_METHOD_GET,
-                :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
-            },
-            method(:onSyncResponse)
-        );
+        makeSyncRequest(mDeviceCode, method(:onSyncResponse));
     }
 
     function onStop(state as Dictionary?) as Void {
@@ -94,12 +81,20 @@ class leadout_datafieldApp extends Application.AppBase {
                 }
             }
         } else if (responseCode == 404) {
+            // Device is no longer registered — wipe stale cache so the next open
+            // starts in STATE_UNREGISTERED rather than briefly showing old programme.
+            Application.Storage.deleteValue("programme");
             if (view != null) {
                 view.setRegistrationRequired(mDeviceCode);
             }
         } else {
+            var msg = "";
+            if (data instanceof Dictionary) {
+                var errVal = (data as Dictionary)["error"];
+                if (errVal instanceof String) { msg = errVal as String; }
+            }
             if (view != null) {
-                view.setFetchFailed();
+                view.setFetchFailed(responseCode, msg);
             }
         }
 
@@ -124,6 +119,26 @@ class leadout_datafieldApp extends Application.AppBase {
 
     function onParticipationRetryResponse(responseCode as Number, data as Dictionary?) as Void {
         System.println("participation retry: " + responseCode);
+    }
+
+    // Called when the user toggles a setting via Garmin Connect / GCM.
+    // The "Reset Leadout" boolean clears all stored state and restarts sync.
+    function onSettingsChanged() as Void {
+        var reset = Application.Properties.getValue("ResetState");
+        if (reset instanceof Boolean && reset as Boolean) {
+            Application.Storage.deleteValue("device_code");
+            Application.Storage.deleteValue("programme");
+            Application.Storage.deleteValue("lastSyncTime");
+            Application.Storage.deleteValue("pending_participation_id");
+            Application.Properties.setValue("ResetState", false);
+            mDeviceCode = getOrCreateDeviceCode();
+            var view = mView;
+            if (view != null) {
+                view.setDeviceCode(mDeviceCode);
+                view.reset();
+            }
+            makeSyncRequest(mDeviceCode, method(:onSyncResponse));
+        }
     }
 
 }

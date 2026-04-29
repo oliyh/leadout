@@ -1,8 +1,1 @@
 project.manifest = manifest.xml
-base.resourcePath = resources
-base.sourcePath = source;source/tests
-
-# URL target switching — see source/Config.mc.
-# Simulator build: uses (:sim) constant → localhost.
-# To build for a real device: change to base.excludeAnnotations = sim
-base.excludeAnnotations = release

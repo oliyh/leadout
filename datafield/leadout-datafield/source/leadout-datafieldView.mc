@@ -1,7 +1,6 @@
 import Toybox.Activity;
 import Toybox.Application;
 import Toybox.Attention;
-import Toybox.Communications;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.System;
@@ -35,6 +34,8 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mElapsedDistM as Float;         // latest elapsed distance from Activity.Info
     hidden var mPolling as Boolean;            // registration poll in flight
     hidden var mLastPollMs as Number;          // last registration poll timestamp
+    hidden var mLastErrorCode as Number;       // HTTP code from last failed sync
+    hidden var mLastErrorMsg as String;        // server error string from last failed sync
     hidden var mSessionStartMs as Number;      // timer when first block started
     hidden var mSessionEndMs as Number;        // timer when STATE_COMPLETE reached
     hidden var mSessionStartDistM as Float;    // distance at session start
@@ -56,6 +57,8 @@ class leadout_datafieldView extends WatchUi.DataField {
         mElapsedDistM = 0.0f;
         mPolling = false;
         mLastPollMs = 0;
+        mLastErrorCode = 0;
+        mLastErrorMsg = "";
         mSessionStartMs = 0;
         mSessionEndMs = 0;
         mSessionStartDistM = 0.0f;
@@ -76,7 +79,9 @@ class leadout_datafieldView extends WatchUi.DataField {
         WatchUi.requestUpdate();
     }
 
-    function setFetchFailed() as Void {
+    function setFetchFailed(code as Number, msg as String) as Void {
+        mLastErrorCode = code;
+        mLastErrorMsg = msg;
         if (mState == STATE_SYNCING) {
             mFetchFailed = true;
             WatchUi.requestUpdate();
@@ -86,6 +91,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     function setRegistrationRequired(deviceCode as String) as Void {
         mDeviceCode = deviceCode;
         mState = STATE_UNREGISTERED;
+        mLastPollMs = 0;
         WatchUi.requestUpdate();
     }
 
@@ -100,6 +106,20 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     function setNoProgramme() as Void {
         mState = STATE_NO_PROGRAMME;
+        WatchUi.requestUpdate();
+    }
+
+    // Resets all state back to STATE_SYNCING (used by the settings reset action).
+    function reset() as Void {
+        mState = STATE_SYNCING;
+        mFetchFailed = false;
+        mLastErrorCode = 0;
+        mLastErrorMsg = "";
+        mBlocks = [] as Array<Dictionary>;
+        mProgrammeName = "";
+        mProgrammeId = "";
+        mCurrentBlock = 0;
+        mCurrentSegment = 0;
         WatchUi.requestUpdate();
     }
 
@@ -149,18 +169,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             if (now - mLastPollMs > 10000) {
                 mLastPollMs = now;
                 mPolling = true;
-                var url = API_BASE + "/api/sync/" + mDeviceCode;
-                var modelName = System.getDeviceSettings().partNumber;
-                var params = {
-                    "model" => modelName
-                };
-                Communications.makeWebRequest(
-                    url,
-                    params,
-                    { :method => Communications.HTTP_REQUEST_METHOD_GET,
-                      :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON },
-                    method(:onRegistrationPoll)
-                );
+                makeSyncRequest(mDeviceCode, method(:onRegistrationPoll));
             }
         }
 
@@ -260,10 +269,10 @@ class leadout_datafieldView extends WatchUi.DataField {
         System.println("participation: " + responseCode);
     }
 
-    // Callback for the registration poll that fires every 10 s in STATE_UNREGISTERED.
-    // 200 → now registered; load the programme (or show syncing if no programme today).
-    // 404 → still unregistered; keep polling.
-    // Other → network error; keep polling.
+    // Callback for the registration poll (fired from compute() every 10 s in STATE_UNREGISTERED).
+    // 200 → registered; load programme (or show appropriate empty state).
+    // 404 → still unregistered; compute() will retry after 10 s.
+    // Other → network issue; compute() will retry after 10 s.
     function onRegistrationPoll(responseCode as Number, data as Dictionary?) as Void {
         mPolling = false;
         if (responseCode == 200 && data != null) {
@@ -282,7 +291,6 @@ class leadout_datafieldView extends WatchUi.DataField {
             }
             WatchUi.requestUpdate();
         }
-        // 404 = still unregistered; other = network issue — mPolling=false lets next compute() retry
     }
 
     // Single short beep + brief vibe — segment within a block changes.
@@ -373,8 +381,9 @@ class leadout_datafieldView extends WatchUi.DataField {
                 "No connection",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            var detail = (mLastErrorMsg.length() > 0) ? mLastErrorMsg : ("HTTP " + mLastErrorCode);
             dc.drawText(cx, cy + 20, Graphics.FONT_XTINY,
-                "Open Leadout widget",
+                detail,
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else {
             dc.drawText(cx, cy, Graphics.FONT_SMALL,

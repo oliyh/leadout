@@ -1,0 +1,5 @@
+<settings>
+    <setting propertyKey="@Properties.ResetState" title="@Strings.ResetStateTitle">
+        <settingConfig type="boolean"/>
+    </setting>
+</settings>

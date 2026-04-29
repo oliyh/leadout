@@ -1,6 +1,8 @@
 import Toybox.Application;
+import Toybox.Communications;
 import Toybox.Lang;
 import Toybox.Math;
+import Toybox.System;
 import Toybox.Time;
 import Toybox.Time.Gregorian;
 
@@ -29,11 +31,23 @@ function getOrCreateDeviceCode() as String {
     var alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     var code = "";
     for (var i = 0; i < 6; i++) {
-        var idx = (Math.rand() as Long).abs().toNumber() % 32;
+        var idx = Math.rand().abs() % 32;
         code = code + alphabet.substring(idx, idx + 1);
     }
     Application.Storage.setValue("device_code", code);
     return code;
+}
+
+// Issues a GET /api/sync/:deviceCode request. The callback receives (responseCode, data).
+// Used by the foreground open sync, the background temporal sync, and the registration poll.
+function makeSyncRequest(deviceCode as String, callback as Method) as Void {
+    Communications.makeWebRequest(
+        API_BASE + "/api/sync/" + deviceCode,
+        { "model" => System.getDeviceSettings().partNumber },
+        { :method       => Communications.HTTP_REQUEST_METHOD_GET,
+          :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON },
+        callback
+    );
 }
 
 // Finds the first programme in an array whose scheduled_date is today.

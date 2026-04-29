@@ -153,7 +153,7 @@ function testTodayDateString_consistent(logger as Test.Logger) as Boolean {
 function testFindTodaysProgramme_emptyArray(logger as Test.Logger) as Boolean {
     // RegisteredDevicePoll with no programmes → nothing to load.
     var result = findTodaysProgramme([] as Array<Dictionary>);
-    Test.assertEqualMessage(result, null, "empty array returns null");
+    Test.assertMessage(result == null, "empty array returns null");
     return true;
 }
 
@@ -163,7 +163,7 @@ function testFindTodaysProgramme_noTodayMatch(logger as Test.Logger) as Boolean 
     var programmes = [
         { "scheduled_date" => "2020-01-01", "name" => "old session" }
     ] as Array<Dictionary>;
-    Test.assertEqualMessage(findTodaysProgramme(programmes), null, "past date returns null");
+    Test.assertMessage(findTodaysProgramme(programmes) == null, "past date returns null");
     return true;
 }
 
@@ -173,7 +173,7 @@ function testFindTodaysProgramme_futureDateNotMatched(logger as Test.Logger) as 
     var programmes = [
         { "scheduled_date" => "2099-12-31", "name" => "future" }
     ] as Array<Dictionary>;
-    Test.assertEqualMessage(findTodaysProgramme(programmes), null, "future date returns null");
+    Test.assertMessage(findTodaysProgramme(programmes) == null, "future date returns null");
     return true;
 }
 

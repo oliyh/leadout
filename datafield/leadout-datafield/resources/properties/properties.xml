@@ -1,0 +1,3 @@
+<properties>
+    <property id="ResetState" type="boolean">false</property>
+</properties>
