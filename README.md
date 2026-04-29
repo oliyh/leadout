@@ -110,21 +110,18 @@ leadout/
 
 
 ## Todo
-- Server doesn't work running inside docker, can't load app.js or something
-- Test as much as we can with unit tests. might be some small amount of manual testing for how it renders
-- homepage showing all your things
+
 - separate pages to show 1. channels 2. devices 3. subscriptions
 - clicking anywhere on a programme should take you to the edit screen
-- when watch syncs an empty list of programmes, it should no longer say syncing but instead say "no subscriptions - visit leadout to find channels" if you have no subs, or "no programmes on your channels"
+
 - join link doesn't work - should land you on your subscriptions page, listing all your subs, and highlight the newly joined one
 - prefilled code on register page opened from watch still doesn't work
 - partnumber can be looked up here: https://apps.garmin.com/api/appsLibraryExternalServices/api/asw/deviceTypes - do it on the server for rendering?
-- we read the part number 3 times, need to pull out a common function
+
 - had to comment out L508 of datafield test
-- after registering it doesn't seem to be polling quickly, seems to be slow
 - settings file to nuke storage and state? currently stuck in unable to sync (and it references widget which doesnt exist)
-- if attempt to sync results in server saying this device isnt registered, it should go back to registration mode and show the code
+
 - makefile recipe to completely remove it from watch
 - totally empty sidebar when you set up a new account, looks a bit silly
-- device code still not populated on register page opened from watch
-- it also doesnt make you login first, so you just get account not recognised
+- register popup doesnt make you login first, so you just get account not recognised
+- is it background syncing?
