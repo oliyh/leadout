@@ -124,4 +124,4 @@ leadout/
 - makefile recipe to completely remove it from watch
 - totally empty sidebar when you set up a new account, looks a bit silly
 - register popup doesnt make you login first, so you just get account not recognised
-- is it background syncing?
+- is it background syncing? does background.exit kill off the background registration?
