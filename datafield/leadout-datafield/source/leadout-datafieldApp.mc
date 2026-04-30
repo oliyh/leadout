@@ -17,7 +17,7 @@ class leadout_datafieldApp extends Application.AppBase {
         // Stable per-device identifier — generated once, persisted forever.
         // Displayed on screen so the participant can register at /register.
         mDeviceCode = getOrCreateDeviceCode();
-        System.println("Device code=" + responseCode);
+        System.println("Device code=" + mDeviceCode);
         Background.registerForTemporalEvent(new Time.Duration(5 * 60));
     }
 
