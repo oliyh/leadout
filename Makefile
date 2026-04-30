@@ -12,12 +12,13 @@ WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
 .PHONY: env datafield datafield-sim datafield-test datafield-run-tests install-datafield \
-        sim sim-lap screenshot \
+        sim sim-lap sim-screenshot \
         ui-install ui-dev ui-build server-install server-start server-dev server-test dev
 
 env:
 	scripts/setup-env.sh
 
+# ======== Datafield ==========
 
 datafield:
 	$(JAVA) -Xms1g \
@@ -38,40 +39,6 @@ datafield-sim:
 		-f $(DATAFIELD)/monkey-sim.jungle \
 		-y $(DEV_KEY) \
 		-d $(DEVICE_SIM) -w
-
-install-datafield: datafield
-	@test -n "$(WATCH_MTP)" || (echo "No MTP device found — is the watch plugged in?"; exit 1)
-	gio copy -p "file://$(PWD)/$(PRG)" "$(WATCH_APPS)/"
-
-screenshot:
-	scripts/sim-screenshot.sh /tmp/sim.png
-
-sim: datafield-sim
-	scripts/sim-start.sh "$(abspath $(PRG_SIM))" $(DEVICE)
-
-sim-lap:
-	scripts/sim-button.sh esc
-
-ui-install:
-	cd ui && npm install
-
-ui-dev: ui-install
-	cd ui && npm run dev
-
-ui-build: ui-install
-	cd ui && npm run build && cd .. && rm -rf server/public && cp -r ui/dist server/public
-
-server-install:
-	cd server && npm install
-
-server-start: server-install
-	cd server && npm start
-
-server-dev: server-install
-	cd server && npm run dev
-
-server-test: server-install
-	cd server && npm test
 
 datafield-test:
 	$(JAVA) -Xms1g \
@@ -95,6 +62,46 @@ datafield-run-tests: datafield-test
 	fi
 	@$(MONKEYDO) $(PRG_TEST) $(DEVICE) -t 2>&1 | tee /tmp/datafield-test-results.txt; \
 	grep -q "^PASSED" /tmp/datafield-test-results.txt
+
+# Installs datafield on a watch connected via usb
+install-datafield: datafield
+	@test -n "$(WATCH_MTP)" || (echo "No MTP device found — is the watch plugged in?"; exit 1)
+	gio copy -p "file://$(PWD)/$(PRG)" "$(WATCH_APPS)/"
+
+sim-screenshot:
+	scripts/sim-screenshot.sh ./tmp/sim.png
+
+sim: datafield-sim
+	scripts/sim-start.sh "$(abspath $(PRG_SIM))" $(DEVICE)
+
+# doesn't work
+sim-lap:
+	scripts/sim-button.sh esc
+
+# ======== UI ==========
+
+ui-install:
+	cd ui && npm install
+
+ui-dev: ui-install
+	cd ui && npm run dev
+
+ui-build: ui-install
+	cd ui && npm run build && cd .. && rm -rf server/public && cp -r ui/dist server/public
+
+# ======== Server ==========
+
+server-install:
+	cd server && npm install
+
+server-start: server-install
+	cd server && npm start
+
+server-dev: server-install
+	cd server && npm run dev
+
+server-test: server-install
+	cd server && npm test
 
 # Run API server + Vite together; Ctrl-C stops both
 dev: server-install ui-install

@@ -76,7 +76,7 @@ Starts the simulator if not already running, builds for the simulator device pro
 
 ```bash
 make sim-lap      # press the back/LAP button to start the interval session
-make screenshot   # capture simulator window to /tmp/sim.png
+make sim-screenshot   # capture simulator window to ./tmp/sim.png
 ```
 
 ---
@@ -125,8 +125,9 @@ leadout/
 - totally empty sidebar when you set up a new account, looks a bit silly
 - device code still not populated on register page opened from watch
 - it also doesnt make you login first, so you just get account not recognised
-- even though we can't programatically interact with the sim, we can check the log output - a successful startup looks like this (can add the registration too) and subscribe / add & update programmes, deregister watch - should see it all flow through
+- even though we can't programatically interact with the sim, we can check the log output - a successful startup looks like this (can add the registration too) and subscribe / add & update programmes, deregister watch - should see it all flow through - and take screenshots too (make sim-screenshot) and compare them to expected screenshots
 ```
+Device code=ABC123
 loadProgramme: name=Sprintervals blocks=1
 onSyncResponse: code=200
 loadProgramme: name=Sprintervals blocks=1
