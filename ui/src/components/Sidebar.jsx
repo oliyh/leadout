@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'preact/hooks';
 import { accountId, signOut, isSignedIn } from '../store/auth.js';
+import { openExternalProgramme } from '../store/programmes.js';
 import {
     channels, subscriptions, devices, currentView,
-    showChannel, showSubscription, showHome,
+    showChannel, showSubscription, showHome, showProgrammeEditor
 } from '../store/dashboard.js';
 import { GoogleSignInButton } from './GoogleSignInButton.jsx';
 
@@ -34,7 +35,11 @@ function ChannelItem({ ch }) {
                 <div
                     key={p.id}
                     class="prog-item prog-item-nested"
-                    onClick={() => showChannel(ch.id)}
+                    onClick={() => {
+                            openExternalProgramme(p);
+                            showProgrammeEditor(p.id, ch.id)
+                        }
+                    }
                 >
                     <span class="prog-item-name">{p.name}</span>
                     <span class={`prog-item-meta${p.scheduled_date === t ? ' prog-item-today' : ''}`}>
@@ -122,14 +127,6 @@ export function Sidebar() {
                 <span class="logo" onClick={() => { showHome(); close(); }} style="cursor:pointer">Leadout</span>
             </div>
 
-            {/* ── Instructor: my channels ──────────────────────────────── */}
-            {channels.value.length > 0 && (
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">My channels</div>
-                    {channels.value.map(ch => <ChannelItem key={ch.id} ch={ch} />)}
-                </div>
-            )}
-
             {/* ── Participant: subscriptions ───────────────────────────── */}
             {subscriptions.value.length > 0 && (
                 <div class="sidebar-section">
@@ -148,6 +145,14 @@ export function Sidebar() {
                 </div>
             )}
 
+            {/* ── Instructor: my channels ──────────────────────────────── */}
+            {channels.value.length > 0 && (
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">My channels</div>
+                    {channels.value.map(ch => <ChannelItem key={ch.id} ch={ch} />)}
+                </div>
+            )}
+            
             <div class="sidebar-footer">
                 <button class="btn-ghost sidebar-signout" onClick={() => { signOut(); close(); }}>
                     Sign out

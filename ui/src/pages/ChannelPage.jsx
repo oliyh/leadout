@@ -224,13 +224,6 @@ export function ChannelPage({ channelId }) {
                     ))}
                 </section>
             )}
-
-            {subscribers.length > 0 && (
-                <section class="channel-section">
-                    <h2>Subscribers</h2>
-                    <p class="subscriber-list">{subscribers.length} device{subscribers.length !== 1 ? 's' : ''} subscribed</p>
-                </section>
-            )}
         </div>
     );
 }

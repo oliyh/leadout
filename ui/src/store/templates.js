@@ -8,7 +8,7 @@ export function pyramidSegments({ minSec, maxSec, incSec, effortName, recoveryNa
 
     return durations.flatMap((d, i) => [
         { name: effortName || 'Effort', kind: 'time', duration: d },
-        { name: recoveryName || 'Recovery', kind: 'time', duration: Math.round(d * 0.5) },
+        { name: recoveryName || 'Recovery', kind: 'time', duration: d },
     ]);
 }
 

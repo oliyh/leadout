@@ -416,17 +416,17 @@ class leadout_datafieldView extends WatchUi.DataField {
     }
 
     // Shown when the server says this device_code is not registered.
-    // Pressing LAP opens leadout.oliy.co.uk/register in the paired phone browser.
+    // Pressing LAP opens leadout.oliy.co.uk in the paired phone browser.
     hidden function drawUnregistered(dc as Dc, cx as Number, cy as Number, fgColor as ColorValue) as Void {
         var h = dc.getHeight();
 
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, h / 4, Graphics.FONT_XTINY,
-            "leadout.oliy.co.uk/register",
+            "leadout.oliy.co.uk",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h / 2 - 14, Graphics.FONT_XTINY,
+        dc.drawText(cx, h / 2 - 24, Graphics.FONT_XTINY,
             "Device code",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
@@ -506,7 +506,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             // Two-column pace display: Target | Actual
             var leftX  = cx / 2;
             var rightX = cx + cx / 2;
-            var labelY = h * 3 / 4 - 14;
+            var labelY = h * 3 / 4 - 28;
             var valueY = h * 3 / 4 + 10;
 
             dc.drawText(leftX, labelY, Graphics.FONT_XTINY,

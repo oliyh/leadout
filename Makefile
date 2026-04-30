@@ -5,13 +5,14 @@ DEV_KEY     := $(HOME)/dev/garmin-developer/developer_key
 DATAFIELD   := datafield/leadout-datafield
 PRG         := $(DATAFIELD)/bin/leadoutdatafield.prg
 PRG_TEST    := $(DATAFIELD)/bin/leadoutdatafield-test.prg
+PRG_SIM     := $(DATAFIELD)/bin/leadoutdatafield-sim.prg
+PRG_RELEASE := $(DATAFIELD)/bin/leadoutdatafield.iq
 DEVICE      := fr265s
 DEVICE_SIM  := fr265s_sim
-PRG_SIM     := $(DATAFIELD)/bin/leadoutdatafield-sim.prg
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
-.PHONY: env datafield datafield-sim datafield-test datafield-run-tests install-datafield \
+.PHONY: env datafield datafield-sim datafield-test datafield-release datafield-run-tests install-datafield \
         sim sim-lap sim-screenshot \
         ui-install ui-dev ui-build server-install server-start server-dev server-test dev
 
@@ -50,6 +51,16 @@ datafield-test:
 		-y $(DEV_KEY) \
 		-d $(DEVICE_SIM) \
 		--unit-test -w
+
+datafield-release:
+	$(JAVA) -Xms1g \
+		-Dfile.encoding=UTF-8 \
+		-Dapple.awt.UIElement=true \
+		-jar $(SDK_JAR) \
+		-o $(PRG_RELEASE) \
+		-f $(DATAFIELD)/monkey-device.jungle \
+		-y $(DEV_KEY) \
+		--package-app
 
 # Build test binary then run it via monkeydo against the simulator.
 # Starts the simulator automatically if not already running.

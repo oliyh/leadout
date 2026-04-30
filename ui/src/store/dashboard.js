@@ -75,7 +75,7 @@ effect(() => {
     let url = '/';
     if (view?.type === 'channel')           url = `/channels/${view.id}`;
     else if (view?.type === 'subscription') url = `/subscriptions/${view.channel_id}`;
-    else if (view?.type === 'programme')    url = `/channels/${view.channel_id}`;
+    else if (view?.type === 'programme')    url = `/channels/${view.channel_id}/programme/${view.id}`;
     if (current !== url) history.pushState(null, '', url);
 });
 
