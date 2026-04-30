@@ -123,5 +123,13 @@ leadout/
 
 - makefile recipe to completely remove it from watch
 - totally empty sidebar when you set up a new account, looks a bit silly
-- register popup doesnt make you login first, so you just get account not recognised
-- is it background syncing? does background.exit kill off the background registration?
+- device code still not populated on register page opened from watch
+- it also doesnt make you login first, so you just get account not recognised
+- even though we can't programatically interact with the sim, we can check the log output - a successful startup looks like this (can add the registration too) and subscribe / add & update programmes, deregister watch - should see it all flow through
+```
+loadProgramme: name=Sprintervals blocks=1
+onSyncResponse: code=200
+loadProgramme: name=Sprintervals blocks=1
+Background: onSyncResponse: code=200
+loadProgramme: name=Sprintervals v2 blocks=1
+```

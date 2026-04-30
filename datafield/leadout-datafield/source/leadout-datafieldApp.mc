@@ -6,6 +6,7 @@ import Toybox.System;
 import Toybox.Time;
 import Toybox.WatchUi;
 
+(:background)
 class leadout_datafieldApp extends Application.AppBase {
 
     hidden var mView as leadout_datafieldView?;
@@ -16,11 +17,10 @@ class leadout_datafieldApp extends Application.AppBase {
         // Stable per-device identifier — generated once, persisted forever.
         // Displayed on screen so the participant can register at /register.
         mDeviceCode = getOrCreateDeviceCode();
+        Background.registerForTemporalEvent(new Time.Duration(5 * 60));
     }
 
     function onStart(state as Dictionary?) as Void {
-        Background.registerForTemporalEvent(new Time.Duration(5 * 60));
-
         // Foreground sync on open. A failed sync never wipes local storage —
         // the view falls back to the last successfully cached programme.
         makeSyncRequest(mDeviceCode, method(:onSyncResponse));

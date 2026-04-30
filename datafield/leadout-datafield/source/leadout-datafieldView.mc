@@ -274,6 +274,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     // 404 → still unregistered; compute() will retry after 10 s.
     // Other → network issue; compute() will retry after 10 s.
     function onRegistrationPoll(responseCode as Number, data as Dictionary?) as Void {
+        System.println("onRegistrationPoll: code=" + responseCode);
         mPolling = false;
         if (responseCode == 200 && data != null) {
             var programmes = data["programmes"] as Array<Dictionary>;
