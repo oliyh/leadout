@@ -113,17 +113,17 @@ leadout/
 
 ### server / UI
 - separate pages to show 1. channels 2. devices 3. subscriptions
-  - these should fetch their own data to display
+  - these should fetch their own data to display (no more openExternalProgramme-like code)
   - the homepage should render them all together, reusing the components
 
 - unsubscribe from channel should be a modal for destructive action, same as removing a device
 
 - when you are not signed in, hide the nav bar and put the google button on the main screen
 
-- device code still not populated on register page opened from watch
-- it also doesnt make you login first, so you just get account not recognised
+- it should make you login first, then enter the device code (or remember it)
+- when registered, take you to the home page, don't show "watch registered" screen
 
-- can we pre-emptively open the register page when datafield is fired up for the first time? rather than waiting for user to press lap
+- can we pre-emptively open the register page when datafield is fired up for the first time? rather than waiting for user to press lap. ensure it only happens once
 
 - ensure FONT_XTINY labels in watch view are consistently 10px offset from text underneath them
 
@@ -136,14 +136,13 @@ loadProgramme: name=Sprintervals blocks=1
 Background: onSyncResponse: code=200
 loadProgramme: name=Sprintervals v2 blocks=1
 ```
+
+- server could capture user's unit preference (miles or km) when device registers, and display all numbers in their preferred units
+
 - "register another" and "new channel" could be ghost entries below the devices and channels lists,
   and when on a channel page, possibly do the same with "New programme" - ask me about this
 
 
-- pages should fetch their own data, not rely on other things loading it for them (openExternalProgramme)
-
 - watch display when there is a pace target - we lose the 'next' block. is there room?
 
 - pyramid should be able to parameterise the rest period length
-
-- server could capture user's unit preference (miles or km) when device registers, and display all numbers in their preferred units
