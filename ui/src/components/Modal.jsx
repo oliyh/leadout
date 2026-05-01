@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { modal, closeModal } from '../store/modal.js';
 import { programmes, createProgramme, deleteProgramme, cloneProgramme, addBlock, openExternalProgramme } from '../store/programmes.js';
 import { pyramidSegments, pyramidPreview, fartlek321Segments, fartlek321Preview, monaFartlekSegments, monaFartlekPreview } from '../store/templates.js';
-import { unsubscribe, removeDevice, createProgramme as createChannelProgramme, showProgrammeEditor, createChannel, showChannel } from '../store/dashboard.js';
+import { unsubscribe, removeDevice, createProgramme as createChannelProgramme, showProgrammeEditor, createChannel, showChannel, showHome } from '../store/dashboard.js';
 import { accountId } from '../store/auth.js';
 import { participantApi } from '../store/api.js';
 import { loadParticipantData } from '../store/dashboard.js';
@@ -198,6 +198,7 @@ function ConfirmUnsubscribeModal({ channelId, channelName }) {
     async function onConfirm() {
         setBusy(true);
         await unsubscribe(channelId);
+        showHome();
         closeModal();
     }
 

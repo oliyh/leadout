@@ -116,9 +116,6 @@ leadout/
   - these should fetch their own data to display (no more openExternalProgramme-like code)
   - the homepage should render them all together, reusing the components
 
-- unsubscribe from channel should be a modal for destructive action, same as removing a device
-
-- when you are not signed in, hide the nav bar and put the google button on the main screen
 
 - it should make you login first, then enter the device code (or remember it)
 - when registered, take you to the home page, don't show "watch registered" screen

@@ -1,5 +1,5 @@
-import { useState } from 'preact/hooks';
-import { unsubscribe, showHome, showSubscription, showSubscriptionProgramme } from '../store/dashboard.js';
+import { showSubscription, showSubscriptionProgramme } from '../store/dashboard.js';
+import { openConfirmUnsubscribe } from '../store/modal.js';
 import { Timeline } from '../components/Timeline.jsx';
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -32,9 +32,6 @@ function ProgrammeReadonlyView({ prog, channelId, onBack }) {
 }
 
 export function SubscriptionView({ channelId, programmeId, subscriptions }) {
-    const [confirming, setConfirming] = useState(false);
-    const [removing, setRemoving] = useState(false);
-
     const sub = subscriptions.value.find(s => s.channel_id === channelId);
     if (!sub) return <div class="main-content"><p>Subscription not found.</p></div>;
 
@@ -53,28 +50,14 @@ export function SubscriptionView({ channelId, programmeId, subscriptions }) {
     const upcoming = (sub.programmes ?? []).filter(p => p.scheduled_date >= t);
     const past     = (sub.programmes ?? []).filter(p => p.scheduled_date < t);
 
-    async function doUnsubscribe() {
-        setRemoving(true);
-        await unsubscribe(channelId);
-        showHome();
-    }
-
     return (
         <div class="main-content subscription-view">
             <div class="channel-page-header">
                 <h1>{sub.channel?.name ?? 'Channel'}</h1>
-                {!confirming
-                    ? <button class="btn-danger btn-sm" onClick={() => setConfirming(true)}>Unsubscribe</button>
-                    : (
-                        <div class="confirm-unsubscribe">
-                            <span>Remove this subscription?</span>
-                            <button class="btn-danger btn-sm" onClick={doUnsubscribe} disabled={removing}>
-                                {removing ? 'Removing…' : 'Yes, unsubscribe'}
-                            </button>
-                            <button class="btn-ghost btn-sm" onClick={() => setConfirming(false)}>Cancel</button>
-                        </div>
-                    )
-                }
+                <button class="btn-danger btn-sm"
+                    onClick={() => openConfirmUnsubscribe(channelId, sub.channel?.name ?? 'this channel')}>
+                    Unsubscribe
+                </button>
             </div>
 
             {upcoming.length === 0
