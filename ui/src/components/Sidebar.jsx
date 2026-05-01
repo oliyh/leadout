@@ -74,10 +74,14 @@ function SubscriptionItem({ sub }) {
 }
 
 function DeviceItem({ device }) {
+    const name = device.device_type_name;
     return (
         <div class="sidebar-device-item">
             <div class="sidebar-device-item-row">
-                <span class="sidebar-device-code">{device.device_code}</span>
+                <span class="sidebar-device-code">
+                    {name ?? device.device_code}
+                    {name && <span class="sidebar-device-code-badge">{device.device_code}</span>}
+                </span>
             </div>
             <span class="sidebar-device-meta">
                 Synced: {formatDateTime(device.last_synced_at)}

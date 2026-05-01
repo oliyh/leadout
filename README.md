@@ -112,16 +112,18 @@ leadout/
 ## Todo
 
 ### server / UI
-- partnumber can be looked up here: https://apps.garmin.com/api/appsLibraryExternalServices/api/asw/deviceTypes - do it on the server for rendering, cache it obviously, and use the image urls as well
-
 - separate pages to show 1. channels 2. devices 3. subscriptions
+  - these should fetch their own data to display
+  - the homepage should render them all together, reusing the components
+
+- unsubscribe from channel should be a modal for destructive action, same as removing a device
+
+- when you are not signed in, hide the nav bar and put the google button on the main screen
 
 - device code still not populated on register page opened from watch
 - it also doesnt make you login first, so you just get account not recognised
 
 - can we pre-emptively open the register page when datafield is fired up for the first time? rather than waiting for user to press lap
-
-- when you are not signed in, hide the nav bar and put the google button on the main screen
 
 - ensure FONT_XTINY labels in watch view are consistently 10px offset from text underneath them
 
@@ -136,12 +138,12 @@ loadProgramme: name=Sprintervals v2 blocks=1
 ```
 - "register another" and "new channel" could be ghost entries below the devices and channels lists,
   and when on a channel page, possibly do the same with "New programme" - ask me about this
-- have a page for my devices, linked from the navbar. this should be a simple list, same as on home page - in fact we can still have the three main sections as their own pages, and reuse the list components on the homepage
+
 
 - pages should fetch their own data, not rely on other things loading it for them (openExternalProgramme)
 
 - watch display when there is a pace target - we lose the 'next' block. is there room?
-- unsubscribe from channel should be a modal for destructive action like removing a device
+
 - pyramid should be able to parameterise the rest period length
 
 - server could capture user's unit preference (miles or km) when device registers, and display all numbers in their preferred units

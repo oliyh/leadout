@@ -27,6 +27,33 @@ function wrap(fn) {
     return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
 
+// ── Garmin device type cache ───────────────────────────────────────────────
+// Fetched once from Garmin's app store API; keyed by partNumber (e.g. 006-B2431-00).
+// The watch sends System.getDeviceSettings().partNumber on every sync, stored as model_name.
+
+let _deviceTypeMap = null;
+let _deviceTypeCacheExpiry = 0;
+
+export function _resetDeviceTypeCacheForTest() {
+    _deviceTypeMap = null;
+    _deviceTypeCacheExpiry = 0;
+}
+
+async function getDeviceTypeMap() {
+    const now = Date.now();
+    if (_deviceTypeMap && now < _deviceTypeCacheExpiry) return _deviceTypeMap;
+    try {
+        const r = await fetch('https://apps.garmin.com/api/appsLibraryExternalServices/api/asw/deviceTypes');
+        if (!r.ok) return _deviceTypeMap ?? new Map();
+        const types = await r.json();
+        _deviceTypeMap = new Map(types.map(t => [t.partNumber, t]));
+        _deviceTypeCacheExpiry = now + 24 * 60 * 60 * 1000;
+        return _deviceTypeMap;
+    } catch {
+        return _deviceTypeMap ?? new Map();
+    }
+}
+
 export function createApp(store) {
     const app = express();
     app.use(express.json());
@@ -166,7 +193,14 @@ export function createApp(store) {
 
     app.get('/api/accounts/:id/devices', async (req, res) => {
         if (!await store.getAccount(req.params.id)) return res.status(404).end();
-        res.json(await store.findDevicesByAccount(req.params.id));
+        const [devices, typeMap] = await Promise.all([
+            store.findDevicesByAccount(req.params.id),
+            getDeviceTypeMap(),
+        ]);
+        res.json(devices.map(d => {
+            const dt = d.model_name ? typeMap.get(d.model_name) : null;
+            return { ...d, device_type_name: dt?.name ?? null, device_type_image: dt?.imageUrl ?? null };
+        }));
     });
 
     app.get('/api/accounts/:id/subscriptions', async (req, res) => {

@@ -98,16 +98,15 @@ function SubscriptionRow({ sub }) {
 }
 
 function DeviceRow({ device }) {
+    const name = device.device_type_name;
+    const image = device.device_type_image;
     return (
         <div class="home-row">
+            {image && <img class="device-thumb" src={image} alt={name || device.device_code} />}
             <div class="home-row-main">
-                <span class="home-row-name" style="font-family: monospace; letter-spacing: 0.1em">
-                    {device.device_code}
-                    {device.model_name && (
-                        <span style="font-family: inherit; letter-spacing: normal; font-weight: 400; color: #888; margin-left: 8px; font-size: 13px">
-                            {device.model_name}
-                        </span>
-                    )}
+                <span class="home-row-name">
+                    {name ?? <span style="font-family: monospace; letter-spacing: 0.1em">{device.device_code}</span>}
+                    {name && <span class="device-code-badge">{device.device_code}</span>}
                 </span>
                 <span class="home-row-meta">
                     {device.last_synced_at
