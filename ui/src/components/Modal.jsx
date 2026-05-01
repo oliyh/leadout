@@ -1,8 +1,11 @@
 import { useState } from 'preact/hooks';
 import { modal, closeModal } from '../store/modal.js';
 import { programmes, createProgramme, deleteProgramme, cloneProgramme, addBlock, openExternalProgramme } from '../store/programmes.js';
-import { pyramidSegments, pyramidPreview } from '../store/templates.js';
-import { unsubscribe, removeDevice, createProgramme as createChannelProgramme, showProgrammeEditor } from '../store/dashboard.js';
+import { pyramidSegments, pyramidPreview, fartlek321Segments, fartlek321Preview, monaFartlekSegments, monaFartlekPreview } from '../store/templates.js';
+import { unsubscribe, removeDevice, createProgramme as createChannelProgramme, showProgrammeEditor, createChannel, showChannel } from '../store/dashboard.js';
+import { accountId } from '../store/auth.js';
+import { participantApi } from '../store/api.js';
+import { loadParticipantData } from '../store/dashboard.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -63,59 +66,104 @@ function NewProgrammeModal() {
     );
 }
 
-// ── Pyramid Template ──────────────────────────────────────────────────────────
+// ── Template modal ────────────────────────────────────────────────────────────
 
-function TemplateModal({ progId }) {
+function PyramidForm({ progId }) {
     const [minMin, setMinMin] = useState('1');
     const [maxMin, setMaxMin] = useState('5');
     const [incMin, setIncMin] = useState('1');
     const [effortName, setEffortName] = useState('Effort');
     const [recoveryName, setRecoveryName] = useState('Recovery');
-
     const params = {
-        minSec: Number(minMin) * 60,
-        maxSec: Number(maxMin) * 60,
-        incSec: Number(incMin) * 60,
-        effortName, recoveryName,
+        minSec: Number(minMin) * 60, maxSec: Number(maxMin) * 60,
+        incSec: Number(incMin) * 60, effortName, recoveryName,
     };
-
-    function onApply() {
-        addBlock(progId, { name: 'Pyramid', segments: pyramidSegments(params) });
-        closeModal();
-    }
-
+    function onApply() { addBlock(progId, { name: 'Pyramid', segments: pyramidSegments(params) }); closeModal(); }
     return (
         <>
-            <h2>Pyramid template</h2>
             <div class="form-row">
-                <div class="form-field">
-                    <label>Min (min)</label>
-                    <input type="number" min="1" value={minMin} onInput={e => setMinMin(e.target.value)} />
-                </div>
-                <div class="form-field">
-                    <label>Max (min)</label>
-                    <input type="number" min="1" value={maxMin} onInput={e => setMaxMin(e.target.value)} />
-                </div>
-                <div class="form-field">
-                    <label>Step (min)</label>
-                    <input type="number" min="1" value={incMin} onInput={e => setIncMin(e.target.value)} />
-                </div>
+                <div class="form-field"><label>Min (min)</label><input type="number" min="1" value={minMin} onInput={e => setMinMin(e.target.value)} /></div>
+                <div class="form-field"><label>Max (min)</label><input type="number" min="1" value={maxMin} onInput={e => setMaxMin(e.target.value)} /></div>
+                <div class="form-field"><label>Step (min)</label><input type="number" min="1" value={incMin} onInput={e => setIncMin(e.target.value)} /></div>
             </div>
             <div class="form-row">
-                <div class="form-field">
-                    <label>Effort label</label>
-                    <input value={effortName} onInput={e => setEffortName(e.target.value)} />
-                </div>
-                <div class="form-field">
-                    <label>Recovery label</label>
-                    <input value={recoveryName} onInput={e => setRecoveryName(e.target.value)} />
-                </div>
+                <div class="form-field"><label>Effort label</label><input value={effortName} onInput={e => setEffortName(e.target.value)} /></div>
+                <div class="form-field"><label>Recovery label</label><input value={recoveryName} onInput={e => setRecoveryName(e.target.value)} /></div>
             </div>
             <div class="template-preview">{pyramidPreview(params)}</div>
             <div class="modal-actions">
                 <button class="btn-ghost" onClick={closeModal}>Cancel</button>
                 <button class="btn-primary" onClick={onApply}>Add block</button>
             </div>
+        </>
+    );
+}
+
+function Fartlek321Form({ progId }) {
+    const [reps, setReps] = useState('1');
+    const [effortName, setEffortName] = useState('Hard');
+    const [recoveryName, setRecoveryName] = useState('Easy');
+    const params = { reps: Number(reps), effortName, recoveryName };
+    function onApply() { addBlock(progId, { name: '3-2-1 Fartlek', segments: fartlek321Segments(params) }); closeModal(); }
+    return (
+        <>
+            <p class="template-desc">Descending ladder: 3 min hard / 3 min easy, 2/2, 1/1. One block per set.</p>
+            <div class="form-row">
+                <div class="form-field"><label>Sets</label><input type="number" min="1" max="6" value={reps} onInput={e => setReps(e.target.value)} /></div>
+                <div class="form-field"><label>Effort label</label><input value={effortName} onInput={e => setEffortName(e.target.value)} /></div>
+                <div class="form-field"><label>Recovery label</label><input value={recoveryName} onInput={e => setRecoveryName(e.target.value)} /></div>
+            </div>
+            <div class="template-preview">{fartlek321Preview(params)}</div>
+            <div class="modal-actions">
+                <button class="btn-ghost" onClick={closeModal}>Cancel</button>
+                <button class="btn-primary" onClick={onApply}>Add block</button>
+            </div>
+        </>
+    );
+}
+
+function MonaFartlekForm({ progId }) {
+    const [effortName, setEffortName] = useState('Hard');
+    const [recoveryName, setRecoveryName] = useState('Easy');
+    const params = { effortName, recoveryName };
+    function onApply() { addBlock(progId, { name: 'Mona Fartlek', segments: monaFartlekSegments(params) }); closeModal(); }
+    return (
+        <>
+            <p class="template-desc">Classic set: 2×6 min, 4×3 min, 4×2 min, 4×1 min — each effort matched by equal recovery.</p>
+            <div class="form-row">
+                <div class="form-field"><label>Effort label</label><input value={effortName} onInput={e => setEffortName(e.target.value)} /></div>
+                <div class="form-field"><label>Recovery label</label><input value={recoveryName} onInput={e => setRecoveryName(e.target.value)} /></div>
+            </div>
+            <div class="template-preview">{monaFartlekPreview()}</div>
+            <div class="modal-actions">
+                <button class="btn-ghost" onClick={closeModal}>Cancel</button>
+                <button class="btn-primary" onClick={onApply}>Add block</button>
+            </div>
+        </>
+    );
+}
+
+const TEMPLATES = [
+    { id: 'pyramid',  label: 'Pyramid' },
+    { id: '321',      label: '3-2-1 Fartlek' },
+    { id: 'mona',     label: 'Mona Fartlek' },
+];
+
+function TemplateModal({ progId }) {
+    const [selected, setSelected] = useState('pyramid');
+    return (
+        <>
+            <h2>Add from template</h2>
+            <div class="modal-tabs" style="margin-bottom:16px">
+                {TEMPLATES.map(t => (
+                    <button key={t.id} class={`modal-tab${selected === t.id ? ' active' : ''}`} onClick={() => setSelected(t.id)}>
+                        {t.label}
+                    </button>
+                ))}
+            </div>
+            {selected === 'pyramid' && <PyramidForm progId={progId} />}
+            {selected === '321'     && <Fartlek321Form progId={progId} />}
+            {selected === 'mona'    && <MonaFartlekForm progId={progId} />}
         </>
     );
 }
@@ -238,6 +286,109 @@ function CloneProgrammeModal({ prog, channelId }) {
     );
 }
 
+// ── New Channel ───────────────────────────────────────────────────────────────
+
+function NewChannelModal() {
+    const [name, setName] = useState('');
+    const [busy, setBusy] = useState(false);
+
+    async function onSave(e) {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setBusy(true);
+        const channel = await createChannel(name.trim());
+        closeModal();
+        showChannel(channel.id);
+    }
+
+    return (
+        <>
+            <h2>New channel</h2>
+            <form onSubmit={onSave}>
+                <div class="form-field">
+                    <label>Channel name</label>
+                    <input autoFocus value={name} onInput={e => setName(e.target.value)} placeholder="e.g. Tuesday Runs with Sarah" />
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-ghost" onClick={closeModal} disabled={busy}>Cancel</button>
+                    <button type="submit" class="btn-primary" disabled={busy || !name.trim()}>
+                        {busy ? 'Creating…' : 'Create channel'}
+                    </button>
+                </div>
+            </form>
+        </>
+    );
+}
+
+// ── Register Device ───────────────────────────────────────────────────────────
+
+function RegisterDeviceModal() {
+    const [code, setCode] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState(null);
+    const [done, setDone] = useState(false);
+
+    async function onSubmit(e) {
+        e.preventDefault();
+        const clean = code.trim().toUpperCase();
+        if (!clean) return;
+        setBusy(true);
+        setError(null);
+        try {
+            await participantApi.registerDevice(accountId.value, clean);
+            await loadParticipantData();
+            setDone(true);
+        } catch (err) {
+            setError(err.message === 'device_code already registered'
+                ? 'This device code is already registered to an account.'
+                : err.message);
+            setBusy(false);
+        }
+    }
+
+    if (done) {
+        return (
+            <>
+                <h2>Watch registered!</h2>
+                <p style="color:#555; margin-bottom:20px">Your watch will sync programmes on its next connection.</p>
+                <div class="modal-actions">
+                    <button class="btn-primary" onClick={closeModal}>Done</button>
+                </div>
+            </>
+        );
+    }
+
+    return (
+        <>
+            <h2>Register another watch</h2>
+            <p style="color:#555; margin-bottom:16px">
+                Open the Leadout data field on your Garmin watch — it will show a short device code. Enter it below.
+            </p>
+            <form onSubmit={onSubmit}>
+                <div class="form-field">
+                    <label>Device code</label>
+                    <input
+                        autoFocus
+                        class="device-code-input"
+                        value={code}
+                        onInput={e => setCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. A1B2C3"
+                        maxLength={16}
+                        spellCheck={false}
+                    />
+                </div>
+                {error && <p class="error">{error}</p>}
+                <div class="modal-actions">
+                    <button type="button" class="btn-ghost" onClick={closeModal} disabled={busy}>Cancel</button>
+                    <button type="submit" class="btn-primary" disabled={busy || !code.trim()}>
+                        {busy ? 'Registering…' : 'Register'}
+                    </button>
+                </div>
+            </form>
+        </>
+    );
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────────
 
 export function Modal() {
@@ -253,6 +404,8 @@ export function Modal() {
                 {m.type === 'confirm-unsubscribe'   && <ConfirmUnsubscribeModal channelId={m.channelId} channelName={m.channelName} />}
                 {m.type === 'confirm-remove-device' && <ConfirmRemoveDeviceModal deviceId={m.deviceId} deviceCode={m.deviceCode} />}
                 {m.type === 'clone-programme'       && <CloneProgrammeModal prog={m.prog} channelId={m.channelId} />}
+                {m.type === 'new-channel'           && <NewChannelModal />}
+                {m.type === 'register-device'       && <RegisterDeviceModal />}
             </div>
         </div>
     );

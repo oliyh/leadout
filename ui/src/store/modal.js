@@ -6,6 +6,8 @@ import { signal } from '@preact/signals';
 //      | { type: 'confirm-unsubscribe', channelId, channelName }
 //      | { type: 'confirm-remove-device', deviceId, deviceCode }
 //      | { type: 'clone-programme', prog, channelId }
+//      | { type: 'new-channel' }
+//      | { type: 'register-device' }
 export const modal = signal(null);
 
 export function openNewProgramme() { modal.value = { type: 'new-programme' }; }
@@ -14,4 +16,6 @@ export function openConfirmDelete(progId) { modal.value = { type: 'confirm-delet
 export function openConfirmUnsubscribe(channelId, channelName) { modal.value = { type: 'confirm-unsubscribe', channelId, channelName }; }
 export function openConfirmRemoveDevice(deviceId, deviceCode) { modal.value = { type: 'confirm-remove-device', deviceId, deviceCode }; }
 export function openCloneProgramme(prog, channelId) { modal.value = { type: 'clone-programme', prog, channelId }; }
+export function openNewChannel() { modal.value = { type: 'new-channel' }; }
+export function openRegisterDevice() { modal.value = { type: 'register-device' }; }
 export function closeModal() { modal.value = null; }

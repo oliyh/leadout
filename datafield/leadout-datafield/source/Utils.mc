@@ -31,10 +31,10 @@ function getOrCreateDeviceCode() as String {
     if (stored instanceof String) {
         return stored as String;
     }
-    var alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    var alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
     var code = "";
     for (var i = 0; i < 6; i++) {
-        var idx = Math.rand().abs() % 32;
+        var idx = Math.rand().abs() % 31;
         code = code + alphabet.substring(idx, idx + 1);
     }
     Application.Storage.setValue("device_code", code);

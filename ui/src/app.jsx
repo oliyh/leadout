@@ -42,7 +42,7 @@ function MainArea() {
     }
 
     if (view?.type === 'subscription') {
-        return <SubscriptionView channelId={view.channel_id} subscriptions={subscriptions} />;
+        return <SubscriptionView channelId={view.channel_id} programmeId={view.programme_id} subscriptions={subscriptions} />;
     }
 
     // Default: home dashboard

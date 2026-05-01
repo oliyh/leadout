@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { accountId } from '../store/auth.js';
+import { accountId, signOut } from '../store/auth.js';
 import { GoogleSignInButton } from '../components/GoogleSignInButton.jsx';
 import { participantApi } from '../store/api.js';
 
@@ -25,6 +25,10 @@ export function RegisterPage() {
             await participantApi.registerDevice(accountId.value, code);
             setDone(true);
         } catch (err) {
+            if (err.message === 'account not found') {
+                signOut();
+                return;
+            }
             setRegError(err.message === 'device_code already registered'
                 ? 'This device code is already registered to an account.'
                 : err.message);

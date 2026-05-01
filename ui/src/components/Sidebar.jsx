@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'preact/hooks';
-import { accountId, signOut, isSignedIn } from '../store/auth.js';
+import { signOut, isSignedIn } from '../store/auth.js';
 import { openExternalProgramme } from '../store/programmes.js';
 import {
     channels, subscriptions, devices, currentView,
-    showChannel, showSubscription, showHome, showProgrammeEditor
+    showChannel, showSubscription, showSubscriptionProgramme, showHome, showProgrammeEditor
 } from '../store/dashboard.js';
 import { GoogleSignInButton } from './GoogleSignInButton.jsx';
 
@@ -61,7 +61,8 @@ function SubscriptionItem({ sub }) {
                 <span class="sub-channel-name">{sub.channel?.name ?? sub.channel_id}</span>
             </div>
             {sub.programmes?.filter(p => p.scheduled_date >= t).map(p => (
-                <div key={p.id} class="prog-item prog-item-nested prog-item-sub">
+                <div key={p.id} class="prog-item prog-item-nested prog-item-sub"
+                    onClick={() => showSubscriptionProgramme(sub.channel_id, p.id)}>
                     <span class="prog-item-name">{p.name}</span>
                     <span class={`prog-item-meta${p.scheduled_date === t ? ' prog-item-today' : ''}`}>
                         {p.scheduled_date === t ? 'Today' : formatDate(p.scheduled_date)}
@@ -110,6 +111,9 @@ export function Sidebar() {
                         <p>Sign in to manage channels and subscriptions.</p>
                         <GoogleSignInButton />
                     </div>
+                    <div class="sidebar-footer">
+                        <a class="sidebar-privacy-link" href="/privacy">Privacy</a>
+                    </div>
                 </aside>
                 {open && <div class="sidebar-backdrop" onClick={close} />}
             </>
@@ -128,35 +132,37 @@ export function Sidebar() {
             </div>
 
             {/* ── Participant: subscriptions ───────────────────────────── */}
-            {subscriptions.value.length > 0 && (
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">My subscriptions</div>
-                    {subscriptions.value.map(sub => (
-                        <SubscriptionItem key={sub.id} sub={sub} />
-                    ))}
-                </div>
-            )}
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">My subscriptions</div>
+                {subscriptions.value.length === 0
+                    ? <div class="sidebar-empty">No subscriptions yet</div>
+                    : subscriptions.value.map(sub => <SubscriptionItem key={sub.id} sub={sub} />)
+                }
+            </div>
 
             {/* ── Participant: devices ─────────────────────────────────── */}
-            {devices.value.length > 0 && (
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">My devices</div>
-                    {devices.value.map(d => <DeviceItem key={d.id} device={d} />)}
-                </div>
-            )}
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">My devices</div>
+                {devices.value.length === 0
+                    ? <div class="sidebar-empty">No devices registered</div>
+                    : devices.value.map(d => <DeviceItem key={d.id} device={d} />)
+                }
+            </div>
 
             {/* ── Instructor: my channels ──────────────────────────────── */}
-            {channels.value.length > 0 && (
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">My channels</div>
-                    {channels.value.map(ch => <ChannelItem key={ch.id} ch={ch} />)}
-                </div>
-            )}
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">My channels</div>
+                {channels.value.length === 0
+                    ? <div class="sidebar-empty">No channels yet</div>
+                    : channels.value.map(ch => <ChannelItem key={ch.id} ch={ch} />)
+                }
+            </div>
             
             <div class="sidebar-footer">
                 <button class="btn-ghost sidebar-signout" onClick={() => { signOut(); close(); }}>
                     Sign out
                 </button>
+                <a class="sidebar-privacy-link" href="/privacy">Privacy</a>
             </div>
         </aside>
         {open && <div class="sidebar-backdrop" onClick={close} />}

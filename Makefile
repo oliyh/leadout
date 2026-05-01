@@ -12,7 +12,7 @@ DEVICE_SIM  := fr265s_sim
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
-.PHONY: env datafield datafield-sim datafield-test datafield-release datafield-run-tests install-datafield \
+.PHONY: env datafield datafield-sim datafield-test datafield-release datafield-run-tests install-datafield uninstall-datafield \
         sim sim-lap sim-screenshot \
         ui-install ui-dev ui-build server-install server-start server-dev server-test dev
 
@@ -78,6 +78,13 @@ datafield-run-tests: datafield-test
 install-datafield: datafield
 	@test -n "$(WATCH_MTP)" || (echo "No MTP device found — is the watch plugged in?"; exit 1)
 	gio copy -p "file://$(PWD)/$(PRG)" "$(WATCH_APPS)/"
+
+# Removes the datafield from a watch connected via usb
+uninstall-datafield:
+	@test -n "$(WATCH_MTP)" || (echo "No MTP device found — is the watch plugged in?"; exit 1)
+	gio trash "$(WATCH_APPS)/leadoutdatafield.prg" 2>/dev/null || \
+	    gio remove "$(WATCH_APPS)/leadoutdatafield.prg" 2>/dev/null || \
+	    (echo "App not found on watch — may already be removed"; exit 0)
 
 sim-screenshot:
 	scripts/sim-screenshot.sh ./tmp/sim.png

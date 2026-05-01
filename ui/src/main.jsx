@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { App } from './app.jsx';
 import { JoinPage } from './pages/JoinPage.jsx';
 import { RegisterPage } from './pages/RegisterPage.jsx';
+import { PrivacyPage } from './pages/PrivacyPage.jsx';
 import './style.css';
 
 const path = window.location.pathname;
@@ -12,6 +13,8 @@ if (joinMatch) {
     root = <JoinPage channelId={joinMatch[1]} />;
 } else if (path === '/register') {
     root = <RegisterPage />;
+} else if (path === '/privacy') {
+    root = <PrivacyPage />;
 } else {
     root = <App />;
 }

@@ -23,6 +23,10 @@ async function defaultChannel(store) {
     return ch;
 }
 
+function wrap(fn) {
+    return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+}
+
 export function createApp(store) {
     const app = express();
     app.use(express.json());
@@ -80,7 +84,7 @@ export function createApp(store) {
         res.status(201).json(device);
     });
 
-    app.delete('/api/devices/:id', async (req, res) => {
+    app.delete('/api/devices/:id', wrap(async (req, res) => {
         const { account_id } = req.body;
         if (!account_id) return res.status(400).json({ error: 'account_id required' });
         const device = await store.getDevice(req.params.id);
@@ -88,7 +92,7 @@ export function createApp(store) {
         if (device.account_id !== account_id) return res.status(403).json({ error: 'forbidden' });
         await store.deleteDevice(req.params.id);
         res.status(204).end();
-    });
+    }));
 
     // ── Channel management (InstructorCreatesChannel) ─────────────────────────
 
@@ -371,6 +375,12 @@ export function createApp(store) {
     app.use(express.static(publicDir));
     app.get('*', (_req, res) => {
         res.sendFile(join(publicDir, 'index.html'));
+    });
+
+    // eslint-disable-next-line no-unused-vars
+    app.use((err, _req, res, _next) => {
+        console.error(err);
+        res.status(500).json({ error: 'internal server error' });
     });
 
     return app;

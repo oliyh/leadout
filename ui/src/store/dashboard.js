@@ -12,8 +12,9 @@ export async function loadChannels() {
 }
 
 export async function createChannel(name) {
-    await instructorApi.createChannel(accountId.value, name);
+    const channel = await instructorApi.createChannel(accountId.value, name);
     await Promise.all([loadChannels(), loadParticipantData()]);
+    return channel;
 }
 
 export async function createProgramme(channel_id, doc) {
@@ -57,10 +58,10 @@ export async function removeDevice(device_id) {
 function viewFromURL() {
     const p = window.location.pathname;
     let m;
-    if ((m = p.match(/^\/channels\/([^/]+)$/)))      return { type: 'channel', id: m[1] };
-    if ((m = p.match(/^\/subscriptions\/([^/]+)$/))) return { type: 'subscription', channel_id: m[1] };
-    // Programme view is not restored on hard refresh (needs in-memory data);
-    // the URL stays as /channels/:channel_id so the channel page loads instead.
+    if ((m = p.match(/^\/channels\/([^/]+)$/)))                        return { type: 'channel', id: m[1] };
+    if ((m = p.match(/^\/subscriptions\/([^/]+)$/)))                   return { type: 'subscription', channel_id: m[1] };
+    if ((m = p.match(/^\/subscriptions\/([^/]+)\/programme\/([^/]+)/))) return { type: 'subscription', channel_id: m[1], programme_id: m[2] };
+    // Programme editor view is not restored on hard refresh (needs in-memory data).
     return null;
 }
 
@@ -70,10 +71,12 @@ export const currentView = signal(viewFromURL());
 // Skip rewrite on standalone pages that manage their own URL space.
 effect(() => {
     const current = window.location.pathname;
-    if (current.startsWith('/join/') || current.startsWith('/register')) return;
+    if (current.startsWith('/join/') || current.startsWith('/register') || current.startsWith('/privacy')) return;
     const view = currentView.value;
     let url = '/';
     if (view?.type === 'channel')           url = `/channels/${view.id}`;
+    else if (view?.type === 'subscription' && view.programme_id)
+                                            url = `/subscriptions/${view.channel_id}/programme/${view.programme_id}`;
     else if (view?.type === 'subscription') url = `/subscriptions/${view.channel_id}`;
     else if (view?.type === 'programme')    url = `/channels/${view.channel_id}/programme/${view.id}`;
     if (current !== url) history.pushState(null, '', url);
@@ -84,6 +87,7 @@ window.addEventListener('popstate', () => { currentView.value = viewFromURL(); }
 
 export function showChannel(id)            { currentView.value = { type: 'channel', id }; }
 export function showSubscription(channel_id) { currentView.value = { type: 'subscription', channel_id }; }
+export function showSubscriptionProgramme(channel_id, programme_id) { currentView.value = { type: 'subscription', channel_id, programme_id }; }
 export function showProgrammeEditor(id, channel_id) { currentView.value = { type: 'programme', id, channel_id }; }
 export function showHome()                 { currentView.value = null; }
 

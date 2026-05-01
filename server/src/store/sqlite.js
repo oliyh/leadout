@@ -116,7 +116,11 @@ export class SqliteStore {
     }
 
     async deleteDevice(id) {
-        return this._db.prepare('DELETE FROM devices WHERE id = ?').run(id).changes > 0;
+        return this._db.transaction(() => {
+            this._db.prepare('DELETE FROM sync_records WHERE device_id = ?').run(id);
+            this._db.prepare('DELETE FROM participations WHERE device_id = ?').run(id);
+            return this._db.prepare('DELETE FROM devices WHERE id = ?').run(id).changes > 0;
+        })();
     }
 
     async updateDevice(id, updates) {

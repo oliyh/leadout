@@ -111,36 +111,20 @@ leadout/
 
 ## Todo
 
-- add a privacy page at /privacy which explains how data is used (and how it is anonymous)
-- backend server dies if database op blows up, doesn't recover e.g.:
-```
-file:///home/oliy/dev/leadout/server/src/store/sqlite.js:119
-        return this._db.prepare('DELETE FROM devices WHERE id = ?').run(id).changes > 0;
-                                                                    ^
-SqliteError: FOREIGN KEY constraint failed
-    at SqliteStore.deleteDevice (file:///home/oliy/dev/leadout/server/src/store/sqlite.js:119:69)
-    at file:///home/oliy/dev/leadout/server/app.js:89:21
-    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
-  code: 'SQLITE_CONSTRAINT_FOREIGNKEY'
-}
-```
+### server / UI
+- partnumber can be looked up here: https://apps.garmin.com/api/appsLibraryExternalServices/api/asw/deviceTypes - do it on the server for rendering, cache it obviously, and use the image urls as well
 
 - separate pages to show 1. channels 2. devices 3. subscriptions
-- clicking anywhere on a programme should take you to the edit screen
-- ensure FONT_XTINY labels in watch view are consistently 10px offset from text underneath them
-- display pace in user's pref - miles or km. convert as necessary. can we read this from watch?
-- server could capture user's unit preference when device registers, and display all numbers in their preferred
-- join link doesn't work - should land you on your subscriptions page, listing all your subs, and highlight the newly joined one
-- prefilled code on register page opened from watch still doesn't work
-- partnumber can be looked up here: https://apps.garmin.com/api/appsLibraryExternalServices/api/asw/deviceTypes - do it on the server for rendering?
 
-- had to comment out L508 of datafield test
-- settings file to nuke storage and state? currently stuck in unable to sync (and it references widget which doesnt exist)
-
-- makefile recipe to completely remove it from watch
-- totally empty sidebar when you set up a new account, looks a bit silly
 - device code still not populated on register page opened from watch
 - it also doesnt make you login first, so you just get account not recognised
+
+- can we pre-emptively open the register page when datafield is fired up for the first time? rather than waiting for user to press lap
+
+- when you are not signed in, hide the nav bar and put the google button on the main screen
+
+- ensure FONT_XTINY labels in watch view are consistently 10px offset from text underneath them
+
 - even though we can't programatically interact with the sim, we can check the log output - a successful startup looks like this (can add the registration too) and subscribe / add & update programmes, deregister watch - should see it all flow through - and take screenshots too (make sim-screenshot) and compare them to expected screenshots
 ```
 Device code=ABC123
@@ -151,18 +135,13 @@ Background: onSyncResponse: code=200
 loadProgramme: name=Sprintervals v2 blocks=1
 ```
 - "register another" and "new channel" could be ghost entries below the devices and channels lists,
-  and when on a channel page, possibly do the same with "New programme"
-- adding a channel should use a modal dialogue. after submitting modal should take you straight to the channel screen
-- when editing a programme, the url doesn't change from the channel url
-- subscriber should be able to view programme in readonly mode to see what it involves
-- clicking the programme from the subs section in the sidebar should navigate to this programme readonly view
+  and when on a channel page, possibly do the same with "New programme" - ask me about this
 - have a page for my devices, linked from the navbar. this should be a simple list, same as on home page - in fact we can still have the three main sections as their own pages, and reuse the list components on the homepage
-- register another device goes to register page which is "outside" the site. it should open a modal with the register page in it
-- pages should fetch their own data, not rely on other things loading it for them (openExternalProgramme)
-- watch display when there is a pace target - we lose the next block. is there room?
-- what does interim page between blocks look like?
-- when editing segment should not have to press "save" button, it should autosave
-- more templates - 321 fartlek, mona fartlek
-- page width 800 everywhere except programme editor (and programme view) where more room is needed
-- pyramid template is wrong - work should pyramid up and down, rest should be constant (another param)
 
+- pages should fetch their own data, not rely on other things loading it for them (openExternalProgramme)
+
+- watch display when there is a pace target - we lose the 'next' block. is there room?
+- unsubscribe from channel should be a modal for destructive action like removing a device
+- pyramid should be able to parameterise the rest period length
+
+- server could capture user's unit preference (miles or km) when device registers, and display all numbers in their preferred units

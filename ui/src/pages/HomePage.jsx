@@ -3,9 +3,9 @@ import { accountId } from '../store/auth.js';
 import { participantApi } from '../store/api.js';
 import {
     channels, subscriptions, devices,
-    loadParticipantData, showChannel, showSubscription, createChannel,
+    loadParticipantData, showChannel, showSubscription,
 } from '../store/dashboard.js';
-import { openConfirmUnsubscribe, openConfirmRemoveDevice } from '../store/modal.js';
+import { openConfirmUnsubscribe, openConfirmRemoveDevice, openNewChannel, openRegisterDevice } from '../store/modal.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -124,33 +124,6 @@ function DeviceRow({ device }) {
     );
 }
 
-function NewChannelForm({ onDone }) {
-    const [name, setName] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    async function submit(e) {
-        e.preventDefault();
-        if (!name.trim()) return;
-        setSubmitting(true);
-        await createChannel(name.trim());
-        onDone();
-    }
-    return (
-        <form class="home-register-form" onSubmit={submit}>
-            <div class="home-register-row">
-                <input
-                    autoFocus
-                    value={name}
-                    onInput={e => setName(e.target.value)}
-                    placeholder="Channel name"
-                />
-                <button type="submit" class="btn-primary" disabled={submitting || !name.trim()}>
-                    {submitting ? 'Creating…' : 'Create'}
-                </button>
-                <button type="button" class="btn-ghost" onClick={onDone}>Cancel</button>
-            </div>
-        </form>
-    );
-}
 
 function WeekCalendar() {
     const subs = subscriptions.value;
@@ -222,7 +195,6 @@ function ChannelRow({ ch }) {
 }
 
 export function HomePage() {
-    const [addingChannel, setAddingChannel] = useState(false);
     const devs = devices.value;
     const subs = subscriptions.value;
     const chs  = channels.value;
@@ -258,7 +230,7 @@ export function HomePage() {
                 <section class="home-section">
                     <div class="home-section-header">
                         <h2 class="home-section-title">My devices</h2>
-                        <a href="/register" class="btn-ghost btn-sm">+ Register another</a>
+                        <button class="btn-ghost btn-sm" onClick={openRegisterDevice}>+ Register another</button>
                     </div>
                     <p class="home-section-desc">
                         Garmin watches linked to your account — each device syncs programmes independently.
@@ -270,17 +242,14 @@ export function HomePage() {
             <section class="home-section">
                 <div class="home-section-header">
                     <h2 class="home-section-title">My channels</h2>
-                    {!addingChannel && (
-                        <button class="btn-ghost btn-sm" onClick={() => setAddingChannel(true)}>+ New channel</button>
-                    )}
+                    <button class="btn-ghost btn-sm" onClick={openNewChannel}>+ New channel</button>
                 </div>
                 <p class="home-section-desc">
                     Channels you manage as an instructor — create programmes here for your subscribers.
                 </p>
-                {chs.map(ch => <ChannelRow key={ch.id} ch={ch} />)}
-                {addingChannel
-                    ? <NewChannelForm onDone={() => setAddingChannel(false)} />
-                    : chs.length === 0 && <p class="empty-hint">No channels yet. Create one to start publishing programmes.</p>
+                {chs.length === 0
+                    ? <p class="empty-hint">No channels yet. Create one to start publishing programmes.</p>
+                    : chs.map(ch => <ChannelRow key={ch.id} ch={ch} />)
                 }
             </section>
 

@@ -39,7 +39,7 @@ function segWidth(seg) {
 const PX_PER_SEC = 1.5;
 const MIN_SEG_PX = 100;
 
-function SegmentStrip({ prog, block, act }) {
+function SegmentStrip({ prog, block, act, readonly }) {
     const dragSrc = useRef(null);
     const dragOver = useRef(null);
 
@@ -69,7 +69,6 @@ function SegmentStrip({ prog, block, act }) {
         e.preventDefault();
         const srcId = dragSrc.current;
         if (srcId && srcId !== targetSegId) {
-            // Compute direction by index
             const segs = block.segments;
             const srcIdx = segs.findIndex(s => s.id === srcId);
             const tgtIdx = segs.findIndex(s => s.id === targetSegId);
@@ -86,20 +85,20 @@ function SegmentStrip({ prog, block, act }) {
         <div class="timeline-segments-row">
             <div class="timeline-segments">
                 {block.segments.map(seg => {
-                    const isActive = act?.blockId === block.id && act?.segId === seg.id;
+                    const isActive = !readonly && act?.blockId === block.id && act?.segId === seg.id;
                     const width = segWidth(seg);
                     return (
                         <div
                             key={seg.id}
-                            class={`timeline-segment${isActive ? ' selected' : ''}${seg.kind === 'distance' ? ' seg-distance' : ''}`}
+                            class={`timeline-segment${isActive ? ' selected' : ''}${seg.kind === 'distance' ? ' seg-distance' : ''}${readonly ? ' seg-readonly' : ''}`}
                             style={{ width: `${width}px` }}
-                            draggable
-                            onClick={() => selectSegment(prog.id, block.id, seg.id)}
-                            onDragStart={e => onDragStart(e, seg.id)}
-                            onDragEnd={onDragEnd}
-                            onDragOver={e => onDragOver(e, seg.id)}
-                            onDrop={e => onDrop(e, seg.id)}
-                            title={`${seg.name} · ${segLabel(seg)} — drag to reorder`}
+                            draggable={!readonly}
+                            onClick={readonly ? undefined : () => selectSegment(prog.id, block.id, seg.id)}
+                            onDragStart={readonly ? undefined : e => onDragStart(e, seg.id)}
+                            onDragEnd={readonly ? undefined : onDragEnd}
+                            onDragOver={readonly ? undefined : e => onDragOver(e, seg.id)}
+                            onDrop={readonly ? undefined : e => onDrop(e, seg.id)}
+                            title={readonly ? `${seg.name} · ${segLabel(seg)}` : `${seg.name} · ${segLabel(seg)} — drag to reorder`}
                         >
                             <span class="seg-label">{seg.name}</span>
                             <span class="seg-dur">{segLabel(seg)}</span>
@@ -109,16 +108,18 @@ function SegmentStrip({ prog, block, act }) {
                         </div>
                     );
                 })}
-                <button class="timeline-add-seg" onClick={onAddSegment} title="Add segment">+</button>
+                {!readonly && (
+                    <button class="timeline-add-seg" onClick={onAddSegment} title="Add segment">+</button>
+                )}
             </div>
         </div>
     );
 }
 
-function BlockRow({ prog, block, index, total }) {
+function BlockRow({ prog, block, index, total, readonly }) {
     const act = activeSegment.value;
     const total_ = blockTotal(block);
-    const activeSeg = act?.blockId === block.id
+    const activeSeg = !readonly && act?.blockId === block.id
         ? block.segments.find(s => s.id === act.segId)
         : null;
 
@@ -130,23 +131,23 @@ function BlockRow({ prog, block, index, total }) {
     return (
         <div class="timeline-row">
             <div class="timeline-row-header">
-                <input
-                    class="timeline-block-name"
-                    defaultValue={block.name}
-                    key={block.id + '-name'}
-                    onBlur={onNameBlur}
-                />
+                {readonly
+                    ? <span class="timeline-block-name" style="padding:3px 6px">{block.name}</span>
+                    : <input class="timeline-block-name" defaultValue={block.name} key={block.id + '-name'} onBlur={onNameBlur} />
+                }
                 <span class="block-total-dur">{fmtDuration(total_)}</span>
-                <div class="timeline-row-actions">
-                    <button class="btn-icon" disabled={index === 0}
-                        onClick={() => moveBlock(prog.id, block.id, 'up')} title="Move up">↑</button>
-                    <button class="btn-icon" disabled={index === total - 1}
-                        onClick={() => moveBlock(prog.id, block.id, 'down')} title="Move down">↓</button>
-                    <button class="btn-icon btn-danger"
-                        onClick={() => deleteBlock(prog.id, block.id)} title="Delete block">✕</button>
-                </div>
+                {!readonly && (
+                    <div class="timeline-row-actions">
+                        <button class="btn-icon" disabled={index === 0}
+                            onClick={() => moveBlock(prog.id, block.id, 'up')} title="Move up">↑</button>
+                        <button class="btn-icon" disabled={index === total - 1}
+                            onClick={() => moveBlock(prog.id, block.id, 'down')} title="Move down">↓</button>
+                        <button class="btn-icon btn-danger"
+                            onClick={() => deleteBlock(prog.id, block.id)} title="Delete block">✕</button>
+                    </div>
+                )}
             </div>
-            <SegmentStrip prog={prog} block={block} act={act} />
+            <SegmentStrip prog={prog} block={block} act={act} readonly={readonly} />
             {activeSeg && (
                 <SegmentPanel key={act.segId} progId={prog.id} blockId={block.id} seg={activeSeg} />
             )}
@@ -154,7 +155,7 @@ function BlockRow({ prog, block, index, total }) {
     );
 }
 
-export function Timeline({ prog }) {
+export function Timeline({ prog, readonly }) {
     const grand = prog.blocks.reduce((sum, b) => sum + blockTotal(b), 0);
 
     function fmtTotal(sec) {
@@ -171,21 +172,23 @@ export function Timeline({ prog }) {
             </div>
 
             {prog.blocks.length === 0 && (
-                <div class="timeline-empty">No blocks yet. Add one below.</div>
+                <div class="timeline-empty">{readonly ? 'No segments.' : 'No blocks yet. Add one below.'}</div>
             )}
 
             {prog.blocks.map((block, i) => (
-                <BlockRow key={block.id} prog={prog} block={block} index={i} total={prog.blocks.length} />
+                <BlockRow key={block.id} prog={prog} block={block} index={i} total={prog.blocks.length} readonly={readonly} />
             ))}
 
-            <div class="timeline-footer">
-                <button class="btn-secondary" onClick={() => addBlock(prog.id, { name: 'Block' })}>
-                    + Add block
-                </button>
-                <button class="btn-ghost" onClick={() => openTemplateModal(prog.id)}>
-                    From template
-                </button>
-            </div>
+            {!readonly && (
+                <div class="timeline-footer">
+                    <button class="btn-secondary" onClick={() => addBlock(prog.id, { name: 'Block' })}>
+                        + Add block
+                    </button>
+                    <button class="btn-ghost" onClick={() => openTemplateModal(prog.id)}>
+                        From template
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

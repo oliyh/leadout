@@ -279,6 +279,8 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 .timeline-segment.seg-distance { background: repeating-linear-gradient(45deg, #6ab87a, #6ab87a 6px, #4e9e60 6px, #4e9e60 12px); }
 .timeline-segment:hover { filter: brightness(1.08); }
 .timeline-segment.selected { outline: 2px solid #cba6f7; outline-offset: 1px; filter: brightness(1.05); }
+.timeline-segment.seg-readonly { cursor: default; }
+.timeline-segment.seg-readonly:hover { filter: none; }
 
 .seg-label {
     font-size: 11px;
@@ -409,6 +411,8 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .modal-actions button { padding: 8px 16px; font-size: 14px; }
 
+.template-desc { font-size: 13px; color: #666; margin-bottom: 14px; line-height: 1.5; }
+
 .template-preview {
     background: #f8f4ff;
     border-radius: 6px;
@@ -488,6 +492,7 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 
 .sidebar-section { padding: 12px 0 4px; border-top: 1px solid #313244; }
 .sidebar-section:first-child { border-top: none; }
+.sidebar-empty { padding: 4px 16px 8px; font-size: 12px; color: #45475a; font-style: italic; }
 
 .sidebar-section-title {
     font-size: 10px;
@@ -513,6 +518,16 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     color: #6c7086;
 }
 .sidebar-signout:hover { color: #cdd6f4; background: #313244; }
+
+.sidebar-privacy-link {
+    display: block;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: #45475a;
+    text-decoration: none;
+    border-radius: 4px;
+}
+.sidebar-privacy-link:hover { color: #6c7086; }
 
 .sidebar-signin { padding: 24px 16px; display: flex; flex-direction: column; gap: 12px; }
 .sidebar-signin p { font-size: 13px; color: #6c7086; }
@@ -610,7 +625,8 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 
 /* ── Main content area ────────────────────────────────────────────────────── */
 
-.main-content { padding: 32px 36px; }
+.main-content { padding: 32px 36px; max-width: 800px; }
+.main-content.editor-view { max-width: none; }
 
 .loading { color: #888; }
 
@@ -705,7 +721,7 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 
 /* ── Homepage ─────────────────────────────────────────────────────────────── */
 
-.home-page { display: flex; flex-direction: column; gap: 36px; max-width: 800px; }
+.home-page { display: flex; flex-direction: column; gap: 36px; }
 
 .home-section {}
 
@@ -926,3 +942,53 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 
 .btn-danger { background: transparent; border: 1px solid #f38ba8; color: #c0392b; padding: 4px 10px; border-radius: 6px; }
 .btn-danger:hover { background: #fde8ec; }
+
+/* ── Privacy page ─────────────────────────────────────────────────────────── */
+
+.privacy-page {
+    min-height: 100vh;
+    background: #f5f5f5;
+    display: flex;
+    justify-content: center;
+    padding: 48px 24px 80px;
+}
+
+.privacy-content {
+    width: 100%;
+    max-width: 680px;
+}
+
+.privacy-back {
+    display: inline-block;
+    font-size: 13px;
+    color: #7c3aed;
+    text-decoration: none;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-bottom: 32px;
+}
+.privacy-back:hover { text-decoration: underline; }
+
+.privacy-content h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; color: #111; }
+.privacy-content h2 { font-size: 16px; font-weight: 600; margin-top: 32px; margin-bottom: 10px; color: #222; }
+.privacy-date { font-size: 12px; color: #999; margin-bottom: 24px; }
+
+.privacy-content p {
+    font-size: 14px;
+    color: #444;
+    line-height: 1.7;
+    margin-bottom: 12px;
+}
+
+.privacy-content ul {
+    list-style: disc;
+    padding-left: 20px;
+    margin-bottom: 12px;
+}
+
+.privacy-content li {
+    font-size: 14px;
+    color: #444;
+    line-height: 1.7;
+    margin-bottom: 8px;
+}
