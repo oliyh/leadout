@@ -9,6 +9,8 @@ import { HomePage } from './pages/HomePage.jsx';
 import { isSignedIn, accountId, restoreSession } from './store/auth.js';
 import { currentView, channels, subscriptions, loadChannels, loadParticipantData, showChannel, showHome } from './store/dashboard.js';
 import { selected } from './store/programmes.js';
+import { participantApi } from './store/api.js';
+import { takePendingDeviceCode } from './store/pendingDevice.js';
 
 function MainArea() {
     const view = currentView.value;
@@ -50,11 +52,19 @@ export function App() {
     }, []);
 
     // Whenever accountId changes (sign-in or sign-out), reload or clear data.
+    // If a device_code was passed in the URL, register it silently before loading.
     useEffect(() => {
-        if (accountId.value) {
+        if (!accountId.value) return;
+        const code = takePendingDeviceCode();
+        async function load() {
+            if (code) {
+                try { await participantApi.registerDevice(accountId.value, code); } catch {}
+                history.replaceState({}, '', '/');
+            }
             loadChannels();
             loadParticipantData();
         }
+        load();
     }, [accountId.value]);
 
     if (!isSignedIn()) {

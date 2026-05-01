@@ -89,9 +89,14 @@ class leadout_datafieldView extends WatchUi.DataField {
     }
 
     function setRegistrationRequired(deviceCode as String) as Void {
+        var firstTime = mState != STATE_UNREGISTERED;
         mDeviceCode = deviceCode;
         mState = STATE_UNREGISTERED;
         mLastPollMs = 0;
+        // Open the site automatically on first detection — user doesn't need to press LAP.
+        if (firstTime && (Communications has :openWebPage)) {
+            Communications.openWebPage(API_BASE + "/?device_code=" + deviceCode, null, null);
+        }
         WatchUi.requestUpdate();
     }
 
@@ -127,8 +132,9 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     function onTimerLap() as Void {
         if (mState == STATE_UNREGISTERED) {
+            // LAP re-opens the site in case the user dismissed it.
             if (Communications has :openWebPage) {
-                Communications.openWebPage(API_BASE + "/register?code=" + mDeviceCode, null, null);
+                Communications.openWebPage(API_BASE + "/?device_code=" + mDeviceCode, null, null);
             }
             return;
         }
@@ -437,7 +443,7 @@ class leadout_datafieldView extends WatchUi.DataField {
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, h * 3 / 4 + 10, Graphics.FONT_XTINY,
-            "LAP to open on phone",
+            "LAP to re-open",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
