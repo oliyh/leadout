@@ -2,6 +2,7 @@ import { useEffect } from 'preact/hooks';
 import { Sidebar } from './components/Sidebar.jsx';
 import { Editor } from './components/Editor.jsx';
 import { Modal } from './components/Modal.jsx';
+import { GoogleSignInButton } from './components/GoogleSignInButton.jsx';
 import { ChannelPage } from './pages/ChannelPage.jsx';
 import { SubscriptionView } from './pages/SubscriptionView.jsx';
 import { HomePage } from './pages/HomePage.jsx';
@@ -11,18 +12,6 @@ import { selected } from './store/programmes.js';
 
 function MainArea() {
     const view = currentView.value;
-
-    if (!isSignedIn()) {
-        return (
-            <div class="main-content empty-state">
-                <div class="welcome">
-                    <h1>Leadout</h1>
-                    <p>Group interval training for Garmin watches.</p>
-                    <p>Sign in to manage your channels or subscribe to an instructor.</p>
-                </div>
-            </div>
-        );
-    }
 
     if (view?.type === 'channel') {
         return <ChannelPage channelId={view.id} />;
@@ -67,6 +56,20 @@ export function App() {
             loadParticipantData();
         }
     }, [accountId.value]);
+
+    if (!isSignedIn()) {
+        return (
+            <div class="signin-page">
+                <div class="signin-card">
+                    <div class="logo signin-logo">Leadout</div>
+                    <p>Group interval training for Garmin watches.</p>
+                    <p>Sign in to manage your channels or subscribe to an instructor.</p>
+                    <GoogleSignInButton />
+                </div>
+                <Modal />
+            </div>
+        );
+    }
 
     return (
         <div class="layout">

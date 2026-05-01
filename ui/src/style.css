@@ -529,8 +529,6 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 }
 .sidebar-privacy-link:hover { color: #6c7086; }
 
-.sidebar-signin { padding: 24px 16px; display: flex; flex-direction: column; gap: 12px; }
-.sidebar-signin p { font-size: 13px; color: #6c7086; }
 .signin-error { color: #f38ba8; font-size: 12px; }
 .signin-hint  { color: #6c7086; font-size: 12px; }
 .google-signin-container { min-height: 44px; }
@@ -639,6 +637,32 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 .welcome { text-align: center; max-width: 400px; }
 .welcome h1 { font-size: 32px; font-weight: 700; color: #1e1e2e; margin-bottom: 12px; }
 .welcome p { color: #555; line-height: 1.6; margin-bottom: 8px; }
+
+/* ── Sign-in splash (unauthenticated) ─────────────────────────────────────── */
+
+.signin-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+}
+
+.signin-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    max-width: 380px;
+    padding: 0 24px;
+    gap: 8px;
+}
+
+.signin-logo { font-size: 32px; font-weight: 700; color: #cba6f7; letter-spacing: 0.05em; margin-bottom: 4px; }
+
+.signin-card p { color: #555; line-height: 1.6; }
+
+.signin-card .google-signin-container { margin-top: 16px; }
 
 /* ── Channel page ─────────────────────────────────────────────────────────── */
 
