@@ -139,7 +139,7 @@ loadProgramme: name=Sprintervals v2 blocks=1
 - "register another" and "new channel" could be ghost entries below the devices and channels lists,
   and when on a channel page, possibly do the same with "New programme" - ask me about this
 
-
+- sync interval could be in settings, default to one hour
 - watch display when there is a pace target - we lose the 'next' block. is there room?
 
 - pyramid should be able to parameterise the rest period length
