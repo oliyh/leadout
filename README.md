@@ -138,6 +138,9 @@ loadProgramme: name=Sprintervals v2 blocks=1
 ```
 
 - server could capture user's unit preference (miles or km) when device registers / polls, and display all numbers in their preferred units
+- can watch also sync its datafield version number?
+- admin page to help people with problems, check rollout of new datafield version
+- can datafield display 'update required' if, when it syncs, the server says you need to upgrade
 
 - "register another" and "new channel" could be ghost entries below the devices and channels lists,
   and when on a channel page, possibly do the same with "New programme" - ask me about this
