@@ -78,8 +78,15 @@ export function App() {
     if (!isSignedIn()) {
         return (
             <div class="landing">
+                <div class="landing-image">
+                    <img src="/images/banner.png" alt="Group running with Leadout on Garmin watches" />
+                </div>
                 <div class="landing-content">
                     <div class="landing-logo">Leadout</div>
+                    <div class="landing-cta">
+                        <p class="landing-cta-label">Get started now by signing in</p>
+                        <GoogleSignInButton />
+                    </div>
                     <h1 class="landing-headline">Every watch<br/>starts together.</h1>
                     <p class="landing-sub">
                         Publish your interval session once. Every participant's Garmin
@@ -90,14 +97,8 @@ export function App() {
                         <li>Build structured sessions in minutes — time, distance, or pace targets</li>
                         <li>Watches sync overnight so nothing needs doing on the day</li>
                         <li>Vibration and audio alerts at every transition, no phone required</li>
+                        <li>Free to use · Works with any Connect IQ Garmin</li>
                     </ul>
-                    <div class="landing-cta">
-                        <p class="landing-cta-label">Free to use · Works with any Connect IQ Garmin</p>
-                        <GoogleSignInButton />
-                    </div>
-                </div>
-                <div class="landing-image">
-                    <img src="/images/banner.png" alt="Group running with Leadout on Garmin watches" />
                 </div>
                 <Modal />
             </div>

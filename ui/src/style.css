@@ -644,30 +644,25 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 
 .landing {
     min-height: 100vh;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     background: #1e1e2e;
-    overflow: hidden;
+}
+
+.landing-image img {
+    display: block;
+    width: 100%;
+    height: auto;
 }
 
 .landing-content {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    padding: 64px 56px;
-}
-
-.landing-image {
-    position: relative;
-    overflow: hidden;
-}
-
-.landing-image img {
+    align-items: flex-start;
+    max-width: 600px;
     width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: left center;
-    display: block;
+    margin: 0 auto;
+    padding: 40px 32px 64px;
 }
 
 .landing-logo {
@@ -676,32 +671,41 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: #cba6f7;
-    margin-bottom: 36px;
+    margin-bottom: 28px;
+}
+
+.landing-cta {
+    margin-bottom: 40px;
+}
+
+.landing-cta-label {
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 14px;
 }
 
 .landing-headline {
-    font-size: 52px;
+    font-size: 44px;
     font-weight: 800;
     line-height: 1.08;
     color: #ffffff;
     letter-spacing: -0.025em;
-    margin-bottom: 22px;
+    margin-bottom: 18px;
 }
 
 .landing-sub {
     font-size: 16px;
     color: #a6adc8;
     line-height: 1.7;
-    max-width: 400px;
-    margin-bottom: 36px;
+    margin-bottom: 28px;
 }
 
 .landing-features {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 13px;
-    margin-bottom: 44px;
+    gap: 12px;
 }
 
 .landing-features li {
@@ -720,35 +724,10 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     font-weight: 700;
 }
 
-.landing-cta {
-    border-top: 1px solid #313244;
-    padding-top: 32px;
-}
-
-.landing-cta-label {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #6c7086;
-    margin-bottom: 14px;
-}
-
-@media (max-width: 760px) {
-    .landing {
-        grid-template-columns: 1fr;
-    }
-
-    .landing-image {
-        height: 220px;
-        order: -1;
-    }
-
-    .landing-content {
-        padding: 40px 28px 48px;
-    }
-
-    .landing-headline { font-size: 36px; }
+@media (max-width: 600px) {
+    .landing-content { padding: 28px 20px 48px; }
+    .landing-headline { font-size: 32px; }
+    .landing-cta-label { font-size: 16px; }
 }
 
 /* ── Channel page ─────────────────────────────────────────────────────────── */
