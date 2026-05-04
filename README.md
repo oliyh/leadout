@@ -112,6 +112,7 @@ leadout/
 ## Todo
 
 ### server / UI
+- postgres store - use DB_URL in coolify
 - separate pages to show 1. channels 2. devices 3. subscriptions
   - these should fetch their own data to display (no more openExternalProgramme-like code)
   - the homepage should render them all together, reusing the components
