@@ -77,12 +77,27 @@ export function App() {
 
     if (!isSignedIn()) {
         return (
-            <div class="signin-page">
-                <div class="signin-card">
-                    <div class="logo signin-logo">Leadout</div>
-                    <p>Group interval training for Garmin watches.</p>
-                    <p>Sign in to manage your channels or subscribe to an instructor.</p>
-                    <GoogleSignInButton />
+            <div class="landing">
+                <div class="landing-content">
+                    <div class="landing-logo">Leadout</div>
+                    <h1 class="landing-headline">Every watch<br/>starts together.</h1>
+                    <p class="landing-sub">
+                        Publish your interval session once. Every participant's Garmin
+                        downloads it automatically. Count down from three, press lap —
+                        and the whole group begins at exactly the same moment.
+                    </p>
+                    <ul class="landing-features">
+                        <li>Build structured sessions in minutes — time, distance, or pace targets</li>
+                        <li>Watches sync overnight so nothing needs doing on the day</li>
+                        <li>Vibration and audio alerts at every transition, no phone required</li>
+                    </ul>
+                    <div class="landing-cta">
+                        <p class="landing-cta-label">Free to use · Works with any Connect IQ Garmin</p>
+                        <GoogleSignInButton />
+                    </div>
+                </div>
+                <div class="landing-image">
+                    <img src="/images/banner.png" alt="Group running with Leadout on Garmin watches" />
                 </div>
                 <Modal />
             </div>
