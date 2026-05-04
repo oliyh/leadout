@@ -1,3 +1,4 @@
 <properties>
     <property id="ResetState" type="boolean">false</property>
+    <property id="SyncFrequency" type="number">60</property>
 </properties>

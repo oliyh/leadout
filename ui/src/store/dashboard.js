@@ -58,6 +58,7 @@ export async function removeDevice(device_id) {
 function viewFromURL() {
     const p = window.location.pathname;
     let m;
+    if (p === '/setup')                                                  return { type: 'setup' };
     if ((m = p.match(/^\/channels\/([^/]+)$/)))                        return { type: 'channel', id: m[1] };
     if ((m = p.match(/^\/subscriptions\/([^/]+)$/)))                   return { type: 'subscription', channel_id: m[1] };
     if ((m = p.match(/^\/subscriptions\/([^/]+)\/programme\/([^/]+)/))) return { type: 'subscription', channel_id: m[1], programme_id: m[2] };
@@ -74,7 +75,8 @@ effect(() => {
     if (current.startsWith('/join/') || current.startsWith('/register') || current.startsWith('/privacy')) return;
     const view = currentView.value;
     let url = '/';
-    if (view?.type === 'channel')           url = `/channels/${view.id}`;
+    if (view?.type === 'setup')             url = '/setup';
+    else if (view?.type === 'channel')      url = `/channels/${view.id}`;
     else if (view?.type === 'subscription' && view.programme_id)
                                             url = `/subscriptions/${view.channel_id}/programme/${view.programme_id}`;
     else if (view?.type === 'subscription') url = `/subscriptions/${view.channel_id}`;
@@ -89,6 +91,7 @@ export function showChannel(id)            { currentView.value = { type: 'channe
 export function showSubscription(channel_id) { currentView.value = { type: 'subscription', channel_id }; }
 export function showSubscriptionProgramme(channel_id, programme_id) { currentView.value = { type: 'subscription', channel_id, programme_id }; }
 export function showProgrammeEditor(id, channel_id) { currentView.value = { type: 'programme', id, channel_id }; }
+export function showSetup()                { currentView.value = { type: 'setup' }; }
 export function showHome()                 { currentView.value = null; }
 
 // Poll subscription data every minute so upcoming programmes stay fresh.

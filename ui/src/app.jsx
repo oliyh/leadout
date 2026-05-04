@@ -6,8 +6,9 @@ import { GoogleSignInButton } from './components/GoogleSignInButton.jsx';
 import { ChannelPage } from './pages/ChannelPage.jsx';
 import { SubscriptionView } from './pages/SubscriptionView.jsx';
 import { HomePage } from './pages/HomePage.jsx';
+import { SetupPage } from './pages/SetupPage.jsx';
 import { isSignedIn, accountId, restoreSession } from './store/auth.js';
-import { currentView, channels, subscriptions, loadChannels, loadParticipantData, showChannel, showHome } from './store/dashboard.js';
+import { currentView, channels, subscriptions, devices, loadChannels, loadParticipantData, showChannel, showHome, showSetup } from './store/dashboard.js';
 import { selected } from './store/programmes.js';
 import { participantApi } from './store/api.js';
 import { takePendingDeviceCode } from './store/pendingDevice.js';
@@ -36,6 +37,10 @@ function MainArea() {
         return <SubscriptionView channelId={view.channel_id} programmeId={view.programme_id} subscriptions={subscriptions} />;
     }
 
+    if (view?.type === 'setup') {
+        return <SetupPage />;
+    }
+
     // Default: home dashboard
     return <HomePage />;
 }
@@ -61,8 +66,11 @@ export function App() {
                 try { await participantApi.registerDevice(accountId.value, code); } catch {}
                 history.replaceState({}, '', '/');
             }
-            loadChannels();
-            loadParticipantData();
+            await Promise.all([loadChannels(), loadParticipantData()]);
+            // First-time users with no watch or subscriptions go straight to the wizard.
+            if (!code && currentView.value === null && devices.value.length === 0 && subscriptions.value.length === 0) {
+                showSetup();
+            }
         }
         load();
     }, [accountId.value]);

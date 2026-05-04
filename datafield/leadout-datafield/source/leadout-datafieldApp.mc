@@ -18,7 +18,7 @@ class leadout_datafieldApp extends Application.AppBase {
         // Displayed on screen so the participant can register at /register.
         mDeviceCode = getOrCreateDeviceCode();
         System.println("Device code=" + mDeviceCode);
-        Background.registerForTemporalEvent(new Time.Duration(5 * 60));
+        Background.registerForTemporalEvent(new Time.Duration(syncPeriodSeconds()));
     }
 
     function onStart(state as Dictionary?) as Void {
@@ -122,6 +122,13 @@ class leadout_datafieldApp extends Application.AppBase {
         System.println("participation retry: " + responseCode);
     }
 
+    hidden function syncPeriodSeconds() as Number {
+        var freq = Application.Properties.getValue("SyncFrequency");
+        var minutes = (freq instanceof Number) ? (freq as Number) : 60;
+        if (minutes < 5) { minutes = 5; }
+        return minutes * 60;
+    }
+
     // Called when the user toggles a setting via Garmin Connect / GCM.
     // The "Reset Leadout" boolean clears all stored state and restarts sync.
     function onSettingsChanged() as Void {
@@ -140,6 +147,7 @@ class leadout_datafieldApp extends Application.AppBase {
             }
             makeSyncRequest(mDeviceCode, method(:onSyncResponse));
         }
+        Background.registerForTemporalEvent(new Time.Duration(syncPeriodSeconds()));
     }
 
 }

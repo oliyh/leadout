@@ -2,4 +2,7 @@
     <setting propertyKey="@Properties.ResetState" title="@Strings.ResetStateTitle">
         <settingConfig type="boolean"/>
     </setting>
+    <setting propertyKey="@Properties.SyncFrequency" title="@Strings.SyncFrequencyTitle">
+        <settingConfig type="numeric" min="5" max="120"/>
+    </setting>
 </settings>

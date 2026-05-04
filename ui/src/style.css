@@ -983,6 +983,87 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 .btn-danger { background: transparent; border: 1px solid #f38ba8; color: #c0392b; padding: 4px 10px; border-radius: 6px; }
 .btn-danger:hover { background: #fde8ec; }
 
+/* ── Setup wizard ─────────────────────────────────────────────────────────── */
+
+.setup-page { max-width: 560px; }
+
+.setup-progress { display: flex; gap: 6px; margin-bottom: 40px; }
+
+.setup-seg {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: #e0e0e0;
+    transition: background 0.25s;
+}
+
+.setup-seg-done { background: #cba6f7; }
+
+.setup-step-title { font-size: 22px; font-weight: 700; margin-bottom: 10px; color: #1e1e2e; }
+.setup-step-desc { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 24px; }
+
+.setup-store-link {
+    display: inline-block;
+    text-decoration: none;
+    padding: 10px 16px;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.setup-hint { font-size: 13px; color: #888; line-height: 1.5; }
+
+.setup-instructions {
+    margin: 0 0 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 14px;
+    color: #444;
+    line-height: 1.5;
+}
+
+.setup-code-form { display: flex; flex-direction: column; gap: 12px; max-width: 320px; }
+
+.setup-registered {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #d8f5e8;
+    border-radius: 8px;
+    padding: 16px 20px;
+    color: #2d7a50;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.setup-check { font-size: 18px; flex-shrink: 0; }
+
+.setup-role-cards { display: flex; flex-direction: column; gap: 14px; }
+
+.setup-role-card {
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.setup-role-card h3 { font-size: 15px; font-weight: 700; color: #1e1e2e; }
+.setup-role-card p { font-size: 13px; color: #555; line-height: 1.55; }
+
+.setup-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.setup-step-count { font-size: 12px; color: #aaa; }
+
 /* ── Privacy page ─────────────────────────────────────────────────────────── */
 
 .privacy-page {

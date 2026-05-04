@@ -3,7 +3,7 @@ import { signOut } from '../store/auth.js';
 import { openExternalProgramme } from '../store/programmes.js';
 import {
     channels, subscriptions, devices, currentView,
-    showChannel, showSubscription, showSubscriptionProgramme, showHome, showProgrammeEditor
+    showChannel, showSubscription, showSubscriptionProgramme, showHome, showProgrammeEditor, showSetup
 } from '../store/dashboard.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -135,6 +135,14 @@ export function Sidebar() {
                     ? <div class="sidebar-empty">No channels yet</div>
                     : channels.value.map(ch => <ChannelItem key={ch.id} ch={ch} />)
                 }
+            </div>
+
+            {/* ── Help ─────────────────────────────────────────────────── */}
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Help</div>
+                <button class="btn-add" onClick={() => { showSetup(); close(); }}>
+                    Getting started
+                </button>
             </div>
 
             <div class="sidebar-footer">
