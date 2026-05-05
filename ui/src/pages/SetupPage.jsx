@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks';
 import { accountId } from '../store/auth.js';
 import { participantApi } from '../store/api.js';
-import { loadParticipantData, showHome } from '../store/dashboard.js';
+import { showHome } from '../store/dashboard.js';
+import { loadDevices } from '../store/devices.js';
 import { openNewChannel } from '../store/modal.js';
 
 const TOTAL = 4;
@@ -73,7 +74,7 @@ function Step3({ onComplete }) {
         setError(null);
         try {
             await participantApi.registerDevice(accountId.value, clean);
-            await loadParticipantData();
+            await loadDevices();
             setDone(true);
             onComplete();
         } catch (err) {

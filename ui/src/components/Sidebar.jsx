@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'preact/hooks';
 import { signOut } from '../store/auth.js';
 import { openExternalProgramme } from '../store/programmes.js';
-import {
-    channels, subscriptions, devices, currentView,
-    showChannel, showSubscription, showSubscriptionProgramme, showHome, showProgrammeEditor, showSetup
-} from '../store/dashboard.js';
+import { currentView, showChannel, showSubscription, showSubscriptionProgramme, showHome, showProgrammeEditor, showSetup } from '../store/dashboard.js';
+import { channels } from '../store/channels.js';
+import { subscriptions } from '../store/subscriptions.js';
+import { devices } from '../store/devices.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 

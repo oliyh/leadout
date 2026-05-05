@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { accountId } from '../store/auth.js';
 import { participantApi } from '../store/api.js';
-import { devices, loadParticipantData } from '../store/dashboard.js';
+import { devices, loadDevices } from '../store/devices.js';
 
 function DeviceOnboarding() {
     const [code, setCode] = useState('');
@@ -17,7 +17,7 @@ function DeviceOnboarding() {
         setError(null);
         try {
             await participantApi.registerDevice(accountId.value, clean);
-            await loadParticipantData();
+            await loadDevices();
             setDone(true);
         } catch (err) {
             setError(err.message);

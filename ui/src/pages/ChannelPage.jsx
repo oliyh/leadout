@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { instructorApi } from '../store/api.js';
-import { createProgramme, loadChannels, showProgrammeEditor } from '../store/dashboard.js';
+import { showProgrammeEditor } from '../store/dashboard.js';
+import { createProgramme, loadChannels } from '../store/channels.js';
 import { openExternalProgramme } from '../store/programmes.js';
 import { openCloneProgramme } from '../store/modal.js';
 
