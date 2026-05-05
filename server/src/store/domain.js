@@ -99,10 +99,6 @@ export class DomainStore {
         return [...this._programmes.values()].filter(p => p.channel_id === channel_id);
     }
 
-    async findProgrammeForDate(date) {
-        return [...this._programmes.values()].find(p => p.scheduled_date === date) ?? null;
-    }
-
     async deleteProgramme(id) {
         return this._programmes.delete(id);
     }
@@ -153,13 +149,6 @@ export class DomainStore {
         const rec = { id: randomUUID(), device_id, programme_id, synced_at, programme_version };
         this._syncRecords.set(rec.id, rec);
         return rec;
-    }
-
-    async findSyncRecord(device_id, programme_id) {
-        for (const rec of this._syncRecords.values()) {
-            if (rec.device_id === device_id && rec.programme_id === programme_id) return rec;
-        }
-        return null;
     }
 
     async findSyncRecordsByProgramme(programme_id) {

@@ -185,10 +185,6 @@ export class SqliteStore {
         return this._db.prepare('SELECT * FROM programmes WHERE channel_id = ? ORDER BY scheduled_date').all(channel_id).map(parseProg);
     }
 
-    async findProgrammeForDate(date) {
-        return parseProg(this._db.prepare('SELECT * FROM programmes WHERE scheduled_date = ? LIMIT 1').get(date));
-    }
-
     async deleteProgramme(id) {
         const result = this._db.prepare('DELETE FROM programmes WHERE id = ?').run(id);
         return result.changes > 0;
@@ -228,10 +224,6 @@ export class SqliteStore {
             ON CONFLICT(device_id, programme_id) DO UPDATE SET synced_at = excluded.synced_at, programme_version = excluded.programme_version
         `).run(randomUUID(), device_id, programme_id, synced_at, programme_version);
         return this._db.prepare('SELECT * FROM sync_records WHERE device_id = ? AND programme_id = ?').get(device_id, programme_id);
-    }
-
-    async findSyncRecord(device_id, programme_id) {
-        return this._db.prepare('SELECT * FROM sync_records WHERE device_id = ? AND programme_id = ?').get(device_id, programme_id) ?? null;
     }
 
     async findSyncRecordsByProgramme(programme_id) {

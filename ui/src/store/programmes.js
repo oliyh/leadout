@@ -60,7 +60,6 @@ async function flush(progId) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function today() { return new Date().toISOString().slice(0, 10); }
 function newId() { return crypto.randomUUID(); }
 
 function mutate(progId, fn) {
@@ -92,69 +91,7 @@ export function openExternalProgramme(prog) {
     selectedId.value = prog.id;
 }
 
-// ── Load ──────────────────────────────────────────────────────────────────────
-
-export async function load() {
-    // Hydrate from localStorage immediately so the UI is instant
-    const stored = fromStorage();
-    if (stored.programmes?.length) {
-        programmes.value = stored.programmes;
-        pendingSync.value = new Set(stored.pending ?? []);
-    }
-
-    try {
-        const fresh = await api.list();
-        const pending = pendingSync.value;
-        const localMap = new Map(programmes.value.map(p => [p.id, p]));
-
-        // Server wins for synced items; local version wins for pending
-        const merged = fresh.map(p => pending.has(p.id) ? (localMap.get(p.id) ?? p) : p);
-
-        // Keep local-only pending programmes not yet acknowledged by server
-        for (const [id, prog] of localMap) {
-            if (pending.has(id) && !fresh.find(p => p.id === id)) merged.push(prog);
-        }
-
-        programmes.value = merged;
-        toStorage();
-
-        // Retry any pending syncs now that we have connectivity
-        for (const id of pending) scheduleSave(id);
-    } catch {
-        // Offline — stay with localStorage; pending syncs will retry on next mutation
-    }
-}
-
 // ── Programme CRUD ────────────────────────────────────────────────────────────
-
-export async function createProgramme(data) {
-    const prog = await api.create({
-        name: data.name || 'Untitled',
-        scheduled_date: data.scheduled_date || today(),
-        pace_assumption: 330,
-        blocks: [],
-    });
-    programmes.value = [...programmes.value, prog];
-    toStorage();
-    selectedId.value = prog.id;
-}
-
-export async function cloneProgramme(sourceId, data) {
-    const source = programmes.value.find(p => p.id === sourceId);
-    if (!source) return;
-    const prog = await api.create({
-        name: data.name || source.name,
-        scheduled_date: data.scheduled_date || today(),
-        pace_assumption: source.pace_assumption,
-        blocks: source.blocks.map(b => ({
-            ...b, id: newId(),
-            segments: b.segments.map(s => ({ ...s, id: newId() })),
-        })),
-    });
-    programmes.value = [...programmes.value, prog];
-    toStorage();
-    selectedId.value = prog.id;
-}
 
 export async function deleteProgramme(id) {
     await api.remove(id);

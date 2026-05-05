@@ -1,4 +1,4 @@
-import { saving, lastSaved, updateProgramme, deleteProgramme, cloneProgramme } from '../store/programmes.js';
+import { saving, lastSaved, updateProgramme, deleteProgramme } from '../store/programmes.js';
 import { openConfirmDelete } from '../store/modal.js';
 import { Timeline } from './Timeline.jsx';
 

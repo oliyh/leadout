@@ -6,23 +6,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
-// Lazily-created default channel for the programme builder.
-// Bridges the flat /api/private/programmes API to the channel-based domain model.
-let _defaultChannelId = null;
-async function defaultChannel(store) {
-    if (_defaultChannelId) {
-        const ch = await store.getChannel(_defaultChannelId);
-        if (ch) return ch;
-    }
-    const ch = await store.createChannel({
-        instructor_oauth_id: 'default',
-        name:                'My Channel',
-        created_at:          new Date().toISOString(),
-    });
-    _defaultChannelId = ch.id;
-    return ch;
-}
-
 function wrap(fn) {
     return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
@@ -343,42 +326,9 @@ export function createApp(store) {
         });
     });
 
-    // ── Legacy public endpoint (current watch build still hits this) ──────────
-
-    app.get('/api/public/programme/latest', async (_req, res) => {
-        const prog = await store.findProgrammeForDate(today());
-        prog ? res.json(prog) : res.status(404).json({ error: 'No programme for today' });
-    });
-
-    // ── Programme builder API (/api/private) ──────────────────────────────────
-    // Bridges the flat CRUD the existing UI uses to the channel-based domain model.
-    // All programmes go into a single auto-created default channel.
+    // ── Programme editor save/delete ──────────────────────────────────────────
 
     const priv = express.Router();
-
-    priv.get('/programmes', async (_req, res) => {
-        const ch = await defaultChannel(store);
-        res.json(await store.findProgrammesByChannel(ch.id));
-    });
-
-    priv.post('/programmes', async (req, res) => {
-        const ch  = await defaultChannel(store);
-        const now = new Date().toISOString();
-        const prog = await store.createProgramme({
-            ...req.body,
-            channel_id:   ch.id,
-            published_at: now,
-            updated_at:   now,
-            scheduled_date: req.body.scheduled_date || today(),
-            blocks:         req.body.blocks || [],
-        });
-        res.status(201).json(prog);
-    });
-
-    priv.get('/programmes/:id', async (req, res) => {
-        const prog = await store.getProgramme(req.params.id);
-        prog ? res.json(prog) : res.status(404).end();
-    });
 
     priv.put('/programmes/:id', async (req, res) => {
         const prog = await store.getProgramme(req.params.id);

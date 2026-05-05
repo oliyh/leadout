@@ -11,10 +11,8 @@ async function req(method, path, body) {
     return data;
 }
 
-// Programme builder (flat CRUD via legacy default-channel bridge)
+// Programme editor save/delete
 export const api = {
-    list:   ()         => req('GET',    '/api/private/programmes'),
-    create: (doc)      => req('POST',   '/api/private/programmes', doc),
     put:    (id, doc)  => req('PUT',    `/api/private/programmes/${id}`, doc),
     remove: (id)       => req('DELETE', `/api/private/programmes/${id}`),
 };
@@ -35,10 +33,6 @@ export const instructorApi = {
         req('GET', `/api/channels/${channel_id}/subscribers`),
     createProgramme: (channel_id, doc) =>
         req('POST', `/api/channels/${channel_id}/programmes`, doc),
-    updateProgramme: (id, doc) =>
-        req('PUT', `/api/programmes/${id}`, doc),
-    deleteProgramme: (id) =>
-        req('DELETE', `/api/private/programmes/${id}`),
     getPropagation:  (programme_id) =>
         req('GET', `/api/programmes/${programme_id}/propagation`),
 };

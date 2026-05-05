@@ -135,20 +135,20 @@ describe('GET /api/sync/:device_code — registered device', () => {
     });
 
     it('creates a ProgrammeSyncRecord on first poll', async () => {
-        const { account, device } = await seedRegisteredDevice(store);
+        const { account } = await seedRegisteredDevice(store);
         const channel = await seedChannel(store);
         await store.createSubscription({ account_id: account.id, channel_id: channel.id });
         const prog = await seedProgramme(store, channel.id);
 
         await request(app).get('/api/sync/SEED-DEVICE');
 
-        const record = await store.findSyncRecord(device.id, prog.id);
-        expect(record).toBeTruthy();
-        expect(record.programme_version).toBe(prog.updated_at);
+        const records = await store.findSyncRecordsByProgramme(prog.id);
+        expect(records).toHaveLength(1);
+        expect(records[0].programme_version).toBe(prog.updated_at);
     });
 
     it('updates existing ProgrammeSyncRecord on repeat poll', async () => {
-        const { account, device } = await seedRegisteredDevice(store);
+        const { account } = await seedRegisteredDevice(store);
         const channel = await seedChannel(store);
         await store.createSubscription({ account_id: account.id, channel_id: channel.id });
         const v1   = new Date(Date.now() - 5000).toISOString();
@@ -161,8 +161,8 @@ describe('GET /api/sync/:device_code — registered device', () => {
 
         await request(app).get('/api/sync/SEED-DEVICE');
 
-        const record = await store.findSyncRecord(device.id, prog.id);
-        expect(record.programme_version).toBe(v2);
+        const records = await store.findSyncRecordsByProgramme(prog.id);
+        expect(records[0].programme_version).toBe(v2);
     });
 
     // derived.ProgrammeSyncRecord.is_current

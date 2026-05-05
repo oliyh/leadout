@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { modal, closeModal } from '../store/modal.js';
-import { programmes, createProgramme, deleteProgramme, cloneProgramme, addBlock, openExternalProgramme } from '../store/programmes.js';
+import { programmes, deleteProgramme, addBlock, openExternalProgramme } from '../store/programmes.js';
 import { pyramidSegments, pyramidPreview, fartlek321Segments, fartlek321Preview, monaFartlekSegments, monaFartlekPreview } from '../store/templates.js';
 import { showProgrammeEditor, showChannel, showHome, loadParticipantData } from '../store/dashboard.js';
 import { createChannel, createProgramme as createChannelProgramme } from '../store/channels.js';
@@ -10,63 +10,6 @@ import { accountId } from '../store/auth.js';
 import { participantApi } from '../store/api.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
-
-// ── New Programme ─────────────────────────────────────────────────────────────
-
-function NewProgrammeModal() {
-    const [tab, setTab] = useState('blank');
-    const [name, setName] = useState('');
-    const [date, setDate] = useState(today());
-    const [cloneId, setCloneId] = useState(programmes.value[0]?.id ?? '');
-
-    async function onCreate() {
-        if (tab === 'blank') {
-            await createProgramme({ name: name || 'Untitled', scheduled_date: date });
-        } else {
-            await cloneProgramme(cloneId, { scheduled_date: date });
-        }
-        closeModal();
-    }
-
-    return (
-        <>
-            <h2>New programme</h2>
-            <div class="modal-tabs">
-                {[['blank', 'Blank'], ['clone', 'Clone existing']].map(([t, label]) => (
-                    <button key={t} class={`modal-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-                        {label}
-                    </button>
-                ))}
-            </div>
-
-            {tab === 'blank' && (
-                <div class="form-field">
-                    <label>Name</label>
-                    <input value={name} onInput={e => setName(e.target.value)} placeholder="Tuesday Intervals" autoFocus />
-                </div>
-            )}
-
-            {tab === 'clone' && (
-                <div class="form-field">
-                    <label>Clone from</label>
-                    <select value={cloneId} onChange={e => setCloneId(e.target.value)}>
-                        {programmes.value.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                </div>
-            )}
-
-            <div class="form-field">
-                <label>Date</label>
-                <input type="date" value={date} onInput={e => setDate(e.target.value)} />
-            </div>
-
-            <div class="modal-actions">
-                <button class="btn-ghost" onClick={closeModal}>Cancel</button>
-                <button class="btn-primary" onClick={onCreate}>Create</button>
-            </div>
-        </>
-    );
-}
 
 // ── Template modal ────────────────────────────────────────────────────────────
 
@@ -401,7 +344,6 @@ export function Modal() {
     return (
         <div class="modal-overlay" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
             <div class="modal">
-                {m.type === 'new-programme'         && <NewProgrammeModal />}
                 {m.type === 'template'              && <TemplateModal progId={m.progId} />}
                 {m.type === 'confirm-delete'        && <ConfirmDeleteModal progId={m.progId} />}
                 {m.type === 'confirm-unsubscribe'   && <ConfirmUnsubscribeModal channelId={m.channelId} channelName={m.channelName} />}

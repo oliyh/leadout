@@ -238,14 +238,6 @@ export class PostgresStore {
         )).rows.map(parseProg);
     }
 
-    async findProgrammeForDate(date) {
-        return parseProg(
-            (await this._pool.query(
-                'SELECT * FROM programmes WHERE scheduled_date = $1 LIMIT 1', [date]
-            )).rows[0] ?? null
-        );
-    }
-
     async deleteProgramme(id) {
         const res = await this._pool.query('DELETE FROM programmes WHERE id = $1', [id]);
         return res.rowCount > 0;
@@ -302,13 +294,6 @@ export class PostgresStore {
             'SELECT * FROM sync_records WHERE device_id = $1 AND programme_id = $2',
             [device_id, programme_id]
         )).rows[0];
-    }
-
-    async findSyncRecord(device_id, programme_id) {
-        return (await this._pool.query(
-            'SELECT * FROM sync_records WHERE device_id = $1 AND programme_id = $2',
-            [device_id, programme_id]
-        )).rows[0] ?? null;
     }
 
     async findSyncRecordsByProgramme(programme_id) {
