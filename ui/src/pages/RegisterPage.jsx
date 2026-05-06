@@ -26,7 +26,7 @@ export function RegisterPage() {
         setRegistering(true);
         setRegError(null);
         try {
-            await participantApi.registerDevice(accountId.value, clean);
+            await participantApi.registerDevice(clean);
             setDone(true);
         } catch (err) {
             if (err.message === 'account not found') {

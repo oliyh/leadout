@@ -1,4 +1,4 @@
-// Tests for device type enrichment on the GET /api/accounts/:id/devices endpoint.
+// Tests for device type enrichment on the GET /api/accounts/devices endpoint.
 // The server fetches device metadata from Garmin's app store API and caches it in memory.
 // These tests mock global fetch so they run offline and deterministically.
 
@@ -49,10 +49,10 @@ describe('Device type enrichment', () => {
         const account = await createAccount(app, 'g-dt-01');
         await request(app).post('/api/devices')
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id, device_code: 'DT-01' });
+            .send({ device_code:'DT-01' });
         await request(app).get('/api/sync/DT-01?model=006-B4258-00');
 
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`)
+        const res = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);
         expect(res.status).toBe(200);
         const device = res.body[0];
@@ -64,10 +64,10 @@ describe('Device type enrichment', () => {
         const account = await createAccount(app, 'g-dt-02');
         await request(app).post('/api/devices')
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id, device_code: 'DT-02' });
+            .send({ device_code:'DT-02' });
         await request(app).get('/api/sync/DT-02?model=UNKNOWN-PART');
 
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`)
+        const res = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);
         const device = res.body[0];
         expect(device.device_type_name).toBeNull();
@@ -78,9 +78,9 @@ describe('Device type enrichment', () => {
         const account = await createAccount(app, 'g-dt-03');
         await request(app).post('/api/devices')
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id, device_code: 'DT-03' });
+            .send({ device_code:'DT-03' });
 
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`)
+        const res = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);
         const device = res.body[0];
         expect(device.device_type_name).toBeNull();
@@ -91,14 +91,14 @@ describe('Device type enrichment', () => {
         const account = await createAccount(app, 'g-dt-04');
         await request(app).post('/api/devices')
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id, device_code: 'DT-04A' });
+            .send({ device_code:'DT-04A' });
         await request(app).post('/api/devices')
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id, device_code: 'DT-04B' });
+            .send({ device_code:'DT-04B' });
 
-        await request(app).get(`/api/accounts/${account.id}/devices`)
+        await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);
-        await request(app).get(`/api/accounts/${account.id}/devices`)
+        await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);
 
         expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -111,10 +111,10 @@ describe('Device type enrichment', () => {
         const account = await createAccount(app, 'g-dt-05');
         await request(app).post('/api/devices')
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id, device_code: 'DT-05' });
+            .send({ device_code:'DT-05' });
         await request(app).get('/api/sync/DT-05?model=006-B4258-00');
 
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`)
+        const res = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);
         expect(res.status).toBe(200);
         const device = res.body[0];

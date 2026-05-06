@@ -2,12 +2,10 @@ import { useState } from 'preact/hooks';
 import { modal, closeModal } from '../store/modal.js';
 import { programmes, deleteProgramme, addBlock, openExternalProgramme } from '../store/programmes.js';
 import { pyramidSegments, pyramidPreview, fartlek321Segments, fartlek321Preview, monaFartlekSegments, monaFartlekPreview } from '../store/templates.js';
-import { showProgrammeEditor, showChannel, showHome, loadParticipantData } from '../store/dashboard.js';
+import { showProgrammeEditor, showChannel, showHome } from '../store/dashboard.js';
 import { createChannel, createProgramme as createChannelProgramme } from '../store/channels.js';
 import { unsubscribe } from '../store/subscriptions.js';
-import { removeDevice } from '../store/devices.js';
-import { accountId } from '../store/auth.js';
-import { participantApi } from '../store/api.js';
+import { removeDevice, registerDevice } from '../store/devices.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -276,18 +274,14 @@ function RegisterDeviceModal() {
 
     async function onSubmit(e) {
         e.preventDefault();
-        const clean = code.trim().toUpperCase();
-        if (!clean) return;
+        if (!code.trim()) return;
         setBusy(true);
         setError(null);
         try {
-            await participantApi.registerDevice(accountId.value, clean);
-            await loadParticipantData();
+            await registerDevice(code);
             setDone(true);
         } catch (err) {
-            setError(err.message === 'device_code already registered'
-                ? 'This device code is already registered to an account.'
-                : err.message);
+            setError(err.message);
             setBusy(false);
         }
     }

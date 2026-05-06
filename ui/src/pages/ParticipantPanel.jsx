@@ -1,7 +1,5 @@
 import { useState } from 'preact/hooks';
-import { accountId } from '../store/auth.js';
-import { participantApi } from '../store/api.js';
-import { devices, loadDevices } from '../store/devices.js';
+import { devices, registerDevice } from '../store/devices.js';
 
 function DeviceOnboarding() {
     const [code, setCode] = useState('');
@@ -11,13 +9,11 @@ function DeviceOnboarding() {
 
     async function submit(e) {
         e.preventDefault();
-        const clean = code.trim().toUpperCase();
-        if (clean.length !== 6) { setError('Code must be 6 characters'); return; }
+        if (!code.trim()) return;
         setSubmitting(true);
         setError(null);
         try {
-            await participantApi.registerDevice(accountId.value, clean);
-            await loadDevices();
+            await registerDevice(code);
             setDone(true);
         } catch (err) {
             setError(err.message);

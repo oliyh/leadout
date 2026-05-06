@@ -131,19 +131,13 @@ export function createApp(store) {
     // A device_code can only be claimed by one account. Rejects duplicates.
 
     app.post('/api/devices', requireAuth, async (req, res) => {
-        const { account_id, device_code } = req.body;
-        if (!account_id || !device_code) {
-            return res.status(400).json({ error: 'account_id and device_code required' });
-        }
-        if (req.authAccountId !== account_id) return res.status(403).json({ error: 'forbidden' });
-        if (!await store.getAccount(account_id)) {
-            return res.status(404).json({ error: 'account not found' });
-        }
+        const { device_code } = req.body;
+        if (!device_code) return res.status(400).json({ error: 'device_code required' });
         if (await store.findDeviceByCode(device_code)) {
             return res.status(409).json({ error: 'device_code already registered' });
         }
         const device = await store.createDevice({
-            device_code, account_id, registered_at: new Date().toISOString()
+            device_code, account_id: req.authAccountId, registered_at: new Date().toISOString()
         });
         res.status(201).json(device);
     });
@@ -229,10 +223,9 @@ export function createApp(store) {
         res.json(result);
     });
 
-    app.get('/api/accounts/:id/devices', requireAuth, async (req, res) => {
-        if (req.authAccountId !== req.params.id) return res.status(403).json({ error: 'forbidden' });
+    app.get('/api/accounts/devices', requireAuth, async (req, res) => {
         const [devices, typeMap] = await Promise.all([
-            store.findDevicesByAccount(req.params.id),
+            store.findDevicesByAccount(req.authAccountId),
             getDeviceTypeMap(),
         ]);
         res.json(devices.map(d => {
@@ -313,25 +306,6 @@ export function createApp(store) {
         res.status(201).json(prog);
     });
 
-    app.put('/api/programmes/:id', requireAuth, async (req, res) => {
-        const prog = await store.getProgramme(req.params.id);
-        if (!prog) return res.status(404).end();
-        const _ch = await store.getChannel(prog.channel_id);
-        if (!_ch || _ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
-        if (prog.scheduled_date < today()) {
-            return res.status(409).json({ error: 'programme is expired' });
-        }
-        const { name, scheduled_date, pace_assumption, blocks } = req.body;
-        const updated = await store.updateProgramme(req.params.id, {
-            ...(name            !== undefined && { name }),
-            ...(scheduled_date  !== undefined && { scheduled_date }),
-            ...(pace_assumption !== undefined && { pace_assumption }),
-            ...(blocks          !== undefined && { blocks }),
-            updated_at: new Date().toISOString(),
-        });
-        res.json(updated);
-    });
-
     // ── Watch sync API (DevicePollsServer) ────────────────────────────────────
     // RegisteredDevicePoll: returns non-expired programmes from all subscribed
     // channels; creates/updates ProgrammeSyncRecord per programme.
@@ -401,6 +375,7 @@ export function createApp(store) {
         if (!prog) return res.status(404).end();
         const _ch = await store.getChannel(prog.channel_id);
         if (!_ch || _ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
+        if (prog.scheduled_date < today()) return res.status(409).json({ error: 'programme is expired' });
         const { name, scheduled_date, pace_assumption, blocks } = req.body;
         const updated = await store.updateProgramme(req.params.id, {
             ...(name             !== undefined && { name }),
@@ -439,11 +414,14 @@ export function createApp(store) {
         next();
     }
 
-    app.get('/api/admin/access', requireAuth, requireAdmin, (_req, res) => {
+    const admin = express.Router();
+    admin.use(requireAuth, requireAdmin);
+
+    admin.get('/access', (_req, res) => {
         res.json({ admin: true });
     });
 
-    app.get('/api/admin/accounts', requireAuth, requireAdmin, async (_req, res) => {
+    admin.get('/accounts', async (_req, res) => {
         const [accounts, typeMap] = await Promise.all([store.getAllAccounts(), getDeviceTypeMap()]);
         const result = await Promise.all(accounts.map(async account => {
             const [devices, subs, channels] = await Promise.all([
@@ -471,7 +449,7 @@ export function createApp(store) {
         res.json(result);
     });
 
-    app.get('/api/admin/channels', requireAuth, requireAdmin, async (_req, res) => {
+    admin.get('/channels', async (_req, res) => {
         const channels = await store.getAllChannels();
         const result = await Promise.all(channels.map(async ch => {
             const [programmes, subs] = await Promise.all([
@@ -482,6 +460,8 @@ export function createApp(store) {
         }));
         res.json(result);
     });
+
+    app.use('/api/admin', admin);
 
     // ── Static UI + SPA fallback ──────────────────────────────────────────────
     // In production the built UI lives in public/. Unknown paths serve index.html

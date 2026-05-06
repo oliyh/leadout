@@ -27,7 +27,7 @@ async function httpCreateAccount(app, googleId) {
 async function httpRegisterDevice(app, account, deviceCode) {
     const res = await request(app).post('/api/devices')
         .set('Authorization', `Bearer ${account.token}`)
-        .send({ account_id: account.id, device_code: deviceCode });
+        .send({ device_code: deviceCode });
     expect(res.status).toBe(201);
     return res.body;
 }
@@ -66,8 +66,8 @@ describe('Unauthenticated access — no Bearer token', () => {
         account = await httpCreateAccount(app, 'g-unauth-account');
     });
 
-    it('GET /api/accounts/:id/devices returns 401', async () => {
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`);
+    it('GET /api/accounts/devices returns 401', async () => {
+        const res = await request(app).get('/api/accounts/devices');
         expect(res.status).toBe(401);
     });
 
@@ -109,14 +109,8 @@ describe('Device isolation', () => {
     });
 
     // Access control
-    it("Bob cannot view Alice's device list (403)", async () => {
-        const res = await request(app).get(`/api/accounts/${alice.id}/devices`)
-            .set('Authorization', `Bearer ${bob.token}`);
-        expect(res.status).toBe(403);
-    });
-
     it('unauthenticated request for device list returns 401', async () => {
-        const res = await request(app).get(`/api/accounts/${alice.id}/devices`);
+        const res = await request(app).get('/api/accounts/devices');
         expect(res.status).toBe(401);
     });
 
@@ -126,16 +120,9 @@ describe('Device isolation', () => {
         expect(res.status).toBe(403);
     });
 
-    it("Bob cannot register a device to Alice's account (403)", async () => {
-        const res = await request(app).post('/api/devices')
-            .set('Authorization', `Bearer ${bob.token}`)
-            .send({ account_id: alice.id, device_code: 'WATCH-HIJACK' });
-        expect(res.status).toBe(403);
-    });
-
-    // Data correctness
+    // Data correctness — token determines which devices are returned
     it("Alice's device list contains only her two devices", async () => {
-        const res = await request(app).get(`/api/accounts/${alice.id}/devices`)
+        const res = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${alice.token}`);
         expect(res.status).toBe(200);
         expect(res.body).toHaveLength(2);
@@ -143,7 +130,7 @@ describe('Device isolation', () => {
     });
 
     it("Bob's device list contains only his device", async () => {
-        const res = await request(app).get(`/api/accounts/${bob.id}/devices`)
+        const res = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${bob.token}`);
         expect(res.status).toBe(200);
         expect(res.body).toHaveLength(1);
@@ -286,7 +273,7 @@ describe('Programme isolation', () => {
     });
 
     it("Bob cannot edit Alice's programme (403)", async () => {
-        const res = await request(app).put(`/api/programmes/${aliceProg.id}`)
+        const res = await request(app).put(`/api/private/programmes/${aliceProg.id}`)
             .set('Authorization', `Bearer ${bob.token}`)
             .send({ name: 'Hijacked' });
         expect(res.status).toBe(403);

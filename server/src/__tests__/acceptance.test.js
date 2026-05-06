@@ -42,7 +42,7 @@ async function httpCreateAccount(app, googleId) {
 async function httpRegisterDevice(app, account, deviceCode) {
     const res = await request(app).post('/api/devices')
         .set('Authorization', `Bearer ${account.token}`)
-        .send({ account_id: account.id, device_code: deviceCode });
+        .send({ device_code: deviceCode });
     expect(res.status).toBe(201);
     return res.body;
 }
@@ -118,7 +118,7 @@ describe('Registration flow', () => {
 
         await httpSync(app, 'WATCH-REG-02', 'Forerunner265');
 
-        const devices = await request(app).get(`/api/accounts/${account.id}/devices`)
+        const devices = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);
         const device = devices.body.find(d => d.device_code === 'WATCH-REG-02');
         expect(device.model_name).toBe('Forerunner265');
@@ -128,13 +128,13 @@ describe('Registration flow', () => {
         const account = await httpCreateAccount(app, 'g-reg-003');
         await httpRegisterDevice(app, account, 'WATCH-REG-03');
 
-        const before = (await request(app).get(`/api/accounts/${account.id}/devices`)
+        const before = (await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`)).body[0];
         expect(before.last_synced_at).toBeUndefined();
 
         await httpSync(app, 'WATCH-REG-03');
 
-        const after = (await request(app).get(`/api/accounts/${account.id}/devices`)
+        const after = (await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`)).body[0];
         expect(after.last_synced_at).toBeTruthy();
     });
@@ -143,7 +143,7 @@ describe('Registration flow', () => {
         const account = await httpCreateAccount(app, 'g-reg-004');
         await httpRegisterDevice(app, account, 'WATCH-REG-04');
 
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`)
+        const res = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);
         expect(res.status).toBe(200);
         expect(res.body).toHaveLength(1);
@@ -217,7 +217,7 @@ describe('Channel and programme flow', () => {
         const channel = await httpCreateChannel(app, 'Update Test', instructor);
         const prog = await httpCreateProgramme(app, channel.id, instructor, { name: 'Old Name' });
 
-        const res = await request(app).put(`/api/programmes/${prog.id}`)
+        const res = await request(app).put(`/api/private/programmes/${prog.id}`)
             .set('Authorization', `Bearer ${instructor.token}`)
             .send({ name: 'New Name' });
         expect(res.status).toBe(200);
@@ -229,7 +229,7 @@ describe('Channel and programme flow', () => {
         const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
         const prog = await httpCreateProgramme(app, channel.id, instructor, { scheduled_date: yesterday });
 
-        const res = await request(app).put(`/api/programmes/${prog.id}`)
+        const res = await request(app).put(`/api/private/programmes/${prog.id}`)
             .set('Authorization', `Bearer ${instructor.token}`)
             .send({ name: 'Too Late' });
         expect(res.status).toBe(409);
@@ -244,7 +244,7 @@ describe('Channel and programme flow', () => {
 
         await httpSync(app, 'WATCH-PROP-01');
 
-        await request(app).put(`/api/programmes/${programme.id}`)
+        await request(app).put(`/api/private/programmes/${programme.id}`)
             .set('Authorization', `Bearer ${instructor.token}`)
             .send({ name: 'Updated' });
 

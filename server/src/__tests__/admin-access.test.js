@@ -144,7 +144,7 @@ describe('Admin data content', () => {
     it('each account entry includes devices, subscriptions, and channels arrays', async () => {
         await request(app).post('/api/devices')
             .set('Authorization', `Bearer ${otherAccount.token}`)
-            .send({ account_id: otherAccount.id, device_code: 'WATCH-CONTENT-01' });
+            .send({ device_code: 'WATCH-CONTENT-01' });
         await request(app).post('/api/channels')
             .set('Authorization', `Bearer ${otherAccount.token}`)
             .send({ instructor_oauth_id: otherAccount.id, name: 'Other Channel' });

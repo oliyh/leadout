@@ -1,10 +1,8 @@
 import { useState } from 'preact/hooks';
-import { accountId } from '../store/auth.js';
-import { participantApi } from '../store/api.js';
 import { showChannel, showSubscription } from '../store/dashboard.js';
 import { channels } from '../store/channels.js';
 import { subscriptions } from '../store/subscriptions.js';
-import { devices, loadDevices } from '../store/devices.js';
+import { devices, registerDevice } from '../store/devices.js';
 import { openConfirmUnsubscribe, openConfirmRemoveDevice, openNewChannel, openRegisterDevice } from '../store/modal.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -22,18 +20,14 @@ function RegisterForm() {
 
     async function submit(e) {
         e.preventDefault();
-        const clean = code.trim().toUpperCase();
-        if (!clean) return;
+        if (!code.trim()) return;
         setSubmitting(true);
         setError(null);
         try {
-            await participantApi.registerDevice(accountId.value, clean);
-            await loadDevices();
+            await registerDevice(code);
             setDone(true);
         } catch (err) {
-            setError(err.message === 'device_code already registered'
-                ? 'This device code is already registered to an account.'
-                : err.message);
+            setError(err.message);
         } finally {
             setSubmitting(false);
         }

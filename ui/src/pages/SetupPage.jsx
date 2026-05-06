@@ -1,8 +1,7 @@
 import { useState } from 'preact/hooks';
 import { accountId } from '../store/auth.js';
-import { participantApi } from '../store/api.js';
 import { showHome } from '../store/dashboard.js';
-import { loadDevices } from '../store/devices.js';
+import { registerDevice } from '../store/devices.js';
 import { openNewChannel } from '../store/modal.js';
 
 const TOTAL = 4;
@@ -68,19 +67,15 @@ function Step3({ onComplete }) {
 
     async function submit(e) {
         e.preventDefault();
-        const clean = code.trim().toUpperCase();
-        if (!clean) return;
+        if (!code.trim()) return;
         setSubmitting(true);
         setError(null);
         try {
-            await participantApi.registerDevice(accountId.value, clean);
-            await loadDevices();
+            await registerDevice(code);
             setDone(true);
             onComplete();
         } catch (err) {
-            setError(err.message === 'device_code already registered'
-                ? 'This device code is already registered to an account.'
-                : err.message);
+            setError(err.message);
         } finally {
             setSubmitting(false);
         }

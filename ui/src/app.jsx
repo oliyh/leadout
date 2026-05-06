@@ -72,7 +72,7 @@ export function App() {
         const code = takePendingDeviceCode();
         async function load() {
             if (code) {
-                try { await participantApi.registerDevice(accountId.value, code); } catch {}
+                try { await participantApi.registerDevice(code); } catch {}
                 history.replaceState({}, '', '/');
             }
             await Promise.all([loadChannels(), loadParticipantData(), checkAdminAccess()]);
