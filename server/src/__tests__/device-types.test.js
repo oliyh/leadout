@@ -28,7 +28,7 @@ function stubFetchWithTypes(types) {
 }
 
 async function createAccount(app, googleId) {
-    const res = await request(app).post('/api/auth/google').send({ google_id: googleId });
+    const res = await request(app).post('/api/auth/test').send({ google_id: googleId });
     return res.body; // includes .token
 }
 

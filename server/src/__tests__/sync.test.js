@@ -173,7 +173,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
     it('propagation endpoint marks record is_current when versions match', async () => {
         const { account } = await seedRegisteredDevice(store);
 
-        const instrRes = await request(app).post('/api/auth/google').send({ google_id: 'g-instr-prop-1' });
+        const instrRes = await request(app).post('/api/auth/test').send({ google_id: 'g-instr-prop-1' });
         const instructor = instrRes.body;
         const channel = await seedChannel(store, instructor.id);
 
@@ -192,7 +192,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
     it('propagation endpoint marks record not is_current after programme edit', async () => {
         const { account } = await seedRegisteredDevice(store);
 
-        const instrRes = await request(app).post('/api/auth/google').send({ google_id: 'g-instr-prop-2' });
+        const instrRes = await request(app).post('/api/auth/test').send({ google_id: 'g-instr-prop-2' });
         const instructor = instrRes.body;
         const channel = await seedChannel(store, instructor.id);
 

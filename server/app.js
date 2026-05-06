@@ -97,16 +97,18 @@ export function createApp(store) {
     // ── Auth: verify Google id_token ──────────────────────────────────────────
     // Accepts a real Google id_token JWT from Google Identity Services.
     // Verifies via Google's tokeninfo endpoint, extracts the stable `sub` claim.
+    // GOOGLE_CLIENT_ID must be set — tokens issued for other OAuth clients are rejected.
 
     app.post('/api/auth/google-token', async (req, res) => {
+        const clientId = process.env.GOOGLE_CLIENT_ID;
+        if (!clientId) return res.status(500).json({ error: 'server misconfigured' });
         const { token } = req.body;
         if (!token) return res.status(400).json({ error: 'token required' });
         try {
             const r = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
             if (!r.ok) return res.status(401).json({ error: 'invalid token' });
             const payload = await r.json();
-            const clientId = process.env.GOOGLE_CLIENT_ID;
-            if (clientId && payload.aud !== clientId) {
+            if (payload.aud !== clientId) {
                 return res.status(401).json({ error: 'token audience mismatch' });
             }
             const account = await store.findOrCreateAccount(payload.sub);
@@ -114,17 +116,6 @@ export function createApp(store) {
         } catch {
             res.status(500).json({ error: 'auth failed' });
         }
-    });
-
-    // ── Participant auth (restoreSession) ─────────────────────────────────────
-    // Idempotent: re-authenticates a known google_id without a fresh id_token.
-    // Used by the UI on page load to restore a previously-established session.
-
-    app.post('/api/auth/google', async (req, res) => {
-        const { google_id } = req.body;
-        if (!google_id) return res.status(400).json({ error: 'google_id required' });
-        const account = await store.findOrCreateAccount(google_id);
-        res.json({ ...account, token: signToken(account.id) });
     });
 
     // ── Device registration (ParticipantRegistersDevice) ──────────────────────
@@ -187,10 +178,8 @@ export function createApp(store) {
     // ── Subscription (ParticipantSubscribes / ParticipantUnsubscribes) ────────
 
     app.post('/api/channels/:id/subscribe', requireAuth, async (req, res) => {
-        const { account_id } = req.body;
+        const account_id = req.authAccountId;
         const channel_id = req.params.id;
-        if (!account_id) return res.status(400).json({ error: 'account_id required' });
-        if (req.authAccountId !== account_id) return res.status(403).json({ error: 'forbidden' });
         if (!await store.getChannel(channel_id)) {
             return res.status(404).json({ error: 'channel not found' });
         }
@@ -202,10 +191,8 @@ export function createApp(store) {
     });
 
     app.delete('/api/channels/:id/subscribe', requireAuth, async (req, res) => {
-        const { account_id } = req.body;
+        const account_id = req.authAccountId;
         const channel_id = req.params.id;
-        if (!account_id) return res.status(400).json({ error: 'account_id required' });
-        if (req.authAccountId !== account_id) return res.status(403).json({ error: 'forbidden' });
         const deleted = await store.deleteSubscription(account_id, channel_id);
         deleted ? res.status(204).end() : res.status(404).json({ error: 'subscription not found' });
     });

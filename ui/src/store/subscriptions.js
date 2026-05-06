@@ -20,7 +20,7 @@ export async function loadSubscriptions() {
 }
 
 export async function unsubscribe(channel_id) {
-    await participantApi.unsubscribe(channel_id, accountId.value);
+    await participantApi.unsubscribe(channel_id);
     _inFlight = null;
     await loadSubscriptions();
 }

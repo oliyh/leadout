@@ -19,7 +19,7 @@ function makeApp() { const s = new DomainStore(); return { store: s, app: create
 function today() { return new Date().toISOString().slice(0, 10); }
 
 async function httpCreateAccount(app, googleId) {
-    const res = await request(app).post('/api/auth/google').send({ google_id: googleId });
+    const res = await request(app).post('/api/auth/test').send({ google_id: googleId });
     expect(res.status).toBe(200);
     return res.body; // has .id and .token
 }
@@ -42,8 +42,7 @@ async function httpCreateChannel(app, account, name) {
 
 async function httpSubscribe(app, account, channelId) {
     const res = await request(app).post(`/api/channels/${channelId}/subscribe`)
-        .set('Authorization', `Bearer ${account.token}`)
-        .send({ account_id: account.id });
+        .set('Authorization', `Bearer ${account.token}`);
     expect(res.status).toBe(201);
     return res.body;
 }
@@ -164,13 +163,6 @@ describe('Subscription isolation', () => {
     it('unauthenticated request for subscriptions returns 401', async () => {
         const res = await request(app).get(`/api/accounts/${alice.id}/subscriptions`);
         expect(res.status).toBe(401);
-    });
-
-    it("Bob cannot subscribe Alice to a channel (403)", async () => {
-        const res = await request(app).post(`/api/channels/${chA.id}/subscribe`)
-            .set('Authorization', `Bearer ${bob.token}`)
-            .send({ account_id: alice.id });
-        expect(res.status).toBe(403);
     });
 
     // Data correctness

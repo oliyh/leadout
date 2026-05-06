@@ -34,7 +34,7 @@ export function JoinPage({ channelId }) {
         setSubscribing(true);
         setSubError(null);
         try {
-            await participantApi.subscribe(channelId, accountId.value);
+            await participantApi.subscribe(channelId);
             window.location.href = `/subscriptions/${channelId}`;
         } catch (err) {
             if (err.message === 'already subscribed') {

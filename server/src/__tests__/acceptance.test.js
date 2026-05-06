@@ -34,7 +34,7 @@ function tomorrow() { return new Date(Date.now() + 86_400_000).toISOString().sli
 // All account objects returned from these helpers have .id and .token.
 
 async function httpCreateAccount(app, googleId) {
-    const res = await request(app).post('/api/auth/google').send({ google_id: googleId });
+    const res = await request(app).post('/api/auth/test').send({ google_id: googleId });
     expect(res.status).toBe(200);
     return res.body;
 }
@@ -57,8 +57,7 @@ async function httpCreateChannel(app, name, instructorAccount) {
 
 async function httpSubscribe(app, channelId, account) {
     const res = await request(app).post(`/api/channels/${channelId}/subscribe`)
-        .set('Authorization', `Bearer ${account.token}`)
-        .send({ account_id: account.id });
+        .set('Authorization', `Bearer ${account.token}`);
     expect(res.status).toBe(201);
     return res.body;
 }
@@ -336,8 +335,7 @@ describe('Subscription and sync flow', () => {
         expect(before.body.programmes).toHaveLength(1);
 
         await request(app).delete(`/api/channels/${channel.id}/subscribe`)
-            .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id });
+            .set('Authorization', `Bearer ${account.token}`);
 
         const after = await httpSync(app, 'WATCH-SUB-05');
         expect(after.body.programmes).toHaveLength(0);
@@ -393,8 +391,7 @@ describe('Participation flow', () => {
         const account2   = await httpCreateAccount(app, 'g-part-02');
         await httpRegisterDevice(app, account2, 'WATCH-PART-02');
         await request(app).post(`/api/channels/${channel.id}/subscribe`)
-            .set('Authorization', `Bearer ${account2.token}`)
-            .send({ account_id: account2.id });
+            .set('Authorization', `Bearer ${account2.token}`);
         await httpSync(app, 'WATCH-PART-02');
 
         await httpRecordParticipation(app, 'WATCH-PART-01', programme.id);

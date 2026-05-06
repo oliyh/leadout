@@ -1,4 +1,4 @@
-import { getToken } from './auth.js';
+import { getToken, signOut } from './auth.js';
 
 async function req(method, path, body) {
     const opts = { method, headers: {} };
@@ -10,6 +10,7 @@ async function req(method, path, body) {
     }
     const r = await fetch(path, opts);
     if (r.status === 204) return null;
+    if (r.status === 401) { signOut(); throw new Error('session expired'); }
     const data = await r.json();
     if (!r.ok) throw new Error(data.error ?? r.statusText);
     return data;
@@ -44,8 +45,8 @@ export const instructorApi = {
 // Participant
 export const participantApi = {
     getChannel:      (channelId)              => req('GET',    `/api/channels/${channelId}`),
-    subscribe:       (channelId, account_id)  => req('POST',   `/api/channels/${channelId}/subscribe`, { account_id }),
-    unsubscribe:     (channelId, account_id)  => req('DELETE', `/api/channels/${channelId}/subscribe`, { account_id }),
+    subscribe:       (channelId)              => req('POST',   `/api/channels/${channelId}/subscribe`),
+    unsubscribe:     (channelId)              => req('DELETE', `/api/channels/${channelId}/subscribe`),
     registerDevice:  (device_code)            => req('POST',  '/api/devices', { device_code }),
     getDevices:      ()                       => req('GET',   '/api/accounts/devices'),
     removeDevice:    (device_id, account_id)  => req('DELETE', `/api/devices/${device_id}`, { account_id }),

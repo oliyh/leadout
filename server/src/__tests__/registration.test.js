@@ -16,10 +16,10 @@ function makeApp() { const s = new DomainStore(); return { store: s, app: create
 
 // ── ParticipantFirstSignIn ────────────────────────────────────────────────────
 
-describe('POST /api/auth/google', () => {
+describe('POST /api/auth/test (account creation)', () => {
     it('creates an account on first sign-in', async () => {
         const { app } = makeApp();
-        const res = await request(app).post('/api/auth/google').send({ google_id: 'g-001' });
+        const res = await request(app).post('/api/auth/test').send({ google_id: 'g-001' });
         expect(res.status).toBe(200);
         expect(res.body.id).toBeTruthy();
         expect(res.body.google_id).toBe('g-001');
@@ -27,7 +27,7 @@ describe('POST /api/auth/google', () => {
 
     it('response includes a session token', async () => {
         const { app } = makeApp();
-        const res = await request(app).post('/api/auth/google').send({ google_id: 'g-001t' });
+        const res = await request(app).post('/api/auth/test').send({ google_id: 'g-001t' });
         expect(res.status).toBe(200);
         expect(typeof res.body.token).toBe('string');
         expect(res.body.token.length).toBeGreaterThan(0);
@@ -36,7 +36,7 @@ describe('POST /api/auth/google', () => {
     // rule-entity-creation.ParticipantFirstSignIn.1
     it('account has google_id and created_at', async () => {
         const { app } = makeApp();
-        const res = await request(app).post('/api/auth/google').send({ google_id: 'g-002' });
+        const res = await request(app).post('/api/auth/test').send({ google_id: 'g-002' });
         expect(res.body.google_id).toBe('g-002');
         expect(res.body.created_at).toBeTruthy();
         expect(new Date(res.body.created_at).getTime()).not.toBeNaN();
@@ -45,22 +45,22 @@ describe('POST /api/auth/google', () => {
     // rule-failure.ParticipantFirstSignIn.1 — second sign-in returns same account
     it('returns the same account when google_id is already known', async () => {
         const { app } = makeApp();
-        const first  = await request(app).post('/api/auth/google').send({ google_id: 'g-003' });
-        const second = await request(app).post('/api/auth/google').send({ google_id: 'g-003' });
+        const first  = await request(app).post('/api/auth/test').send({ google_id: 'g-003' });
+        const second = await request(app).post('/api/auth/test').send({ google_id: 'g-003' });
         expect(second.status).toBe(200);
         expect(second.body.id).toBe(first.body.id);
     });
 
     it('different google_ids produce different accounts', async () => {
         const { app } = makeApp();
-        const a = await request(app).post('/api/auth/google').send({ google_id: 'g-004' });
-        const b = await request(app).post('/api/auth/google').send({ google_id: 'g-005' });
+        const a = await request(app).post('/api/auth/test').send({ google_id: 'g-004' });
+        const b = await request(app).post('/api/auth/test').send({ google_id: 'g-005' });
         expect(a.body.id).not.toBe(b.body.id);
     });
 
     it('returns 400 when google_id is absent', async () => {
         const { app } = makeApp();
-        const res = await request(app).post('/api/auth/google').send({});
+        const res = await request(app).post('/api/auth/test').send({});
         expect(res.status).toBe(400);
     });
 });
@@ -74,7 +74,7 @@ describe('POST /api/devices', () => {
 
     async function createAccount() {
         const res = await request(app)
-            .post('/api/auth/google')
+            .post('/api/auth/test')
             .send({ google_id: `g-${Math.random()}` });
         return res.body; // includes .token
     }

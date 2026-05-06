@@ -13,7 +13,7 @@ import { DomainStore } from '../store/domain.js';
 function makeApp() { const s = new DomainStore(); return { store: s, app: createApp(s) }; }
 
 async function httpCreateAccount(app, googleId) {
-    const res = await request(app).post('/api/auth/google').send({ google_id: googleId });
+    const res = await request(app).post('/api/auth/test').send({ google_id: googleId });
     expect(res.status).toBe(200);
     return res.body; // includes .token
 }

@@ -13,7 +13,7 @@ import { DomainStore } from '../store/domain.js';
 function makeApp() { const s = new DomainStore(); return { store: s, app: createApp(s) }; }
 
 async function httpCreateAccount(app, googleId) {
-    const res = await request(app).post('/api/auth/google').send({ google_id: googleId });
+    const res = await request(app).post('/api/auth/test').send({ google_id: googleId });
     expect(res.status).toBe(200);
     return res.body; // includes .token
 }
@@ -92,7 +92,7 @@ describe('POST /api/channels/:id/subscribe', () => {
         const res = await request(app)
             .post(`/api/channels/${channel.id}/subscribe`)
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id });
+            .send();
         expect(res.status).toBe(201);
         expect(res.body.account_id).toBe(account.id);
         expect(res.body.channel_id).toBe(channel.id);
@@ -103,7 +103,7 @@ describe('POST /api/channels/:id/subscribe', () => {
         const res = await request(app)
             .post(`/api/channels/${channel.id}/subscribe`)
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id });
+            .send();
         expect(res.body.id).toBeTruthy();
         expect(res.body.account_id).toBe(account.id);
         expect(res.body.channel_id).toBe(channel.id);
@@ -114,12 +114,12 @@ describe('POST /api/channels/:id/subscribe', () => {
         await request(app)
             .post(`/api/channels/${channel.id}/subscribe`)
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id });
+            .send();
 
         const res = await request(app)
             .post(`/api/channels/${channel.id}/subscribe`)
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id });
+            .send();
         expect(res.status).toBe(409);
     });
 
@@ -132,11 +132,11 @@ describe('POST /api/channels/:id/subscribe', () => {
         const r1 = await request(app)
             .post(`/api/channels/${channel.id}/subscribe`)
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id });
+            .send();
         const r2 = await request(app)
             .post(`/api/channels/${ch2.id}/subscribe`)
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id });
+            .send();
         expect(r1.status).toBe(201);
         expect(r2.status).toBe(201);
     });
@@ -144,32 +144,17 @@ describe('POST /api/channels/:id/subscribe', () => {
     it('returns 401 when no token is provided', async () => {
         const res = await request(app)
             .post(`/api/channels/${channel.id}/subscribe`)
-            .send({ account_id: account.id });
+            .send();
         expect(res.status).toBe(401);
-    });
-
-    it('returns 403 when token does not match account_id', async () => {
-        const other = await httpCreateAccount(app, 'google-sub-other');
-        const res = await request(app)
-            .post(`/api/channels/${channel.id}/subscribe`)
-            .set('Authorization', `Bearer ${other.token}`)
-            .send({ account_id: account.id });
-        expect(res.status).toBe(403);
     });
 
     it('returns 404 for an unknown channel', async () => {
         const res = await request(app)
             .post('/api/channels/nonexistent/subscribe')
             .set('Authorization', `Bearer ${account.token}`)
-            .send({ account_id: account.id });
+            .send();
         expect(res.status).toBe(404);
     });
 
-    it('returns 400 when account_id is absent', async () => {
-        const res = await request(app)
-            .post(`/api/channels/${channel.id}/subscribe`)
-            .set('Authorization', `Bearer ${account.token}`)
-            .send({});
-        expect(res.status).toBe(400);
-    });
+
 });

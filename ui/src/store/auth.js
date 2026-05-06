@@ -1,6 +1,5 @@
 import { signal } from '@preact/signals';
 
-const LS_GOOGLE_ID  = 'leadout:googleId';
 const LS_ACCOUNT_ID = 'leadout:accountId';
 const LS_TOKEN      = 'leadout:token';
 
@@ -23,7 +22,6 @@ async function handleCredentialResponse(response) {
         if (!res.ok) throw new Error(await res.text());
         const account = await res.json();
         localStorage.setItem(LS_ACCOUNT_ID, account.id);
-        localStorage.setItem(LS_GOOGLE_ID,  account.google_id);
         localStorage.setItem(LS_TOKEN,      account.token);
         accountId.value = account.id;
     } catch (err) {
@@ -62,32 +60,13 @@ export function renderGoogleButton(el, attempt = 0) {
 
 export function signOut() {
     localStorage.removeItem(LS_ACCOUNT_ID);
-    localStorage.removeItem(LS_GOOGLE_ID);
     localStorage.removeItem(LS_TOKEN);
     accountId.value = null;
     _gisInitialized = false;
 }
 
-// Called on every app startup. Uses the stored google_id to re-confirm the
-// account without a fresh id_token (safe since google_id is a stable sub claim).
-export async function restoreSession() {
-    const googleId = localStorage.getItem(LS_GOOGLE_ID);
-    if (!googleId) return;
-    try {
-        const res = await fetch('/api/auth/google', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ google_id: googleId }),
-        });
-        // Only clear local session if the account is definitively gone (404).
-        // Transient server errors should not sign the user out.
-        if (!res.ok) {
-            if (res.status === 404) localStorage.removeItem(LS_ACCOUNT_ID);
-            return;
-        }
-        const account = await res.json();
-        localStorage.setItem(LS_ACCOUNT_ID, account.id);
-        if (account.token) localStorage.setItem(LS_TOKEN, account.token);
-        accountId.value = account.id;
-    } catch {}
-}
+// Called on every app startup. accountId and the bearer token are already
+// restored from localStorage synchronously above. This is a no-op — the
+// stored token is validated on the first authenticated API call, which will
+// trigger signOut() via the 401 handler in api.js if the token is invalid.
+export async function restoreSession() {}
