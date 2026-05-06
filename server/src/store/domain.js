@@ -171,4 +171,14 @@ export class DomainStore {
     async findParticipationsByProgramme(programme_id) {
         return [...this._participations.values()].filter(p => p.programme_id === programme_id);
     }
+
+    reset() {
+        this._accounts.clear();
+        this._devices.clear();
+        this._channels.clear();
+        this._programmes.clear();
+        this._subscriptions.clear();
+        this._syncRecords.clear();
+        this._participations.clear();
+    }
 }

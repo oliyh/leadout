@@ -21,6 +21,10 @@ async function signInAs(page, googleId) {
     return account;
 }
 
+test.beforeEach(async ({ request }) => {
+    await request.post('/api/test/reset');
+});
+
 test('instructor creates channel and programme; participant subscribes and syncs', async ({ browser }) => {
     const instructorCtx  = await browser.newContext();
     const participantCtx = await browser.newContext();

@@ -356,4 +356,10 @@ export class PostgresStore {
             'SELECT * FROM participations WHERE programme_id = $1', [programme_id]
         )).rows;
     }
+
+    async reset() {
+        await this._pool.query(
+            'TRUNCATE accounts, devices, channels, programmes, subscriptions, sync_records, participations CASCADE'
+        );
+    }
 }

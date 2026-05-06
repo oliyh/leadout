@@ -87,6 +87,11 @@ export function createApp(store) {
             const account = await store.findOrCreateAccount(google_id);
             res.json({ ...account, token: signToken(account.id) });
         });
+
+        app.post('/api/test/reset', async (_req, res) => {
+            await store.reset();
+            res.json({ ok: true });
+        });
     }
 
     // ── Auth: verify Google id_token ──────────────────────────────────────────

@@ -270,4 +270,16 @@ export class SqliteStore {
     async findParticipationsByProgramme(programme_id) {
         return this._db.prepare('SELECT * FROM participations WHERE programme_id = ?').all(programme_id);
     }
+
+    reset() {
+        this._db.exec(`
+            DELETE FROM participations;
+            DELETE FROM sync_records;
+            DELETE FROM subscriptions;
+            DELETE FROM programmes;
+            DELETE FROM devices;
+            DELETE FROM channels;
+            DELETE FROM accounts;
+        `);
+    }
 }

@@ -28,6 +28,10 @@ async function completeSignIn(page, account) {
     await page.reload();
 }
 
+test.beforeEach(async ({ request }) => {
+    await request.post('/api/test/reset');
+});
+
 // ── Journey: join channel link while signed out ───────────────────────────────
 
 test('signed-out user visits join link, signs in, and subscribes to channel', async ({ page }) => {
