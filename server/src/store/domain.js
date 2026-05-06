@@ -23,6 +23,7 @@ export class DomainStore {
     }
 
     async getAccount(id) { return this._accounts.get(id) ?? null; }
+    async getAllAccounts() { return [...this._accounts.values()]; }
 
     // ── Devices ───────────────────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ export class DomainStore {
     }
 
     async getChannel(id) { return this._channels.get(id) ?? null; }
+    async getAllChannels() { return [...this._channels.values()]; }
 
     async updateChannel(id, updates) {
         const channel = this._channels.get(id);

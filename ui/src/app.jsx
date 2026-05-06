@@ -7,8 +7,10 @@ import { ChannelPage } from './pages/ChannelPage.jsx';
 import { SubscriptionView } from './pages/SubscriptionView.jsx';
 import { HomePage } from './pages/HomePage.jsx';
 import { SetupPage } from './pages/SetupPage.jsx';
+import { AdminPage } from './pages/AdminPage.jsx';
 import { isSignedIn, accountId, restoreSession } from './store/auth.js';
 import { currentView, loadParticipantData, showChannel, showHome, showSetup } from './store/dashboard.js';
+import { checkAdminAccess } from './store/admin.js';
 import { channels, loadChannels } from './store/channels.js';
 import { subscriptions } from './store/subscriptions.js';
 import { devices } from './store/devices.js';
@@ -44,6 +46,10 @@ function MainArea() {
         return <SetupPage />;
     }
 
+    if (view?.type === 'admin') {
+        return <AdminPage />;
+    }
+
     // Default: home dashboard
     return <HomePage />;
 }
@@ -69,7 +75,7 @@ export function App() {
                 try { await participantApi.registerDevice(accountId.value, code); } catch {}
                 history.replaceState({}, '', '/');
             }
-            await Promise.all([loadChannels(), loadParticipantData()]);
+            await Promise.all([loadChannels(), loadParticipantData(), checkAdminAccess()]);
             // First-time users with no watch or subscriptions go straight to the wizard.
             if (!code && currentView.value === null && devices.value.length === 0 && subscriptions.value.length === 0) {
                 showSetup();

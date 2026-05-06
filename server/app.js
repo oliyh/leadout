@@ -366,6 +366,67 @@ export function createApp(store) {
 
     app.use('/api/private', priv);
 
+    // ── Admin routes ──────────────────────────────────────────────────────────
+    // ADMIN_ACCOUNT_ID env var gates access in deployed envs.
+    // When unset (local dev) any existing account is treated as admin.
+
+    async function requireAdmin(req, res, next) {
+        const reqAccountId = req.headers['x-account-id'];
+        if (!reqAccountId) return res.status(401).json({ error: 'x-account-id header required' });
+        const adminId = process.env.ADMIN_ACCOUNT_ID;
+        if (adminId) {
+            if (reqAccountId !== adminId) return res.status(403).json({ error: 'forbidden' });
+        } else {
+            const account = await store.getAccount(reqAccountId);
+            if (!account) return res.status(403).json({ error: 'account not found' });
+        }
+        next();
+    }
+
+    app.get('/api/admin/access', requireAdmin, (_req, res) => {
+        res.json({ admin: true });
+    });
+
+    app.get('/api/admin/accounts', requireAdmin, async (_req, res) => {
+        const [accounts, typeMap] = await Promise.all([store.getAllAccounts(), getDeviceTypeMap()]);
+        const result = await Promise.all(accounts.map(async account => {
+            const [devices, subs, channels] = await Promise.all([
+                store.findDevicesByAccount(account.id),
+                store.findSubscriptionsByAccount(account.id),
+                store.findChannelsByInstructor(account.id),
+            ]);
+            return {
+                ...account,
+                devices: devices.map(d => ({
+                    ...d,
+                    device_type_name: d.model_name ? (typeMap.get(d.model_name)?.name ?? null) : null,
+                })),
+                subscriptions: await Promise.all(subs.map(async sub => ({
+                    ...sub,
+                    channel: await store.getChannel(sub.channel_id),
+                }))),
+                channels: await Promise.all(channels.map(async ch => ({
+                    ...ch,
+                    programme_count:  (await store.findProgrammesByChannel(ch.id)).length,
+                    subscriber_count: (await store.findSubscriptionsByChannel(ch.id)).length,
+                }))),
+            };
+        }));
+        res.json(result);
+    });
+
+    app.get('/api/admin/channels', requireAdmin, async (_req, res) => {
+        const channels = await store.getAllChannels();
+        const result = await Promise.all(channels.map(async ch => {
+            const [programmes, subs] = await Promise.all([
+                store.findProgrammesByChannel(ch.id),
+                store.findSubscriptionsByChannel(ch.id),
+            ]);
+            return { ...ch, programmes, subscribers: subs };
+        }));
+        res.json(result);
+    });
+
     // ── Static UI + SPA fallback ──────────────────────────────────────────────
     // In production the built UI lives in public/. Unknown paths serve index.html
     // so that client-side routes like /join/:channelId work on hard refresh.

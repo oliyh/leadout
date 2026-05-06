@@ -119,6 +119,10 @@ export class PostgresStore {
         return (await this._pool.query('SELECT * FROM accounts WHERE id = $1', [id])).rows[0] ?? null;
     }
 
+    async getAllAccounts() {
+        return (await this._pool.query('SELECT * FROM accounts ORDER BY created_at')).rows;
+    }
+
     // ── Devices ───────────────────────────────────────────────────────────────
 
     async findDeviceByCode(device_code) {
@@ -185,6 +189,10 @@ export class PostgresStore {
 
     async getChannel(id) {
         return (await this._pool.query('SELECT * FROM channels WHERE id = $1', [id])).rows[0] ?? null;
+    }
+
+    async getAllChannels() {
+        return (await this._pool.query('SELECT * FROM channels ORDER BY created_at')).rows;
     }
 
     async updateChannel(id, updates) {

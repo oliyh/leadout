@@ -99,6 +99,10 @@ export class SqliteStore {
         return this._db.prepare('SELECT * FROM accounts WHERE id = ?').get(id) ?? null;
     }
 
+    async getAllAccounts() {
+        return this._db.prepare('SELECT * FROM accounts ORDER BY created_at').all();
+    }
+
     // ── Devices ───────────────────────────────────────────────────────────────
 
     async findDeviceByCode(device_code) {
@@ -147,6 +151,10 @@ export class SqliteStore {
 
     async getChannel(id) {
         return this._db.prepare('SELECT * FROM channels WHERE id = ?').get(id) ?? null;
+    }
+
+    async getAllChannels() {
+        return this._db.prepare('SELECT * FROM channels ORDER BY created_at').all();
     }
 
     async updateChannel(id, updates) {

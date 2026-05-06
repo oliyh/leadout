@@ -1177,3 +1177,60 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     line-height: 1.7;
     margin-bottom: 8px;
 }
+
+/* ── Admin page ───────────────────────────────────────────────────────────── */
+
+.admin-page { max-width: 860px; }
+
+.admin-heading { font-size: 22px; font-weight: 700; margin-bottom: 28px; }
+
+.admin-section { margin-bottom: 36px; }
+
+.admin-section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+
+.admin-count { color: #888; font-weight: 400; }
+
+.admin-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.admin-card-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #f7f7f8;
+    border-bottom: 1px solid #e0e0e0;
+    flex-wrap: wrap;
+}
+
+.admin-card-name { font-weight: 600; }
+
+.admin-card-id {
+    font-family: monospace;
+    font-size: 12px;
+    color: #555;
+    word-break: break-all;
+}
+
+.admin-card-body { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 16px; }
+
+.admin-card-section { flex: 1; min-width: 180px; }
+
+.admin-sub-title { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #888; margin-bottom: 6px; }
+
+.admin-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13px;
+    padding: 2px 0;
+    border-bottom: 1px solid #f0f0f0;
+    flex-wrap: wrap;
+}
+
+.admin-row:last-child { border-bottom: none; }
