@@ -58,7 +58,7 @@ export function RegisterPage() {
     if (done) {
         return (
             <Page>
-                <div class="success-state">
+                <div data-testid="register-success" class="success-state">
                     <div class="success-icon">✓</div>
                     <h2>Watch registered!</h2>
                     <p>
@@ -74,9 +74,9 @@ export function RegisterPage() {
         return (
             <Page>
                 <h2>Register your watch</h2>
-                <p>Sign in to link your watch to your account.</p>
+                <p data-testid="register-signin-prompt">Sign in to link your watch to your account.</p>
                 {deviceCode && (
-                    <p class="device-code-hint">
+                    <p data-testid="register-code-hint" class="device-code-hint">
                         Device code <strong>{deviceCode}</strong> will be registered after sign-in.
                     </p>
                 )}
@@ -117,6 +117,7 @@ export function RegisterPage() {
                 />
                 {regError && <p class="error">{regError}</p>}
                 <button
+                    data-testid="register-watch-btn"
                     class="btn-primary btn-wide"
                     type="submit"
                     disabled={registering || !deviceCode.trim()}

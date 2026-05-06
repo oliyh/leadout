@@ -62,8 +62,8 @@ export function JoinPage({ channelId }) {
     if (flowState === STATE_SIGN_IN) {
         return (
             <Page>
-                <div class="join-channel-name">{channel.name}</div>
-                <p>Sign in to subscribe to this channel and receive session programmes on your watch.</p>
+                <div data-testid="join-channel-name" class="join-channel-name">{channel.name}</div>
+                <p data-testid="join-signin-prompt">Sign in to subscribe to this channel and receive session programmes on your watch.</p>
                 <GoogleSignInButton />
             </Page>
         );
@@ -72,7 +72,7 @@ export function JoinPage({ channelId }) {
     if (flowState === STATE_SUBSCRIBE) {
         return (
             <Page>
-                <div class="join-channel-name">{channel.name}</div>
+                <div data-testid="join-channel-name" class="join-channel-name">{channel.name}</div>
                 <p>Subscribe to receive interval session programmes on your Garmin watch.</p>
                 {subError && <p class="error">{subError}</p>}
                 <button
