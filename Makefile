@@ -14,7 +14,8 @@ WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
 .PHONY: env datafield datafield-sim datafield-test datafield-release datafield-run-tests install-datafield uninstall-datafield \
         sim sim-lap sim-screenshot \
-        ui-install ui-dev ui-build server-install server-start server-dev server-test dev
+        ui-install ui-dev ui-build server-install server-start server-dev server-test dev \
+        e2e e2e-debug
 
 env:
 	scripts/setup-env.sh
@@ -120,6 +121,21 @@ server-dev: server-install
 
 server-test: server-install
 	cd server && npm test
+
+# ======== E2E tests ==========
+
+# Playwright starts the server automatically (builds UI + NODE_ENV=test server).
+# Locally, if port 3000 is already occupied it reuses the running server instead
+# of rebuilding — run 'make ui-build && NODE_ENV=test node server/server.js'
+# first to pre-warm and make repeated runs faster.
+e2e: server-install ui-install
+	npx playwright test
+
+# Open Playwright's interactive UI for debugging individual steps.
+e2e-debug: server-install ui-install
+	npx playwright test --ui
+
+# ======== Dev server ==========
 
 # Run API server + Vite together; Ctrl-C stops both
 dev: server-install ui-install
