@@ -81,6 +81,8 @@ export class SqliteStore {
         this._db.exec(SCHEMA);
         // Migrations for columns added after initial schema
         try { this._db.exec('ALTER TABLE devices ADD COLUMN model_name TEXT'); } catch {}
+        try { this._db.exec('ALTER TABLE devices ADD COLUMN app_version TEXT'); } catch {}
+        try { this._db.exec('ALTER TABLE devices ADD COLUMN distance_units TEXT'); } catch {}
     }
 
     // ── Accounts ──────────────────────────────────────────────────────────────

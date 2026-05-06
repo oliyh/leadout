@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 
 const { Pool } = pg;
 
-// Schema is identical to SQLite; model_name included from the start so no
+// Schema is identical to SQLite; new columns included from the start so no
 // ADD COLUMN migration is needed on fresh databases.
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS accounts (
@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS devices (
     device_code TEXT UNIQUE NOT NULL,
     registered_at TEXT NOT NULL,
     last_synced_at TEXT,
-    model_name TEXT
+    model_name TEXT,
+    app_version TEXT,
+    distance_units TEXT
 );
 
 CREATE TABLE IF NOT EXISTS channels (
@@ -91,8 +93,10 @@ export class PostgresStore {
     static async create(connectionString) {
         const pool = new Pool({ connectionString });
         await pool.query(SCHEMA);
-        // Idempotent migration — adds model_name if this is an existing database
+        // Idempotent migrations — add columns if this is an existing database
         await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS model_name TEXT');
+        await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS app_version TEXT');
+        await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS distance_units TEXT');
         return new PostgresStore(pool);
     }
 

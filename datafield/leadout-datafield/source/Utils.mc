@@ -45,9 +45,12 @@ function getOrCreateDeviceCode() as String {
 // Used by the foreground open sync, the background temporal sync, and the registration poll.
 (:background)
 function makeSyncRequest(deviceCode as String, callback as Method) as Void {
+    var distUnits = System.getDeviceSettings().distanceUnits == System.UNIT_METRIC ? "metric" : "statute";
     Communications.makeWebRequest(
         API_BASE + "/api/sync/" + deviceCode,
-        { "model" => System.getDeviceSettings().partNumber },
+        { "model"           => System.getDeviceSettings().partNumber,
+          "app_version"     => APP_VERSION,
+          "distance_units"  => distUnits },
         { :method       => Communications.HTTP_REQUEST_METHOD_GET,
           :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON },
         callback

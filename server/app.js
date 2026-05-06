@@ -296,7 +296,9 @@ export function createApp(store) {
         }
 
         const deviceUpdates = { last_synced_at: new Date().toISOString() };
-        if (req.query.model) deviceUpdates.model_name = req.query.model;
+        if (req.query.model)           deviceUpdates.model_name      = req.query.model;
+        if (req.query.app_version)     deviceUpdates.app_version     = req.query.app_version;
+        if (req.query.distance_units)  deviceUpdates.distance_units  = req.query.distance_units;
         await store.updateDevice(device.id, deviceUpdates);
 
         const subs = await store.findSubscriptionsByAccount(device.account_id);
