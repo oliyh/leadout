@@ -75,6 +75,18 @@ function parseProg(row) {
     };
 }
 
+// Column whitelists for UPDATE statements. Prevents SQL injection if an
+// unexpected object is passed to an update method.
+const DEVICE_COLS    = new Set(['last_synced_at', 'model_name', 'app_version', 'distance_units']);
+const CHANNEL_COLS   = new Set(['name']);
+const PROGRAMME_COLS = new Set(['name', 'scheduled_date', 'pace_assumption', 'blocks', 'updated_at']);
+
+function assertCols(updates, allowed) {
+    for (const key of Object.keys(updates)) {
+        if (!allowed.has(key)) throw new Error(`Column not in allowlist: ${key}`);
+    }
+}
+
 // Builds "col = $N, ..." fragments for UPDATE SET clauses.
 // Returns { sets, values } where N starts at startAt (default 1).
 function setClause(updates, startAt = 1) {
@@ -162,6 +174,7 @@ export class PostgresStore {
     }
 
     async updateDevice(id, updates) {
+        assertCols(updates, DEVICE_COLS);
         const { sets, values } = setClause(updates);
         await this._pool.query(
             `UPDATE devices SET ${sets} WHERE id = $${values.length + 1}`,
@@ -196,6 +209,7 @@ export class PostgresStore {
     }
 
     async updateChannel(id, updates) {
+        assertCols(updates, CHANNEL_COLS);
         const { sets, values } = setClause(updates);
         await this._pool.query(
             `UPDATE channels SET ${sets} WHERE id = $${values.length + 1}`,
@@ -231,6 +245,7 @@ export class PostgresStore {
     }
 
     async updateProgramme(id, updates) {
+        assertCols(updates, PROGRAMME_COLS);
         const { pace_assumption, blocks, ...rest } = updates;
         const data = { ...rest };
         if (pace_assumption !== undefined) data.pace_assumption = JSON.stringify(pace_assumption);

@@ -3,6 +3,18 @@ import { randomUUID } from 'crypto';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
+// Column whitelists for UPDATE statements. Prevents SQL injection if an
+// unexpected object is passed to an update method.
+const DEVICE_COLS    = new Set(['last_synced_at', 'model_name', 'app_version', 'distance_units']);
+const CHANNEL_COLS   = new Set(['name']);
+const PROGRAMME_COLS = new Set(['name', 'scheduled_date', 'pace_assumption', 'blocks', 'updated_at']);
+
+function assertCols(updates, allowed) {
+    for (const key of Object.keys(updates)) {
+        if (!allowed.has(key)) throw new Error(`Column not in allowlist: ${key}`);
+    }
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(__dirname, '..', '..', 'leadout.db');
 
@@ -130,6 +142,7 @@ export class SqliteStore {
     }
 
     async updateDevice(id, updates) {
+        assertCols(updates, DEVICE_COLS);
         const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
         this._db.prepare(`UPDATE devices SET ${sets} WHERE id = ?`).run(...Object.values(updates), id);
         return this._db.prepare('SELECT * FROM devices WHERE id = ?').get(id) ?? null;
@@ -158,6 +171,7 @@ export class SqliteStore {
     }
 
     async updateChannel(id, updates) {
+        assertCols(updates, CHANNEL_COLS);
         const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
         this._db.prepare(`UPDATE channels SET ${sets} WHERE id = ?`).run(...Object.values(updates), id);
         return this._db.prepare('SELECT * FROM channels WHERE id = ?').get(id) ?? null;
@@ -182,6 +196,7 @@ export class SqliteStore {
     }
 
     async updateProgramme(id, updates) {
+        assertCols(updates, PROGRAMME_COLS);
         const { pace_assumption, blocks, ...rest } = updates;
         const data = { ...rest };
         if (pace_assumption !== undefined) data.pace_assumption = JSON.stringify(pace_assumption);
