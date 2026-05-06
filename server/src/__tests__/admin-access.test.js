@@ -1,7 +1,7 @@
 // Tests for admin endpoint access control.
 // Covers:
-//   - All three endpoints reject requests with no X-Account-Id header (401)
-//   - Dev mode (no ADMIN_ACCOUNT_ID): any existing account is admitted; unknown accounts rejected (403)
+//   - All three endpoints reject requests with no Authorization header (401)
+//   - Dev mode (no ADMIN_ACCOUNT_ID): any existing account is admitted; invalid tokens rejected (401/403)
 //   - Production mode (ADMIN_ACCOUNT_ID set): only the designated account is admitted (403 for everyone else)
 //   - Admin data content: sees all accounts/channels, not just their own
 
@@ -15,19 +15,7 @@ function makeApp() { const s = new DomainStore(); return { store: s, app: create
 async function httpCreateAccount(app, googleId) {
     const res = await request(app).post('/api/auth/google').send({ google_id: googleId });
     expect(res.status).toBe(200);
-    return res.body;
-}
-
-async function httpCreateChannel(app, name, instructorId) {
-    const res = await request(app).post('/api/channels').send({ instructor_oauth_id: instructorId, name });
-    expect(res.status).toBe(201);
-    return res.body;
-}
-
-async function httpRegisterDevice(app, accountId, deviceCode) {
-    const res = await request(app).post('/api/devices').send({ account_id: accountId, device_code: deviceCode });
-    expect(res.status).toBe(201);
-    return res.body;
+    return res.body; // includes .token
 }
 
 // Save / restore ADMIN_ACCOUNT_ID around each describe that needs it.
@@ -42,9 +30,9 @@ function withAdminEnv() {
 
 const ADMIN_ENDPOINTS = ['/api/admin/access', '/api/admin/accounts', '/api/admin/channels'];
 
-// ── No header ─────────────────────────────────────────────────────────────────
+// ── No Authorization header ───────────────────────────────────────────────────
 
-describe('Admin endpoints — missing X-Account-Id header', () => {
+describe('Admin endpoints — missing Authorization header', () => {
     let app;
     beforeEach(() => { ({ app } = makeApp()); });
 
@@ -61,23 +49,26 @@ describe('Admin endpoints — dev mode (ADMIN_ACCOUNT_ID unset)', () => {
     withAdminEnv();
     beforeEach(() => { ({ app } = makeApp()); });
 
-    it('any existing account is admitted (200)', async () => {
+    it('any existing account with valid token is admitted (200)', async () => {
         const account = await httpCreateAccount(app, 'g-devmode-01');
-        const res = await request(app).get('/api/admin/access').set('X-Account-Id', account.id);
+        const res = await request(app).get('/api/admin/access')
+            .set('Authorization', `Bearer ${account.token}`);
         expect(res.status).toBe(200);
         expect(res.body.admin).toBe(true);
     });
 
-    it('an unknown account id is rejected (403)', async () => {
-        const res = await request(app).get('/api/admin/access').set('X-Account-Id', 'not-a-real-id');
-        expect(res.status).toBe(403);
+    it('an invalid/tampered token is rejected (401)', async () => {
+        const res = await request(app).get('/api/admin/access')
+            .set('Authorization', 'Bearer not-a-real-token');
+        expect(res.status).toBe(401);
     });
 
     it.each(['/api/admin/accounts', '/api/admin/channels'])(
-        'GET %s is also blocked for unknown account (403)',
+        'GET %s is also blocked for invalid token (401)',
         async (path) => {
-            const res = await request(app).get(path).set('X-Account-Id', 'not-a-real-id');
-            expect(res.status).toBe(403);
+            const res = await request(app).get(path)
+                .set('Authorization', 'Bearer invalid-token');
+            expect(res.status).toBe(401);
         }
     );
 });
@@ -96,19 +87,22 @@ describe('Admin endpoints — production mode (ADMIN_ACCOUNT_ID set)', () => {
     });
 
     it('designated admin account is admitted (200)', async () => {
-        const res = await request(app).get('/api/admin/access').set('X-Account-Id', adminAccount.id);
+        const res = await request(app).get('/api/admin/access')
+            .set('Authorization', `Bearer ${adminAccount.token}`);
         expect(res.status).toBe(200);
     });
 
     it('non-admin account is rejected (403)', async () => {
-        const res = await request(app).get('/api/admin/access').set('X-Account-Id', otherAccount.id);
+        const res = await request(app).get('/api/admin/access')
+            .set('Authorization', `Bearer ${otherAccount.token}`);
         expect(res.status).toBe(403);
     });
 
     it.each(['/api/admin/accounts', '/api/admin/channels'])(
         'GET %s returns 403 for non-admin',
         async (path) => {
-            const res = await request(app).get(path).set('X-Account-Id', otherAccount.id);
+            const res = await request(app).get(path)
+                .set('Authorization', `Bearer ${otherAccount.token}`);
             expect(res.status).toBe(403);
         }
     );
@@ -116,7 +110,8 @@ describe('Admin endpoints — production mode (ADMIN_ACCOUNT_ID set)', () => {
     it.each(['/api/admin/accounts', '/api/admin/channels'])(
         'GET %s returns 200 for admin',
         async (path) => {
-            const res = await request(app).get(path).set('X-Account-Id', adminAccount.id);
+            const res = await request(app).get(path)
+                .set('Authorization', `Bearer ${adminAccount.token}`);
             expect(res.status).toBe(200);
         }
     );
@@ -135,7 +130,7 @@ describe('Admin data content', () => {
     });
 
     function adminGet(path) {
-        return request(app).get(path).set('X-Account-Id', adminAccount.id);
+        return request(app).get(path).set('Authorization', `Bearer ${adminAccount.token}`);
     }
 
     it('/api/admin/accounts includes all accounts, not just the admin', async () => {
@@ -147,8 +142,12 @@ describe('Admin data content', () => {
     });
 
     it('each account entry includes devices, subscriptions, and channels arrays', async () => {
-        await httpRegisterDevice(app, otherAccount.id, 'WATCH-CONTENT-01');
-        await httpCreateChannel(app, 'Other Channel', otherAccount.id);
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${otherAccount.token}`)
+            .send({ account_id: otherAccount.id, device_code: 'WATCH-CONTENT-01' });
+        await request(app).post('/api/channels')
+            .set('Authorization', `Bearer ${otherAccount.token}`)
+            .send({ instructor_oauth_id: otherAccount.id, name: 'Other Channel' });
 
         const res = await adminGet('/api/admin/accounts');
         const other = res.body.find(a => a.id === otherAccount.id);
@@ -167,8 +166,12 @@ describe('Admin data content', () => {
     });
 
     it('/api/admin/channels includes all channels', async () => {
-        await httpCreateChannel(app, 'Admin Channel', adminAccount.id);
-        await httpCreateChannel(app, 'Other Channel', otherAccount.id);
+        await request(app).post('/api/channels')
+            .set('Authorization', `Bearer ${adminAccount.token}`)
+            .send({ instructor_oauth_id: adminAccount.id, name: 'Admin Channel' });
+        await request(app).post('/api/channels')
+            .set('Authorization', `Bearer ${otherAccount.token}`)
+            .send({ instructor_oauth_id: otherAccount.id, name: 'Other Channel' });
 
         const res = await adminGet('/api/admin/channels');
         expect(res.status).toBe(200);
@@ -178,9 +181,14 @@ describe('Admin data content', () => {
     });
 
     it('each channel entry includes subscribers and programmes arrays', async () => {
-        const channel = await httpCreateChannel(app, 'Shared Channel', adminAccount.id);
+        const chRes = await request(app).post('/api/channels')
+            .set('Authorization', `Bearer ${adminAccount.token}`)
+            .send({ instructor_oauth_id: adminAccount.id, name: 'Shared Channel' });
+        const channel = chRes.body;
+
         await request(app)
             .post(`/api/channels/${channel.id}/subscribe`)
+            .set('Authorization', `Bearer ${otherAccount.token}`)
             .send({ account_id: otherAccount.id });
 
         const res = await adminGet('/api/admin/channels');

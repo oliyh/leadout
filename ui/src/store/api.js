@@ -1,5 +1,9 @@
+import { getToken } from './auth.js';
+
 async function req(method, path, body) {
     const opts = { method, headers: {} };
+    const token = getToken();
+    if (token) opts.headers['Authorization'] = `Bearer ${token}`;
     if (body !== undefined) {
         opts.headers['Content-Type'] = 'application/json';
         opts.body = JSON.stringify(body);

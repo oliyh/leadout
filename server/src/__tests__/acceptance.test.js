@@ -31,6 +31,7 @@ function today() { return new Date().toISOString().slice(0, 10); }
 function tomorrow() { return new Date(Date.now() + 86_400_000).toISOString().slice(0, 10); }
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
+// All account objects returned from these helpers have .id and .token.
 
 async function httpCreateAccount(app, googleId) {
     const res = await request(app).post('/api/auth/google').send({ google_id: googleId });
@@ -38,32 +39,40 @@ async function httpCreateAccount(app, googleId) {
     return res.body;
 }
 
-async function httpRegisterDevice(app, accountId, deviceCode) {
-    const res = await request(app).post('/api/devices').send({ account_id: accountId, device_code: deviceCode });
+async function httpRegisterDevice(app, account, deviceCode) {
+    const res = await request(app).post('/api/devices')
+        .set('Authorization', `Bearer ${account.token}`)
+        .send({ account_id: account.id, device_code: deviceCode });
     expect(res.status).toBe(201);
     return res.body;
 }
 
-async function httpCreateChannel(app, name, instructorId = 'instructor-1') {
-    const res = await request(app).post('/api/channels').send({ instructor_oauth_id: instructorId, name });
+async function httpCreateChannel(app, name, instructorAccount) {
+    const res = await request(app).post('/api/channels')
+        .set('Authorization', `Bearer ${instructorAccount.token}`)
+        .send({ instructor_oauth_id: instructorAccount.id, name });
     expect(res.status).toBe(201);
     return res.body;
 }
 
-async function httpSubscribe(app, channelId, accountId) {
-    const res = await request(app).post(`/api/channels/${channelId}/subscribe`).send({ account_id: accountId });
+async function httpSubscribe(app, channelId, account) {
+    const res = await request(app).post(`/api/channels/${channelId}/subscribe`)
+        .set('Authorization', `Bearer ${account.token}`)
+        .send({ account_id: account.id });
     expect(res.status).toBe(201);
     return res.body;
 }
 
-async function httpCreateProgramme(app, channelId, fields = {}) {
-    const res = await request(app).post(`/api/channels/${channelId}/programmes`).send({
-        name:            'Test Session',
-        scheduled_date:  today(),
-        pace_assumption: 330,
-        blocks:          [],
-        ...fields,
-    });
+async function httpCreateProgramme(app, channelId, instructorAccount, fields = {}) {
+    const res = await request(app).post(`/api/channels/${channelId}/programmes`)
+        .set('Authorization', `Bearer ${instructorAccount.token}`)
+        .send({
+            name:            'Test Session',
+            scheduled_date:  today(),
+            pace_assumption: 330,
+            blocks:          [],
+            ...fields,
+        });
     expect(res.status).toBe(201);
     return res.body;
 }
@@ -80,8 +89,6 @@ async function httpRecordParticipation(app, deviceCode, programmeId) {
 }
 
 // ── Registration flow ─────────────────────────────────────────────────────────
-// An unknown device code returns 404. After the user registers via the web UI
-// (POST /api/auth/google then POST /api/devices), the same device code gets 200.
 
 describe('Registration flow', () => {
     let app;
@@ -96,7 +103,7 @@ describe('Registration flow', () => {
 
     it('after registration, sync returns 200 with empty programmes', async () => {
         const account = await httpCreateAccount(app, 'g-reg-001');
-        await httpRegisterDevice(app, account.id, 'WATCH-REG-01');
+        await httpRegisterDevice(app, account, 'WATCH-REG-01');
 
         const res = await httpSync(app, 'WATCH-REG-01');
         expect(res.status).toBe(200);
@@ -107,33 +114,37 @@ describe('Registration flow', () => {
 
     it('sync records the device model name', async () => {
         const account = await httpCreateAccount(app, 'g-reg-002');
-        await httpRegisterDevice(app, account.id, 'WATCH-REG-02');
+        await httpRegisterDevice(app, account, 'WATCH-REG-02');
 
         await httpSync(app, 'WATCH-REG-02', 'Forerunner265');
 
-        const devices = await request(app).get(`/api/accounts/${account.id}/devices`);
+        const devices = await request(app).get(`/api/accounts/${account.id}/devices`)
+            .set('Authorization', `Bearer ${account.token}`);
         const device = devices.body.find(d => d.device_code === 'WATCH-REG-02');
         expect(device.model_name).toBe('Forerunner265');
     });
 
     it('sync sets last_synced_at on the device', async () => {
         const account = await httpCreateAccount(app, 'g-reg-003');
-        await httpRegisterDevice(app, account.id, 'WATCH-REG-03');
+        await httpRegisterDevice(app, account, 'WATCH-REG-03');
 
-        const before = (await request(app).get(`/api/accounts/${account.id}/devices`)).body[0];
+        const before = (await request(app).get(`/api/accounts/${account.id}/devices`)
+            .set('Authorization', `Bearer ${account.token}`)).body[0];
         expect(before.last_synced_at).toBeUndefined();
 
         await httpSync(app, 'WATCH-REG-03');
 
-        const after = (await request(app).get(`/api/accounts/${account.id}/devices`)).body[0];
+        const after = (await request(app).get(`/api/accounts/${account.id}/devices`)
+            .set('Authorization', `Bearer ${account.token}`)).body[0];
         expect(after.last_synced_at).toBeTruthy();
     });
 
     it('registered device appears in account device list', async () => {
         const account = await httpCreateAccount(app, 'g-reg-004');
-        await httpRegisterDevice(app, account.id, 'WATCH-REG-04');
+        await httpRegisterDevice(app, account, 'WATCH-REG-04');
 
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`);
+        const res = await request(app).get(`/api/accounts/${account.id}/devices`)
+            .set('Authorization', `Bearer ${account.token}`);
         expect(res.status).toBe(200);
         expect(res.body).toHaveLength(1);
         expect(res.body[0].device_code).toBe('WATCH-REG-04');
@@ -141,18 +152,19 @@ describe('Registration flow', () => {
 });
 
 // ── Channel and programme flow ────────────────────────────────────────────────
-// Instructor creates a channel, publishes a programme with full structure,
-// views participation/sync counts, and can edit while the programme is current.
 
 describe('Channel and programme flow', () => {
-    let app;
+    let app, instructor;
 
-    beforeEach(() => { ({ app } = makeApp()); });
+    beforeEach(async () => {
+        ({ app } = makeApp());
+        instructor = await httpCreateAccount(app, 'g-chan-instructor');
+    });
 
     it('creates a channel and a programme with blocks and segments', async () => {
-        const channel = await httpCreateChannel(app, 'Tuesday Runs');
+        const channel = await httpCreateChannel(app, 'Tuesday Runs', instructor);
 
-        const prog = await httpCreateProgramme(app, channel.id, {
+        const prog = await httpCreateProgramme(app, channel.id, instructor, {
             name:   'Tuesday Intervals',
             blocks: PROGRAMME_FIXTURE.blocks,
         });
@@ -165,10 +177,11 @@ describe('Channel and programme flow', () => {
     });
 
     it('programme list shows participation_count and sync_count as 0 before any activity', async () => {
-        const channel = await httpCreateChannel(app, 'Morning Group');
-        await httpCreateProgramme(app, channel.id);
+        const channel = await httpCreateChannel(app, 'Morning Group', instructor);
+        await httpCreateProgramme(app, channel.id, instructor);
 
-        const res = await request(app).get(`/api/channels/${channel.id}/programmes`);
+        const res = await request(app).get(`/api/channels/${channel.id}/programmes`)
+            .set('Authorization', `Bearer ${instructor.token}`);
         expect(res.status).toBe(200);
         expect(res.body).toHaveLength(1);
         expect(res.body[0].participation_count).toBe(0);
@@ -176,15 +189,15 @@ describe('Channel and programme flow', () => {
     });
 
     it('programme response matches contract shape (all watch-required fields present)', async () => {
-        const channel = await httpCreateChannel(app, 'Shape Check');
-        await httpCreateProgramme(app, channel.id, {
+        const channel = await httpCreateChannel(app, 'Shape Check', instructor);
+        await httpCreateProgramme(app, channel.id, instructor, {
             name:   PROGRAMME_FIXTURE.name,
             blocks: PROGRAMME_FIXTURE.blocks,
         });
 
         const account = await httpCreateAccount(app, 'g-shape-01');
-        await httpRegisterDevice(app, account.id, 'WATCH-SHAPE-01');
-        await httpSubscribe(app, channel.id, account.id);
+        await httpRegisterDevice(app, account, 'WATCH-SHAPE-01');
+        await httpSubscribe(app, channel.id, account);
 
         const syncRes = await httpSync(app, 'WATCH-SHAPE-01');
         expect(syncRes.status).toBe(200);
@@ -201,42 +214,47 @@ describe('Channel and programme flow', () => {
     });
 
     it('can update a current programme', async () => {
-        const channel = await httpCreateChannel(app, 'Update Test');
-        const prog = await httpCreateProgramme(app, channel.id, { name: 'Old Name' });
+        const channel = await httpCreateChannel(app, 'Update Test', instructor);
+        const prog = await httpCreateProgramme(app, channel.id, instructor, { name: 'Old Name' });
 
-        const res = await request(app).put(`/api/programmes/${prog.id}`).send({ name: 'New Name' });
+        const res = await request(app).put(`/api/programmes/${prog.id}`)
+            .set('Authorization', `Bearer ${instructor.token}`)
+            .send({ name: 'New Name' });
         expect(res.status).toBe(200);
         expect(res.body.name).toBe('New Name');
     });
 
     it('rejects updating an expired programme', async () => {
-        const channel = await httpCreateChannel(app, 'Expired Test');
+        const channel = await httpCreateChannel(app, 'Expired Test', instructor);
         const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-        const prog = await httpCreateProgramme(app, channel.id, { scheduled_date: yesterday });
+        const prog = await httpCreateProgramme(app, channel.id, instructor, { scheduled_date: yesterday });
 
-        const res = await request(app).put(`/api/programmes/${prog.id}`).send({ name: 'Too Late' });
+        const res = await request(app).put(`/api/programmes/${prog.id}`)
+            .set('Authorization', `Bearer ${instructor.token}`)
+            .send({ name: 'Too Late' });
         expect(res.status).toBe(409);
     });
 
     it('propagation shows is_current: false after programme edit', async () => {
-        const channel = await httpCreateChannel(app, 'Propagation Test');
-        const programme = await httpCreateProgramme(app, channel.id);
+        const channel = await httpCreateChannel(app, 'Propagation Test', instructor);
+        const programme = await httpCreateProgramme(app, channel.id, instructor);
         const account = await httpCreateAccount(app, 'g-prop-01');
-        await httpRegisterDevice(app, account.id, 'WATCH-PROP-01');
-        await httpSubscribe(app, channel.id, account.id);
+        await httpRegisterDevice(app, account, 'WATCH-PROP-01');
+        await httpSubscribe(app, channel.id, account);
 
         await httpSync(app, 'WATCH-PROP-01');
 
-        await request(app).put(`/api/programmes/${programme.id}`).send({ name: 'Updated' });
+        await request(app).put(`/api/programmes/${programme.id}`)
+            .set('Authorization', `Bearer ${instructor.token}`)
+            .send({ name: 'Updated' });
 
-        const res = await request(app).get(`/api/programmes/${programme.id}/propagation`);
+        const res = await request(app).get(`/api/programmes/${programme.id}/propagation`)
+            .set('Authorization', `Bearer ${instructor.token}`);
         expect(res.body.sync_records[0].is_current).toBe(false);
     });
 });
 
 // ── Subscription and sync flow ────────────────────────────────────────────────
-// Device syncs empty, subscribes to a channel, programme appears in next sync.
-// After unsubscribing, programme no longer appears.
 
 describe('Subscription and sync flow', () => {
     let app;
@@ -244,11 +262,12 @@ describe('Subscription and sync flow', () => {
     beforeEach(() => { ({ app } = makeApp()); });
 
     it("sync delivers today's programme after subscribing", async () => {
-        const account = await httpCreateAccount(app, 'g-sub-01');
-        await httpRegisterDevice(app, account.id, 'WATCH-SUB-01');
-        const channel = await httpCreateChannel(app, 'My Channel');
-        await httpSubscribe(app, channel.id, account.id);
-        await httpCreateProgramme(app, channel.id, { name: 'Morning Run' });
+        const account    = await httpCreateAccount(app, 'g-sub-01');
+        const instructor = await httpCreateAccount(app, 'g-sub-instr-01');
+        await httpRegisterDevice(app, account, 'WATCH-SUB-01');
+        const channel = await httpCreateChannel(app, 'My Channel', instructor);
+        await httpSubscribe(app, channel.id, account);
+        await httpCreateProgramme(app, channel.id, instructor, { name: 'Morning Run' });
 
         const res = await httpSync(app, 'WATCH-SUB-01');
         expect(res.status).toBe(200);
@@ -259,14 +278,15 @@ describe('Subscription and sync flow', () => {
     });
 
     it('sync includes programmes from all subscribed channels', async () => {
-        const account = await httpCreateAccount(app, 'g-sub-02');
-        await httpRegisterDevice(app, account.id, 'WATCH-SUB-02');
-        const ch1 = await httpCreateChannel(app, 'Channel A', 'i1');
-        const ch2 = await httpCreateChannel(app, 'Channel B', 'i2');
-        await httpSubscribe(app, ch1.id, account.id);
-        await httpSubscribe(app, ch2.id, account.id);
-        await httpCreateProgramme(app, ch1.id, { name: 'Session A' });
-        await httpCreateProgramme(app, ch2.id, { name: 'Session B' });
+        const account    = await httpCreateAccount(app, 'g-sub-02');
+        const instructor = await httpCreateAccount(app, 'g-sub-instr-02');
+        await httpRegisterDevice(app, account, 'WATCH-SUB-02');
+        const ch1 = await httpCreateChannel(app, 'Channel A', instructor);
+        const ch2 = await httpCreateChannel(app, 'Channel B', instructor);
+        await httpSubscribe(app, ch1.id, account);
+        await httpSubscribe(app, ch2.id, account);
+        await httpCreateProgramme(app, ch1.id, instructor, { name: 'Session A' });
+        await httpCreateProgramme(app, ch2.id, instructor, { name: 'Session B' });
 
         const res = await httpSync(app, 'WATCH-SUB-02');
         expect(res.body.programmes).toHaveLength(2);
@@ -274,12 +294,13 @@ describe('Subscription and sync flow', () => {
     });
 
     it("sync includes tomorrow's programme (server sends all upcoming; watch filters to today)", async () => {
-        const account = await httpCreateAccount(app, 'g-sub-03');
-        await httpRegisterDevice(app, account.id, 'WATCH-SUB-03');
-        const channel = await httpCreateChannel(app, 'Future Channel');
-        await httpSubscribe(app, channel.id, account.id);
-        await httpCreateProgramme(app, channel.id, { name: 'Today',    scheduled_date: today() });
-        await httpCreateProgramme(app, channel.id, { name: 'Tomorrow', scheduled_date: tomorrow() });
+        const account    = await httpCreateAccount(app, 'g-sub-03');
+        const instructor = await httpCreateAccount(app, 'g-sub-instr-03');
+        await httpRegisterDevice(app, account, 'WATCH-SUB-03');
+        const channel = await httpCreateChannel(app, 'Future Channel', instructor);
+        await httpSubscribe(app, channel.id, account);
+        await httpCreateProgramme(app, channel.id, instructor, { name: 'Today',    scheduled_date: today() });
+        await httpCreateProgramme(app, channel.id, instructor, { name: 'Tomorrow', scheduled_date: tomorrow() });
 
         const res = await httpSync(app, 'WATCH-SUB-03');
         expect(res.body.programmes).toHaveLength(2);
@@ -288,13 +309,15 @@ describe('Subscription and sync flow', () => {
     });
 
     it('sync excludes programmes from channels the device is not subscribed to', async () => {
-        const account = await httpCreateAccount(app, 'g-sub-04');
-        await httpRegisterDevice(app, account.id, 'WATCH-SUB-04');
-        const subChannel   = await httpCreateChannel(app, 'Subscribed',   'i1');
-        const unsubChannel = await httpCreateChannel(app, 'Unsubscribed', 'i2');
-        await httpSubscribe(app, subChannel.id, account.id);
-        await httpCreateProgramme(app, subChannel.id,   { name: 'Mine'    });
-        await httpCreateProgramme(app, unsubChannel.id, { name: 'Not Mine' });
+        const account    = await httpCreateAccount(app, 'g-sub-04');
+        const i1         = await httpCreateAccount(app, 'g-sub-instr-04a');
+        const i2         = await httpCreateAccount(app, 'g-sub-instr-04b');
+        await httpRegisterDevice(app, account, 'WATCH-SUB-04');
+        const subChannel   = await httpCreateChannel(app, 'Subscribed',   i1);
+        const unsubChannel = await httpCreateChannel(app, 'Unsubscribed', i2);
+        await httpSubscribe(app, subChannel.id, account);
+        await httpCreateProgramme(app, subChannel.id,   i1, { name: 'Mine'    });
+        await httpCreateProgramme(app, unsubChannel.id, i2, { name: 'Not Mine' });
 
         const res = await httpSync(app, 'WATCH-SUB-04');
         expect(res.body.programmes).toHaveLength(1);
@@ -302,16 +325,19 @@ describe('Subscription and sync flow', () => {
     });
 
     it('after unsubscribing, sync returns empty programmes and subscription_count 0', async () => {
-        const account = await httpCreateAccount(app, 'g-sub-05');
-        await httpRegisterDevice(app, account.id, 'WATCH-SUB-05');
-        const channel = await httpCreateChannel(app, 'Leaving Channel');
-        await httpSubscribe(app, channel.id, account.id);
-        await httpCreateProgramme(app, channel.id);
+        const account    = await httpCreateAccount(app, 'g-sub-05');
+        const instructor = await httpCreateAccount(app, 'g-sub-instr-05');
+        await httpRegisterDevice(app, account, 'WATCH-SUB-05');
+        const channel = await httpCreateChannel(app, 'Leaving Channel', instructor);
+        await httpSubscribe(app, channel.id, account);
+        await httpCreateProgramme(app, channel.id, instructor);
 
         const before = await httpSync(app, 'WATCH-SUB-05');
         expect(before.body.programmes).toHaveLength(1);
 
-        await request(app).delete(`/api/channels/${channel.id}/subscribe`).send({ account_id: account.id });
+        await request(app).delete(`/api/channels/${channel.id}/subscribe`)
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ account_id: account.id });
 
         const after = await httpSync(app, 'WATCH-SUB-05');
         expect(after.body.programmes).toHaveLength(0);
@@ -320,20 +346,18 @@ describe('Subscription and sync flow', () => {
 });
 
 // ── Participation flow ────────────────────────────────────────────────────────
-// When a participant presses LAP at session start, the watch POSTs to
-// /api/sessions/start. The server records it and updates participation_count on
-// the programme. Duplicate posts (retry logic) are idempotent.
 
 describe('Participation flow', () => {
-    let app, account, channel, programme;
+    let app, account, instructor, channel, programme;
 
     beforeEach(async () => {
         ({ app } = makeApp());
-        account   = await httpCreateAccount(app, 'g-part-01');
-        await httpRegisterDevice(app, account.id, 'WATCH-PART-01');
-        channel   = await httpCreateChannel(app, 'Participation Channel');
-        await httpSubscribe(app, channel.id, account.id);
-        programme = await httpCreateProgramme(app, channel.id, { name: 'Interval Session' });
+        account    = await httpCreateAccount(app, 'g-part-01');
+        instructor = await httpCreateAccount(app, 'g-part-instr-01');
+        await httpRegisterDevice(app, account, 'WATCH-PART-01');
+        channel   = await httpCreateChannel(app, 'Participation Channel', instructor);
+        await httpSubscribe(app, channel.id, account);
+        programme = await httpCreateProgramme(app, channel.id, instructor, { name: 'Interval Session' });
         await httpSync(app, 'WATCH-PART-01');
     });
 
@@ -347,7 +371,8 @@ describe('Participation flow', () => {
     it('participation increments programme participation_count to 1', async () => {
         await httpRecordParticipation(app, 'WATCH-PART-01', programme.id);
 
-        const res = await request(app).get(`/api/channels/${channel.id}/programmes`);
+        const res = await request(app).get(`/api/channels/${channel.id}/programmes`)
+            .set('Authorization', `Bearer ${instructor.token}`);
         expect(res.body[0].participation_count).toBe(1);
     });
 
@@ -359,20 +384,24 @@ describe('Participation flow', () => {
         expect(second.status).toBe(201);
         expect(second.body.id).toBe(first.body.id);
 
-        const progList = await request(app).get(`/api/channels/${channel.id}/programmes`);
+        const progList = await request(app).get(`/api/channels/${channel.id}/programmes`)
+            .set('Authorization', `Bearer ${instructor.token}`);
         expect(progList.body[0].participation_count).toBe(1);
     });
 
     it('two different devices produce two distinct participations', async () => {
-        const account2 = await httpCreateAccount(app, 'g-part-02');
-        await httpRegisterDevice(app, account2.id, 'WATCH-PART-02');
-        await request(app).post(`/api/channels/${channel.id}/subscribe`).send({ account_id: account2.id });
+        const account2   = await httpCreateAccount(app, 'g-part-02');
+        await httpRegisterDevice(app, account2, 'WATCH-PART-02');
+        await request(app).post(`/api/channels/${channel.id}/subscribe`)
+            .set('Authorization', `Bearer ${account2.token}`)
+            .send({ account_id: account2.id });
         await httpSync(app, 'WATCH-PART-02');
 
         await httpRecordParticipation(app, 'WATCH-PART-01', programme.id);
         await httpRecordParticipation(app, 'WATCH-PART-02', programme.id);
 
-        const progList = await request(app).get(`/api/channels/${channel.id}/programmes`);
+        const progList = await request(app).get(`/api/channels/${channel.id}/programmes`)
+            .set('Authorization', `Bearer ${instructor.token}`);
         expect(progList.body[0].participation_count).toBe(2);
     });
 
@@ -392,7 +421,8 @@ describe('Participation flow', () => {
     });
 
     it('sync increments sync_count on the programme after a sync', async () => {
-        const progList = await request(app).get(`/api/channels/${channel.id}/programmes`);
+        const progList = await request(app).get(`/api/channels/${channel.id}/programmes`)
+            .set('Authorization', `Bearer ${instructor.token}`);
         expect(progList.body[0].sync_count).toBe(1);
     });
 });

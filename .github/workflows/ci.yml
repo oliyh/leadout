@@ -17,6 +17,8 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - run: npm install
         working-directory: server
+      - run: npm audit --audit-level=high
+        working-directory: server
       - run: npm test
         working-directory: server
 

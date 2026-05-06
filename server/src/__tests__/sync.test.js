@@ -166,15 +166,24 @@ describe('GET /api/sync/:device_code — registered device', () => {
     });
 
     // derived.ProgrammeSyncRecord.is_current
+    // Propagation endpoint requires auth as the channel's instructor.
+    // We create the instructor account via HTTP (gets a token), seed the channel
+    // with that account's ID as instructor_oauth_id.
+
     it('propagation endpoint marks record is_current when versions match', async () => {
         const { account } = await seedRegisteredDevice(store);
-        const channel = await seedChannel(store);
+
+        const instrRes = await request(app).post('/api/auth/google').send({ google_id: 'g-instr-prop-1' });
+        const instructor = instrRes.body;
+        const channel = await seedChannel(store, instructor.id);
+
         await store.createSubscription({ account_id: account.id, channel_id: channel.id });
         const prog = await seedProgramme(store, channel.id);
 
         await request(app).get('/api/sync/SEED-DEVICE');
 
-        const res = await request(app).get(`/api/programmes/${prog.id}/propagation`);
+        const res = await request(app).get(`/api/programmes/${prog.id}/propagation`)
+            .set('Authorization', `Bearer ${instructor.token}`);
         expect(res.status).toBe(200);
         expect(res.body.sync_records).toHaveLength(1);
         expect(res.body.sync_records[0].is_current).toBe(true);
@@ -182,7 +191,11 @@ describe('GET /api/sync/:device_code — registered device', () => {
 
     it('propagation endpoint marks record not is_current after programme edit', async () => {
         const { account } = await seedRegisteredDevice(store);
-        const channel = await seedChannel(store);
+
+        const instrRes = await request(app).post('/api/auth/google').send({ google_id: 'g-instr-prop-2' });
+        const instructor = instrRes.body;
+        const channel = await seedChannel(store, instructor.id);
+
         await store.createSubscription({ account_id: account.id, channel_id: channel.id });
         const v1   = new Date(Date.now() - 5000).toISOString();
         const prog = await seedProgramme(store, channel.id, { updated_at: v1 });
@@ -192,7 +205,8 @@ describe('GET /api/sync/:device_code — registered device', () => {
         const v2 = new Date().toISOString();
         await store.updateProgramme(prog.id, { updated_at: v2 });
 
-        const res = await request(app).get(`/api/programmes/${prog.id}/propagation`);
+        const res = await request(app).get(`/api/programmes/${prog.id}/propagation`)
+            .set('Authorization', `Bearer ${instructor.token}`);
         expect(res.body.sync_records[0].is_current).toBe(false);
     });
 });

@@ -12,10 +12,11 @@ async function signInAs(page, googleId) {
     const account = await res.json();
 
     await page.goto('/');
-    await page.evaluate(({ accountId, googleId }) => {
+    await page.evaluate(({ accountId, googleId, token }) => {
         localStorage.setItem('leadout:accountId', accountId);
         localStorage.setItem('leadout:googleId', googleId);
-    }, { accountId: account.id, googleId });
+        localStorage.setItem('leadout:token', token);
+    }, { accountId: account.id, googleId, token: account.token });
     await page.reload();
     return account;
 }

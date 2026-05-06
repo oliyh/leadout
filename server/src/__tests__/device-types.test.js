@@ -27,6 +27,11 @@ function stubFetchWithTypes(types) {
     }));
 }
 
+async function createAccount(app, googleId) {
+    const res = await request(app).post('/api/auth/google').send({ google_id: googleId });
+    return res.body; // includes .token
+}
+
 describe('Device type enrichment', () => {
     let app;
 
@@ -41,11 +46,14 @@ describe('Device type enrichment', () => {
     });
 
     it('resolves device_type_name and device_type_image for a known part number', async () => {
-        const { body: account } = await request(app).post('/api/auth/google').send({ google_id: 'g-dt-01' });
-        await request(app).post('/api/devices').send({ account_id: account.id, device_code: 'DT-01' });
+        const account = await createAccount(app, 'g-dt-01');
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ account_id: account.id, device_code: 'DT-01' });
         await request(app).get('/api/sync/DT-01?model=006-B4258-00');
 
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`);
+        const res = await request(app).get(`/api/accounts/${account.id}/devices`)
+            .set('Authorization', `Bearer ${account.token}`);
         expect(res.status).toBe(200);
         const device = res.body[0];
         expect(device.device_type_name).toBe('Forerunner® 265S');
@@ -53,33 +61,45 @@ describe('Device type enrichment', () => {
     });
 
     it('returns null device_type fields when model is not in the Garmin catalogue', async () => {
-        const { body: account } = await request(app).post('/api/auth/google').send({ google_id: 'g-dt-02' });
-        await request(app).post('/api/devices').send({ account_id: account.id, device_code: 'DT-02' });
+        const account = await createAccount(app, 'g-dt-02');
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ account_id: account.id, device_code: 'DT-02' });
         await request(app).get('/api/sync/DT-02?model=UNKNOWN-PART');
 
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`);
+        const res = await request(app).get(`/api/accounts/${account.id}/devices`)
+            .set('Authorization', `Bearer ${account.token}`);
         const device = res.body[0];
         expect(device.device_type_name).toBeNull();
         expect(device.device_type_image).toBeNull();
     });
 
     it('returns null device_type fields when the device has never synced', async () => {
-        const { body: account } = await request(app).post('/api/auth/google').send({ google_id: 'g-dt-03' });
-        await request(app).post('/api/devices').send({ account_id: account.id, device_code: 'DT-03' });
+        const account = await createAccount(app, 'g-dt-03');
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ account_id: account.id, device_code: 'DT-03' });
 
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`);
+        const res = await request(app).get(`/api/accounts/${account.id}/devices`)
+            .set('Authorization', `Bearer ${account.token}`);
         const device = res.body[0];
         expect(device.device_type_name).toBeNull();
         expect(device.device_type_image).toBeNull();
     });
 
     it('fetches the Garmin catalogue only once across multiple calls (in-memory cache)', async () => {
-        const { body: account } = await request(app).post('/api/auth/google').send({ google_id: 'g-dt-04' });
-        await request(app).post('/api/devices').send({ account_id: account.id, device_code: 'DT-04A' });
-        await request(app).post('/api/devices').send({ account_id: account.id, device_code: 'DT-04B' });
+        const account = await createAccount(app, 'g-dt-04');
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ account_id: account.id, device_code: 'DT-04A' });
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ account_id: account.id, device_code: 'DT-04B' });
 
-        await request(app).get(`/api/accounts/${account.id}/devices`);
-        await request(app).get(`/api/accounts/${account.id}/devices`);
+        await request(app).get(`/api/accounts/${account.id}/devices`)
+            .set('Authorization', `Bearer ${account.token}`);
+        await request(app).get(`/api/accounts/${account.id}/devices`)
+            .set('Authorization', `Bearer ${account.token}`);
 
         expect(global.fetch).toHaveBeenCalledTimes(1);
     });
@@ -88,11 +108,14 @@ describe('Device type enrichment', () => {
         _resetDeviceTypeCacheForTest();
         vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
 
-        const { body: account } = await request(app).post('/api/auth/google').send({ google_id: 'g-dt-05' });
-        await request(app).post('/api/devices').send({ account_id: account.id, device_code: 'DT-05' });
+        const account = await createAccount(app, 'g-dt-05');
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ account_id: account.id, device_code: 'DT-05' });
         await request(app).get('/api/sync/DT-05?model=006-B4258-00');
 
-        const res = await request(app).get(`/api/accounts/${account.id}/devices`);
+        const res = await request(app).get(`/api/accounts/${account.id}/devices`)
+            .set('Authorization', `Bearer ${account.token}`);
         expect(res.status).toBe(200);
         const device = res.body[0];
         expect(device.device_type_name).toBeNull();

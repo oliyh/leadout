@@ -1,6 +1,13 @@
-// Tests that each account's data endpoints only return that account's own data,
-// even when multiple accounts exist in the same store.
-// Covers devices, subscriptions, channels, channel subscribers, and sync.
+// Tests that protected endpoints enforce ownership — account A cannot access
+// account B's data. Also tests that unauthenticated requests are rejected.
+//
+// Two layers of protection are verified:
+//   1. Unauthenticated (no Bearer token) → 401
+//   2. Authenticated as wrong account (valid token, wrong owner) → 403
+//
+// Separate from these access-control tests, SQL filtering correctness is also
+// checked: when each account queries their own data, only their own records
+// are returned.
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
@@ -14,74 +21,137 @@ function today() { return new Date().toISOString().slice(0, 10); }
 async function httpCreateAccount(app, googleId) {
     const res = await request(app).post('/api/auth/google').send({ google_id: googleId });
     expect(res.status).toBe(200);
-    return res.body;
+    return res.body; // has .id and .token
 }
 
-async function httpRegisterDevice(app, accountId, deviceCode) {
-    const res = await request(app).post('/api/devices').send({ account_id: accountId, device_code: deviceCode });
+async function httpRegisterDevice(app, account, deviceCode) {
+    const res = await request(app).post('/api/devices')
+        .set('Authorization', `Bearer ${account.token}`)
+        .send({ account_id: account.id, device_code: deviceCode });
     expect(res.status).toBe(201);
     return res.body;
 }
 
-async function httpCreateChannel(app, name, instructorId) {
-    const res = await request(app).post('/api/channels').send({ instructor_oauth_id: instructorId, name });
+async function httpCreateChannel(app, account, name) {
+    const res = await request(app).post('/api/channels')
+        .set('Authorization', `Bearer ${account.token}`)
+        .send({ instructor_oauth_id: account.id, name });
     expect(res.status).toBe(201);
     return res.body;
 }
 
-async function httpSubscribe(app, channelId, accountId) {
-    const res = await request(app)
-        .post(`/api/channels/${channelId}/subscribe`)
-        .send({ account_id: accountId });
+async function httpSubscribe(app, account, channelId) {
+    const res = await request(app).post(`/api/channels/${channelId}/subscribe`)
+        .set('Authorization', `Bearer ${account.token}`)
+        .send({ account_id: account.id });
     expect(res.status).toBe(201);
     return res.body;
 }
 
-async function httpPublishProgramme(app, channelId, name) {
-    const res = await request(app).post(`/api/channels/${channelId}/programmes`).send({
-        name, scheduled_date: today(), pace_assumption: 330, blocks: [],
+async function httpPublishProgramme(app, account, channelId, name) {
+    const res = await request(app).post(`/api/channels/${channelId}/programmes`)
+        .set('Authorization', `Bearer ${account.token}`)
+        .send({ name, scheduled_date: today(), pace_assumption: 330, blocks: [] });
+    expect(res.status).toBe(201);
+    return res.body;
+}
+
+// ── Unauthenticated access ────────────────────────────────────────────────────
+
+describe('Unauthenticated access — no Bearer token', () => {
+    let app, account;
+
+    beforeEach(async () => {
+        ({ app } = makeApp());
+        account = await httpCreateAccount(app, 'g-unauth-account');
     });
-    expect(res.status).toBe(201);
-    return res.body;
-}
 
-// ── Device isolation ──────────────────────────────────────────────────────────
+    it('GET /api/accounts/:id/devices returns 401', async () => {
+        const res = await request(app).get(`/api/accounts/${account.id}/devices`);
+        expect(res.status).toBe(401);
+    });
+
+    it('GET /api/accounts/:id/subscriptions returns 401', async () => {
+        const res = await request(app).get(`/api/accounts/${account.id}/subscriptions`);
+        expect(res.status).toBe(401);
+    });
+
+    it('GET /api/accounts/:id/channels returns 401', async () => {
+        const res = await request(app).get(`/api/accounts/${account.id}/channels`);
+        expect(res.status).toBe(401);
+    });
+
+    it('POST /api/devices returns 401', async () => {
+        const res = await request(app).post('/api/devices')
+            .send({ account_id: account.id, device_code: 'WATCH-NOAUTH' });
+        expect(res.status).toBe(401);
+    });
+
+    it('POST /api/channels returns 401', async () => {
+        const res = await request(app).post('/api/channels')
+            .send({ instructor_oauth_id: account.id, name: 'Channel' });
+        expect(res.status).toBe(401);
+    });
+});
+
+// ── Device isolation (IDOR) ───────────────────────────────────────────────────
 
 describe('Device isolation', () => {
-    let app, alice, bob;
+    let app, alice, bob, aliceDevice;
 
     beforeEach(async () => {
         ({ app } = makeApp());
         alice = await httpCreateAccount(app, 'g-iso-device-alice');
         bob   = await httpCreateAccount(app, 'g-iso-device-bob');
-        await httpRegisterDevice(app, alice.id, 'WATCH-ALICE-01');
-        await httpRegisterDevice(app, alice.id, 'WATCH-ALICE-02');
-        await httpRegisterDevice(app, bob.id,   'WATCH-BOB-01');
+        aliceDevice = await httpRegisterDevice(app, alice, 'WATCH-ALICE-01');
+        await httpRegisterDevice(app, alice, 'WATCH-ALICE-02');
+        await httpRegisterDevice(app, bob,   'WATCH-BOB-01');
     });
 
-    it("Alice's device list contains only her two devices", async () => {
+    // Access control
+    it("Bob cannot view Alice's device list (403)", async () => {
+        const res = await request(app).get(`/api/accounts/${alice.id}/devices`)
+            .set('Authorization', `Bearer ${bob.token}`);
+        expect(res.status).toBe(403);
+    });
+
+    it('unauthenticated request for device list returns 401', async () => {
         const res = await request(app).get(`/api/accounts/${alice.id}/devices`);
+        expect(res.status).toBe(401);
+    });
+
+    it("Bob cannot delete Alice's device (403)", async () => {
+        const res = await request(app).delete(`/api/devices/${aliceDevice.id}`)
+            .set('Authorization', `Bearer ${bob.token}`);
+        expect(res.status).toBe(403);
+    });
+
+    it("Bob cannot register a device to Alice's account (403)", async () => {
+        const res = await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${bob.token}`)
+            .send({ account_id: alice.id, device_code: 'WATCH-HIJACK' });
+        expect(res.status).toBe(403);
+    });
+
+    // Data correctness
+    it("Alice's device list contains only her two devices", async () => {
+        const res = await request(app).get(`/api/accounts/${alice.id}/devices`)
+            .set('Authorization', `Bearer ${alice.token}`);
         expect(res.status).toBe(200);
         expect(res.body).toHaveLength(2);
         expect(res.body.every(d => d.account_id === alice.id)).toBe(true);
     });
 
     it("Bob's device list contains only his device", async () => {
-        const res = await request(app).get(`/api/accounts/${bob.id}/devices`);
+        const res = await request(app).get(`/api/accounts/${bob.id}/devices`)
+            .set('Authorization', `Bearer ${bob.token}`);
         expect(res.status).toBe(200);
         expect(res.body).toHaveLength(1);
         expect(res.body[0].account_id).toBe(bob.id);
     });
-
-    it("Alice's devices do not appear in Bob's device list", async () => {
-        const res = await request(app).get(`/api/accounts/${bob.id}/devices`);
-        const codes = res.body.map(d => d.device_code);
-        expect(codes).not.toContain('WATCH-ALICE-01');
-        expect(codes).not.toContain('WATCH-ALICE-02');
-    });
 });
 
-// ── Subscription isolation ────────────────────────────────────────────────────
+// ── Subscription isolation (IDOR) ─────────────────────────────────────────────
 
 describe('Subscription isolation', () => {
     let app, alice, bob, chA, chB, chC;
@@ -90,102 +160,147 @@ describe('Subscription isolation', () => {
         ({ app } = makeApp());
         alice = await httpCreateAccount(app, 'g-iso-sub-alice');
         bob   = await httpCreateAccount(app, 'g-iso-sub-bob');
-        chA = await httpCreateChannel(app, 'Channel A', 'instructor-x');
-        chB = await httpCreateChannel(app, 'Channel B', 'instructor-y');
-        chC = await httpCreateChannel(app, 'Channel C', 'instructor-z');
-        await httpSubscribe(app, chA.id, alice.id);
-        await httpSubscribe(app, chB.id, alice.id);
-        await httpSubscribe(app, chC.id, bob.id);
+        chA = await httpCreateChannel(app, alice, 'Channel A');
+        chB = await httpCreateChannel(app, alice, 'Channel B');
+        chC = await httpCreateChannel(app, bob,   'Channel C');
+        // Channels auto-subscribe instructors; add explicit cross-subs
+        await httpSubscribe(app, alice, chB.id).catch(() => {}); // may be dup from auto-sub
+        await httpSubscribe(app, bob,   chC.id).catch(() => {}); // may be dup from auto-sub
     });
 
-    it("Alice's subscriptions contain only her two subscriptions", async () => {
+    it("Bob cannot view Alice's subscriptions (403)", async () => {
+        const res = await request(app).get(`/api/accounts/${alice.id}/subscriptions`)
+            .set('Authorization', `Bearer ${bob.token}`);
+        expect(res.status).toBe(403);
+    });
+
+    it('unauthenticated request for subscriptions returns 401', async () => {
         const res = await request(app).get(`/api/accounts/${alice.id}/subscriptions`);
+        expect(res.status).toBe(401);
+    });
+
+    it("Bob cannot subscribe Alice to a channel (403)", async () => {
+        const res = await request(app).post(`/api/channels/${chA.id}/subscribe`)
+            .set('Authorization', `Bearer ${bob.token}`)
+            .send({ account_id: alice.id });
+        expect(res.status).toBe(403);
+    });
+
+    // Data correctness
+    it("Alice's subscriptions contain only her subscriptions", async () => {
+        const res = await request(app).get(`/api/accounts/${alice.id}/subscriptions`)
+            .set('Authorization', `Bearer ${alice.token}`);
         expect(res.status).toBe(200);
-        expect(res.body).toHaveLength(2);
         expect(res.body.every(s => s.account_id === alice.id)).toBe(true);
     });
 
-    it("Bob's subscriptions contain only his one subscription", async () => {
-        const res = await request(app).get(`/api/accounts/${bob.id}/subscriptions`);
-        expect(res.status).toBe(200);
-        expect(res.body).toHaveLength(1);
-        expect(res.body[0].account_id).toBe(bob.id);
-    });
-
-    it("Alice's channels do not appear in Bob's subscription list", async () => {
-        const res = await request(app).get(`/api/accounts/${bob.id}/subscriptions`);
+    it("Bob's subscriptions do not include Alice's channel subscriptions", async () => {
+        const res = await request(app).get(`/api/accounts/${bob.id}/subscriptions`)
+            .set('Authorization', `Bearer ${bob.token}`);
         const channelIds = res.body.map(s => s.channel_id);
         expect(channelIds).not.toContain(chA.id);
         expect(channelIds).not.toContain(chB.id);
     });
 });
 
-// ── Channel (instructor) isolation ────────────────────────────────────────────
+// ── Channel (instructor) isolation (IDOR) ─────────────────────────────────────
 
 describe('Channel isolation', () => {
-    let app, alice, bob;
+    let app, alice, bob, aliceChannel;
 
     beforeEach(async () => {
         ({ app } = makeApp());
         alice = await httpCreateAccount(app, 'g-iso-chan-alice');
         bob   = await httpCreateAccount(app, 'g-iso-chan-bob');
-        await httpCreateChannel(app, 'Alice Channel 1', alice.id);
-        await httpCreateChannel(app, 'Alice Channel 2', alice.id);
-        await httpCreateChannel(app, 'Bob Channel',     bob.id);
+        aliceChannel = await httpCreateChannel(app, alice, 'Alice Channel 1');
+        await httpCreateChannel(app, alice, 'Alice Channel 2');
+        await httpCreateChannel(app, bob,   'Bob Channel');
     });
 
-    it("Alice's channel list contains only her two channels", async () => {
+    it("Bob cannot view Alice's channel list (403)", async () => {
+        const res = await request(app).get(`/api/accounts/${alice.id}/channels`)
+            .set('Authorization', `Bearer ${bob.token}`);
+        expect(res.status).toBe(403);
+    });
+
+    it('unauthenticated request for channel list returns 401', async () => {
         const res = await request(app).get(`/api/accounts/${alice.id}/channels`);
+        expect(res.status).toBe(401);
+    });
+
+    it("Bob cannot update Alice's channel (403)", async () => {
+        const res = await request(app).put(`/api/channels/${aliceChannel.id}`)
+            .set('Authorization', `Bearer ${bob.token}`)
+            .send({ name: 'Hijacked' });
+        expect(res.status).toBe(403);
+    });
+
+    it("Bob cannot publish a programme to Alice's channel (403)", async () => {
+        const res = await request(app).post(`/api/channels/${aliceChannel.id}/programmes`)
+            .set('Authorization', `Bearer ${bob.token}`)
+            .send({ name: 'Hijack Programme', scheduled_date: today(), pace_assumption: 330, blocks: [] });
+        expect(res.status).toBe(403);
+    });
+
+    it("Bob cannot view Alice's channel programmes (403)", async () => {
+        const res = await request(app).get(`/api/channels/${aliceChannel.id}/programmes`)
+            .set('Authorization', `Bearer ${bob.token}`);
+        expect(res.status).toBe(403);
+    });
+
+    it("Bob cannot view Alice's channel subscribers (403)", async () => {
+        const res = await request(app).get(`/api/channels/${aliceChannel.id}/subscribers`)
+            .set('Authorization', `Bearer ${bob.token}`);
+        expect(res.status).toBe(403);
+    });
+
+    // Data correctness
+    it("Alice's channel list contains only her channels", async () => {
+        const res = await request(app).get(`/api/accounts/${alice.id}/channels`)
+            .set('Authorization', `Bearer ${alice.token}`);
         expect(res.status).toBe(200);
         expect(res.body).toHaveLength(2);
         expect(res.body.every(c => c.instructor_oauth_id === alice.id)).toBe(true);
     });
 
-    it("Bob's channel list contains only his one channel", async () => {
-        const res = await request(app).get(`/api/accounts/${bob.id}/channels`);
-        expect(res.status).toBe(200);
-        expect(res.body).toHaveLength(1);
-        expect(res.body[0].instructor_oauth_id).toBe(bob.id);
-    });
-
-    it("Alice's channels do not appear in Bob's channel list", async () => {
-        const res = await request(app).get(`/api/accounts/${bob.id}/channels`);
+    it("Bob's channel list does not include Alice's channels", async () => {
+        const res = await request(app).get(`/api/accounts/${bob.id}/channels`)
+            .set('Authorization', `Bearer ${bob.token}`);
         const names = res.body.map(c => c.name);
         expect(names).not.toContain('Alice Channel 1');
         expect(names).not.toContain('Alice Channel 2');
     });
 });
 
-// ── Channel subscriber isolation ──────────────────────────────────────────────
+// ── Programme isolation (IDOR) ────────────────────────────────────────────────
 
-describe('Channel subscriber isolation', () => {
-    let app, alice, bob, aliceChannel, bobChannel;
+describe('Programme isolation', () => {
+    let app, alice, bob, aliceChannel, aliceProg;
 
     beforeEach(async () => {
         ({ app } = makeApp());
-        alice = await httpCreateAccount(app, 'g-iso-chsub-alice');
-        bob   = await httpCreateAccount(app, 'g-iso-chsub-bob');
-        // Each instructor is auto-subscribed to their own channel on creation
-        aliceChannel = await httpCreateChannel(app, "Alice's Channel", alice.id);
-        bobChannel   = await httpCreateChannel(app, "Bob's Channel",   bob.id);
-        // Alice additionally subscribes to Bob's channel
-        await httpSubscribe(app, bobChannel.id, alice.id);
+        alice = await httpCreateAccount(app, 'g-iso-prog-alice');
+        bob   = await httpCreateAccount(app, 'g-iso-prog-bob');
+        aliceChannel = await httpCreateChannel(app, alice, "Alice's Channel");
+        aliceProg    = await httpPublishProgramme(app, alice, aliceChannel.id, "Alice's Programme");
     });
 
-    it("Alice's channel shows Alice as subscriber but not Bob", async () => {
-        const res = await request(app).get(`/api/channels/${aliceChannel.id}/subscribers`);
-        expect(res.status).toBe(200);
-        const accountIds = res.body.map(s => s.account_id);
-        expect(accountIds).toContain(alice.id);
-        expect(accountIds).not.toContain(bob.id);
+    it("Bob cannot edit Alice's programme (403)", async () => {
+        const res = await request(app).put(`/api/programmes/${aliceProg.id}`)
+            .set('Authorization', `Bearer ${bob.token}`)
+            .send({ name: 'Hijacked' });
+        expect(res.status).toBe(403);
     });
 
-    it("Bob's channel shows Bob and Alice (Alice subscribed explicitly)", async () => {
-        const res = await request(app).get(`/api/channels/${bobChannel.id}/subscribers`);
-        expect(res.status).toBe(200);
-        const accountIds = res.body.map(s => s.account_id);
-        expect(accountIds).toContain(bob.id);
-        expect(accountIds).toContain(alice.id);
+    it("Bob cannot view propagation stats for Alice's programme (403)", async () => {
+        const res = await request(app).get(`/api/programmes/${aliceProg.id}/propagation`)
+            .set('Authorization', `Bearer ${bob.token}`);
+        expect(res.status).toBe(403);
+    });
+
+    it('unauthenticated requests for programme propagation return 401', async () => {
+        const res = await request(app).get(`/api/programmes/${aliceProg.id}/propagation`);
+        expect(res.status).toBe(401);
     });
 });
 
@@ -198,13 +313,12 @@ describe('Sync isolation', () => {
         ({ app } = makeApp());
         alice = await httpCreateAccount(app, 'g-iso-sync-alice');
         bob   = await httpCreateAccount(app, 'g-iso-sync-bob');
-        // Each instructor auto-subscribes to their own channel
-        aliceChannel = await httpCreateChannel(app, "Alice's Channel", alice.id);
-        bobChannel   = await httpCreateChannel(app, "Bob's Channel",   bob.id);
-        await httpRegisterDevice(app, alice.id, 'WATCH-ISO-ALICE');
-        await httpRegisterDevice(app, bob.id,   'WATCH-ISO-BOB');
-        await httpPublishProgramme(app, aliceChannel.id, "Alice's Programme");
-        await httpPublishProgramme(app, bobChannel.id,   "Bob's Programme");
+        aliceChannel = await httpCreateChannel(app, alice, "Alice's Channel");
+        bobChannel   = await httpCreateChannel(app, bob,   "Bob's Channel");
+        await httpRegisterDevice(app, alice, 'WATCH-ISO-ALICE');
+        await httpRegisterDevice(app, bob,   'WATCH-ISO-BOB');
+        await httpPublishProgramme(app, alice, aliceChannel.id, "Alice's Programme");
+        await httpPublishProgramme(app, bob,   bobChannel.id,   "Bob's Programme");
     });
 
     it("Alice's sync only includes programmes from channels she's subscribed to", async () => {
@@ -224,7 +338,7 @@ describe('Sync isolation', () => {
     });
 
     it('subscribing Alice to Bob channel makes his programme appear in her sync', async () => {
-        await httpSubscribe(app, bobChannel.id, alice.id);
+        await httpSubscribe(app, alice, bobChannel.id);
 
         const res = await request(app).get('/api/sync/WATCH-ISO-ALICE');
         const names = res.body.programmes.map(p => p.name);

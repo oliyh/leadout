@@ -2,12 +2,14 @@ import { signal } from '@preact/signals';
 
 const LS_GOOGLE_ID  = 'leadout:googleId';
 const LS_ACCOUNT_ID = 'leadout:accountId';
+const LS_TOKEN      = 'leadout:token';
 
 export const accountId   = signal(localStorage.getItem(LS_ACCOUNT_ID) ?? null);
 export const signingIn   = signal(false);
 export const signInError = signal(null);
 
 export function isSignedIn() { return accountId.value !== null; }
+export function getToken() { return localStorage.getItem(LS_TOKEN); }
 
 async function handleCredentialResponse(response) {
     signingIn.value   = true;
@@ -22,6 +24,7 @@ async function handleCredentialResponse(response) {
         const account = await res.json();
         localStorage.setItem(LS_ACCOUNT_ID, account.id);
         localStorage.setItem(LS_GOOGLE_ID,  account.google_id);
+        localStorage.setItem(LS_TOKEN,      account.token);
         accountId.value = account.id;
     } catch (err) {
         signInError.value = 'Sign-in failed. Check the console.';
@@ -60,6 +63,7 @@ export function renderGoogleButton(el, attempt = 0) {
 export function signOut() {
     localStorage.removeItem(LS_ACCOUNT_ID);
     localStorage.removeItem(LS_GOOGLE_ID);
+    localStorage.removeItem(LS_TOKEN);
     accountId.value = null;
     _gisInitialized = false;
 }
@@ -83,6 +87,7 @@ export async function restoreSession() {
         }
         const account = await res.json();
         localStorage.setItem(LS_ACCOUNT_ID, account.id);
+        if (account.token) localStorage.setItem(LS_TOKEN, account.token);
         accountId.value = account.id;
     } catch {}
 }

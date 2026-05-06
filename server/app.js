@@ -1,4 +1,5 @@
 import express from 'express';
+import { createHmac } from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -8,6 +9,40 @@ function today() { return new Date().toISOString().slice(0, 10); }
 
 function wrap(fn) {
     return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+}
+
+// ── Session tokens ────────────────────────────────────────────────────────────
+// HMAC-signed opaque token containing the account id.
+// Set SESSION_SECRET in the environment; falls back to a dev-only default.
+
+const SESSION_SECRET = process.env.SESSION_SECRET ?? 'dev-secret-change-in-prod';
+
+function signToken(accountId) {
+    const payload = Buffer.from(JSON.stringify({ id: accountId })).toString('base64url');
+    const sig = createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+    return `${payload}.${sig}`;
+}
+
+function verifyToken(token) {
+    if (!token) return null;
+    const dot = token.lastIndexOf('.');
+    if (dot < 0) return null;
+    const payload = token.slice(0, dot);
+    const sig     = token.slice(dot + 1);
+    const expected = createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+    if (sig !== expected) return null;
+    try { return JSON.parse(Buffer.from(payload, 'base64url').toString()); } catch { return null; }
+}
+
+// Verifies the Bearer token and attaches req.authAccountId.
+// Returns 401 if the token is absent or invalid.
+function requireAuth(req, res, next) {
+    const header = req.headers.authorization;
+    if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'authentication required' });
+    const claims = verifyToken(header.slice(7));
+    if (!claims?.id) return res.status(401).json({ error: 'invalid token' });
+    req.authAccountId = claims.id;
+    next();
 }
 
 // ── Garmin device type cache ───────────────────────────────────────────────
@@ -50,7 +85,7 @@ export function createApp(store) {
             const { google_id } = req.body;
             if (!google_id) return res.status(400).json({ error: 'google_id required' });
             const account = await store.findOrCreateAccount(google_id);
-            res.json(account);
+            res.json({ ...account, token: signToken(account.id) });
         });
     }
 
@@ -70,7 +105,7 @@ export function createApp(store) {
                 return res.status(401).json({ error: 'token audience mismatch' });
             }
             const account = await store.findOrCreateAccount(payload.sub);
-            res.json(account);
+            res.json({ ...account, token: signToken(account.id) });
         } catch {
             res.status(500).json({ error: 'auth failed' });
         }
@@ -84,17 +119,18 @@ export function createApp(store) {
         const { google_id } = req.body;
         if (!google_id) return res.status(400).json({ error: 'google_id required' });
         const account = await store.findOrCreateAccount(google_id);
-        res.json(account);
+        res.json({ ...account, token: signToken(account.id) });
     });
 
     // ── Device registration (ParticipantRegistersDevice) ──────────────────────
     // A device_code can only be claimed by one account. Rejects duplicates.
 
-    app.post('/api/devices', async (req, res) => {
+    app.post('/api/devices', requireAuth, async (req, res) => {
         const { account_id, device_code } = req.body;
         if (!account_id || !device_code) {
             return res.status(400).json({ error: 'account_id and device_code required' });
         }
+        if (req.authAccountId !== account_id) return res.status(403).json({ error: 'forbidden' });
         if (!await store.getAccount(account_id)) {
             return res.status(404).json({ error: 'account not found' });
         }
@@ -107,23 +143,22 @@ export function createApp(store) {
         res.status(201).json(device);
     });
 
-    app.delete('/api/devices/:id', wrap(async (req, res) => {
-        const { account_id } = req.body;
-        if (!account_id) return res.status(400).json({ error: 'account_id required' });
+    app.delete('/api/devices/:id', requireAuth, wrap(async (req, res) => {
         const device = await store.getDevice(req.params.id);
         if (!device) return res.status(404).json({ error: 'device not found' });
-        if (device.account_id !== account_id) return res.status(403).json({ error: 'forbidden' });
+        if (device.account_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
         await store.deleteDevice(req.params.id);
         res.status(204).end();
     }));
 
     // ── Channel management (InstructorCreatesChannel) ─────────────────────────
 
-    app.post('/api/channels', async (req, res) => {
+    app.post('/api/channels', requireAuth, async (req, res) => {
         const { instructor_oauth_id, name } = req.body;
         if (!instructor_oauth_id || !name) {
             return res.status(400).json({ error: 'instructor_oauth_id and name required' });
         }
+        if (req.authAccountId !== instructor_oauth_id) return res.status(403).json({ error: 'forbidden' });
         const channel = await store.createChannel({
             instructor_oauth_id, name, created_at: new Date().toISOString()
         });
@@ -140,21 +175,23 @@ export function createApp(store) {
         channel ? res.json(channel) : res.status(404).end();
     });
 
-    app.put('/api/channels/:id', async (req, res) => {
+    app.put('/api/channels/:id', requireAuth, async (req, res) => {
         const { name } = req.body;
         if (!name) return res.status(400).json({ error: 'name required' });
         const channel = await store.getChannel(req.params.id);
         if (!channel) return res.status(404).end();
+        if (channel.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
         const updated = await store.updateChannel(req.params.id, { name });
         res.json(updated);
     });
 
     // ── Subscription (ParticipantSubscribes / ParticipantUnsubscribes) ────────
 
-    app.post('/api/channels/:id/subscribe', async (req, res) => {
+    app.post('/api/channels/:id/subscribe', requireAuth, async (req, res) => {
         const { account_id } = req.body;
         const channel_id = req.params.id;
         if (!account_id) return res.status(400).json({ error: 'account_id required' });
+        if (req.authAccountId !== account_id) return res.status(403).json({ error: 'forbidden' });
         if (!await store.getChannel(channel_id)) {
             return res.status(404).json({ error: 'channel not found' });
         }
@@ -165,19 +202,19 @@ export function createApp(store) {
         res.status(201).json(sub);
     });
 
-    app.delete('/api/channels/:id/subscribe', async (req, res) => {
+    app.delete('/api/channels/:id/subscribe', requireAuth, async (req, res) => {
         const { account_id } = req.body;
         const channel_id = req.params.id;
         if (!account_id) return res.status(400).json({ error: 'account_id required' });
+        if (req.authAccountId !== account_id) return res.status(403).json({ error: 'forbidden' });
         const deleted = await store.deleteSubscription(account_id, channel_id);
         deleted ? res.status(204).end() : res.status(404).json({ error: 'subscription not found' });
     });
 
     // ── Account views ─────────────────────────────────────────────────────────
 
-    app.get('/api/accounts/:id/channels', async (req, res) => {
-        if (!await store.getAccount(req.params.id)) return res.status(404).end();
-        // instructor_oauth_id is the account id (stub auth; will be Garmin userId with real OAuth)
+    app.get('/api/accounts/:id/channels', requireAuth, async (req, res) => {
+        if (req.authAccountId !== req.params.id) return res.status(403).json({ error: 'forbidden' });
         const channels = await store.findChannelsByInstructor(req.params.id);
         const result = await Promise.all(channels.map(async ch => ({
             ...ch,
@@ -187,8 +224,8 @@ export function createApp(store) {
         res.json(result);
     });
 
-    app.get('/api/accounts/:id/devices', async (req, res) => {
-        if (!await store.getAccount(req.params.id)) return res.status(404).end();
+    app.get('/api/accounts/:id/devices', requireAuth, async (req, res) => {
+        if (req.authAccountId !== req.params.id) return res.status(403).json({ error: 'forbidden' });
         const [devices, typeMap] = await Promise.all([
             store.findDevicesByAccount(req.params.id),
             getDeviceTypeMap(),
@@ -199,8 +236,8 @@ export function createApp(store) {
         }));
     });
 
-    app.get('/api/accounts/:id/subscriptions', async (req, res) => {
-        if (!await store.getAccount(req.params.id)) return res.status(404).end();
+    app.get('/api/accounts/:id/subscriptions', requireAuth, async (req, res) => {
+        if (req.authAccountId !== req.params.id) return res.status(403).json({ error: 'forbidden' });
         const subs = await store.findSubscriptionsByAccount(req.params.id);
         const result = await Promise.all(subs.map(async sub => {
             const channel = await store.getChannel(sub.channel_id);
@@ -212,8 +249,10 @@ export function createApp(store) {
 
     // ── Channel detail (instructor channel page) ──────────────────────────────
 
-    app.get('/api/channels/:id/programmes', async (req, res) => {
-        if (!await store.getChannel(req.params.id)) return res.status(404).end();
+    app.get('/api/channels/:id/programmes', requireAuth, async (req, res) => {
+        const _ch = await store.getChannel(req.params.id);
+        if (!_ch) return res.status(404).end();
+        if (_ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
         const programmes = await store.findProgrammesByChannel(req.params.id);
         const result = await Promise.all(programmes.map(async prog => ({
             ...prog,
@@ -223,8 +262,10 @@ export function createApp(store) {
         res.json(result);
     });
 
-    app.get('/api/channels/:id/subscribers', async (req, res) => {
-        if (!await store.getChannel(req.params.id)) return res.status(404).end();
+    app.get('/api/channels/:id/subscribers', requireAuth, async (req, res) => {
+        const _ch = await store.getChannel(req.params.id);
+        if (!_ch) return res.status(404).end();
+        if (_ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
         res.json(await store.findSubscriptionsByChannel(req.params.id));
     });
 
@@ -248,11 +289,11 @@ export function createApp(store) {
 
     // ── Programme management ──────────────────────────────────────────────────
 
-    app.post('/api/channels/:id/programmes', async (req, res) => {
+    app.post('/api/channels/:id/programmes', requireAuth, async (req, res) => {
         const channel_id = req.params.id;
-        if (!await store.getChannel(channel_id)) {
-            return res.status(404).json({ error: 'channel not found' });
-        }
+        const _ch = await store.getChannel(channel_id);
+        if (!_ch) return res.status(404).json({ error: 'channel not found' });
+        if (_ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
         const now = new Date().toISOString();
         const { name, scheduled_date, pace_assumption, blocks } = req.body;
         const prog = await store.createProgramme({
@@ -267,9 +308,11 @@ export function createApp(store) {
         res.status(201).json(prog);
     });
 
-    app.put('/api/programmes/:id', async (req, res) => {
+    app.put('/api/programmes/:id', requireAuth, async (req, res) => {
         const prog = await store.getProgramme(req.params.id);
         if (!prog) return res.status(404).end();
+        const _ch = await store.getChannel(prog.channel_id);
+        if (!_ch || _ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
         if (prog.scheduled_date < today()) {
             return res.status(409).json({ error: 'programme is expired' });
         }
@@ -325,9 +368,11 @@ export function createApp(store) {
 
     // ── Instructor sync propagation view ──────────────────────────────────────
 
-    app.get('/api/programmes/:id/propagation', async (req, res) => {
+    app.get('/api/programmes/:id/propagation', requireAuth, async (req, res) => {
         const prog = await store.getProgramme(req.params.id);
         if (!prog) return res.status(404).end();
+        const _ch = await store.getChannel(prog.channel_id);
+        if (!_ch || _ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
         const records = await store.findSyncRecordsByProgramme(prog.id);
         res.json({
             programme_id: prog.id,
@@ -344,10 +389,13 @@ export function createApp(store) {
     // ── Programme editor save/delete ──────────────────────────────────────────
 
     const priv = express.Router();
+    priv.use(requireAuth);
 
     priv.put('/programmes/:id', async (req, res) => {
         const prog = await store.getProgramme(req.params.id);
         if (!prog) return res.status(404).end();
+        const _ch = await store.getChannel(prog.channel_id);
+        if (!_ch || _ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
         const { name, scheduled_date, pace_assumption, blocks } = req.body;
         const updated = await store.updateProgramme(req.params.id, {
             ...(name             !== undefined && { name }),
@@ -360,6 +408,10 @@ export function createApp(store) {
     });
 
     priv.delete('/programmes/:id', async (req, res) => {
+        const prog = await store.getProgramme(req.params.id);
+        if (!prog) return res.status(404).end();
+        const _ch = await store.getChannel(prog.channel_id);
+        if (!_ch || _ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
         const deleted = await store.deleteProgramme(req.params.id);
         deleted ? res.status(204).end() : res.status(404).end();
     });
@@ -371,23 +423,22 @@ export function createApp(store) {
     // When unset (local dev) any existing account is treated as admin.
 
     async function requireAdmin(req, res, next) {
-        const reqAccountId = req.headers['x-account-id'];
-        if (!reqAccountId) return res.status(401).json({ error: 'x-account-id header required' });
         const adminId = process.env.ADMIN_ACCOUNT_ID;
         if (adminId) {
-            if (reqAccountId !== adminId) return res.status(403).json({ error: 'forbidden' });
+            if (req.authAccountId !== adminId) return res.status(403).json({ error: 'forbidden' });
         } else {
-            const account = await store.getAccount(reqAccountId);
+            // Local dev: any existing account is admin.
+            const account = await store.getAccount(req.authAccountId);
             if (!account) return res.status(403).json({ error: 'account not found' });
         }
         next();
     }
 
-    app.get('/api/admin/access', requireAdmin, (_req, res) => {
+    app.get('/api/admin/access', requireAuth, requireAdmin, (_req, res) => {
         res.json({ admin: true });
     });
 
-    app.get('/api/admin/accounts', requireAdmin, async (_req, res) => {
+    app.get('/api/admin/accounts', requireAuth, requireAdmin, async (_req, res) => {
         const [accounts, typeMap] = await Promise.all([store.getAllAccounts(), getDeviceTypeMap()]);
         const result = await Promise.all(accounts.map(async account => {
             const [devices, subs, channels] = await Promise.all([
@@ -415,7 +466,7 @@ export function createApp(store) {
         res.json(result);
     });
 
-    app.get('/api/admin/channels', requireAdmin, async (_req, res) => {
+    app.get('/api/admin/channels', requireAuth, requireAdmin, async (_req, res) => {
         const channels = await store.getAllChannels();
         const result = await Promise.all(channels.map(async ch => {
             const [programmes, subs] = await Promise.all([

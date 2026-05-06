@@ -25,6 +25,14 @@ describe('POST /api/auth/google', () => {
         expect(res.body.google_id).toBe('g-001');
     });
 
+    it('response includes a session token', async () => {
+        const { app } = makeApp();
+        const res = await request(app).post('/api/auth/google').send({ google_id: 'g-001t' });
+        expect(res.status).toBe(200);
+        expect(typeof res.body.token).toBe('string');
+        expect(res.body.token.length).toBeGreaterThan(0);
+    });
+
     // rule-entity-creation.ParticipantFirstSignIn.1
     it('account has google_id and created_at', async () => {
         const { app } = makeApp();
@@ -68,15 +76,14 @@ describe('POST /api/devices', () => {
         const res = await request(app)
             .post('/api/auth/google')
             .send({ google_id: `g-${Math.random()}` });
-        return res.body;
+        return res.body; // includes .token
     }
 
     it('registers a new device to an account', async () => {
         const account = await createAccount();
-        const res = await request(app).post('/api/devices').send({
-            account_id:  account.id,
-            device_code: 'WATCH-001',
-        });
+        const res = await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ account_id: account.id, device_code: 'WATCH-001' });
         expect(res.status).toBe(201);
         expect(res.body.device_code).toBe('WATCH-001');
         expect(res.body.account_id).toBe(account.id);
@@ -85,10 +92,9 @@ describe('POST /api/devices', () => {
     // rule-entity-creation.ParticipantRegistersDevice.1
     it('device has device_code, account_id, and registered_at', async () => {
         const account = await createAccount();
-        const res = await request(app).post('/api/devices').send({
-            account_id:  account.id,
-            device_code: 'WATCH-002',
-        });
+        const res = await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ account_id: account.id, device_code: 'WATCH-002' });
         expect(res.body.device_code).toBe('WATCH-002');
         expect(res.body.account_id).toBe(account.id);
         expect(res.body.registered_at).toBeTruthy();
@@ -98,10 +104,9 @@ describe('POST /api/devices', () => {
     // entity-optional.Device.last_synced_at — absent until first sync
     it('device.last_synced_at is absent at registration time', async () => {
         const account = await createAccount();
-        const res = await request(app).post('/api/devices').send({
-            account_id:  account.id,
-            device_code: 'WATCH-003',
-        });
+        const res = await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ account_id: account.id, device_code: 'WATCH-003' });
         expect(res.body.last_synced_at).toBeUndefined();
     });
 
@@ -110,22 +115,37 @@ describe('POST /api/devices', () => {
         const acc1 = await createAccount();
         const acc2 = await createAccount();
 
-        await request(app).post('/api/devices').send({ account_id: acc1.id, device_code: 'WATCH-DUP' });
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${acc1.token}`)
+            .send({ account_id: acc1.id, device_code: 'WATCH-DUP' });
 
-        const res = await request(app).post('/api/devices').send({ account_id: acc2.id, device_code: 'WATCH-DUP' });
+        const res = await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${acc2.token}`)
+            .send({ account_id: acc2.id, device_code: 'WATCH-DUP' });
         expect(res.status).toBe(409);
     });
 
-    it('returns 404 when account_id is unknown', async () => {
-        const res = await request(app).post('/api/devices').send({
-            account_id:  'nonexistent',
-            device_code: 'WATCH-004',
-        });
-        expect(res.status).toBe(404);
+    it('returns 401 when no token is provided', async () => {
+        const account = await createAccount();
+        const res = await request(app).post('/api/devices')
+            .send({ account_id: account.id, device_code: 'WATCH-NOAUTH' });
+        expect(res.status).toBe(401);
+    });
+
+    it('returns 403 when token does not match account_id', async () => {
+        const acc1 = await createAccount();
+        const acc2 = await createAccount();
+        const res = await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${acc1.token}`)
+            .send({ account_id: acc2.id, device_code: 'WATCH-MISMATCH' });
+        expect(res.status).toBe(403);
     });
 
     it('returns 400 when required fields are missing', async () => {
-        const res = await request(app).post('/api/devices').send({ device_code: 'WATCH-005' });
+        const account = await createAccount();
+        const res = await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ device_code: 'WATCH-005' });
         expect(res.status).toBe(400);
     });
 });

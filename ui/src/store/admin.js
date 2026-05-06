@@ -1,12 +1,13 @@
 import { signal } from '@preact/signals';
-import { accountId } from './auth.js';
+import { accountId, getToken } from './auth.js';
 
 export const isAdmin       = signal(false);
 export const adminAccounts = signal([]);
 export const adminChannels = signal([]);
 
 async function adminReq(path) {
-    const r = await fetch(path, { headers: { 'X-Account-Id': accountId.value } });
+    const token = getToken();
+    const r = await fetch(path, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
     if (!r.ok) {
         const err = new Error();
         err.status = r.status;
