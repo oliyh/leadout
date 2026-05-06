@@ -76,6 +76,7 @@ export function JoinPage({ channelId }) {
                 <p>Subscribe to receive interval session programmes on your Garmin watch.</p>
                 {subError && <p class="error">{subError}</p>}
                 <button
+                    data-testid="subscribe-btn"
                     class="btn-primary btn-wide"
                     onClick={handleSubscribe}
                     disabled={subscribing}

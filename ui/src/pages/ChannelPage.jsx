@@ -81,18 +81,20 @@ function NewProgrammeForm({ channelId, onDone }) {
     return (
         <form class="new-prog-form" onSubmit={submit}>
             <input
+                data-testid="programme-name-input"
                 autoFocus
                 value={name}
                 onInput={e => setName(e.target.value)}
                 placeholder="Programme name (e.g. Thursday intervals)"
             />
             <input
+                data-testid="programme-date-input"
                 type="date"
                 value={date}
                 onInput={e => setDate(e.target.value)}
             />
             <div class="form-actions">
-                <button type="submit" class="btn-primary btn-sm" disabled={submitting}>
+                <button data-testid="create-programme-submit" type="submit" class="btn-primary btn-sm" disabled={submitting}>
                     {submitting ? 'Creating…' : 'Create'}
                 </button>
                 <button type="button" class="btn-ghost btn-sm" onClick={onDone}>Cancel</button>
@@ -110,7 +112,8 @@ function PropagationBadge({ programmeId }) {
     const current = data.sync_records.filter(r => r.is_current).length;
     const total   = data.sync_records.length;
     return (
-        <span class={`propagation-badge${current === total && total > 0 ? ' propagation-current' : ''}`}
+        <span data-testid="propagation-badge"
+              class={`propagation-badge${current === total && total > 0 ? ' propagation-current' : ''}`}
               title={`${current}/${total} devices have the current version`}>
             {current}/{total} synced
         </span>
@@ -170,7 +173,7 @@ export function ChannelPage({ channelId }) {
                 <div class="section-header">
                     <h2>Upcoming programmes</h2>
                     {!addingProg && (
-                        <button class="btn-primary btn-sm" onClick={() => setAddingProg(true)}>
+                        <button data-testid="new-programme-btn" class="btn-primary btn-sm" onClick={() => setAddingProg(true)}>
                             + New programme
                         </button>
                     )}

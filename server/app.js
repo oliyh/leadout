@@ -41,6 +41,19 @@ export function createApp(store) {
     const app = express();
     app.use(express.json());
 
+    // ── Test-only auth (NODE_ENV=test) ────────────────────────────────────────
+    // Creates or returns an account by google_id without any token verification.
+    // Only registered when the server is started in test mode.
+
+    if (process.env.NODE_ENV === 'test') {
+        app.post('/api/auth/test', async (req, res) => {
+            const { google_id } = req.body;
+            if (!google_id) return res.status(400).json({ error: 'google_id required' });
+            const account = await store.findOrCreateAccount(google_id);
+            res.json(account);
+        });
+    }
+
     // ── Auth: verify Google id_token ──────────────────────────────────────────
     // Accepts a real Google id_token JWT from Google Identity Services.
     // Verifies via Google's tokeninfo endpoint, extracts the stable `sub` claim.

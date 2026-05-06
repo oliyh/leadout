@@ -100,6 +100,7 @@ function Step3({ onComplete }) {
             ) : (
                 <form class="setup-code-form" onSubmit={submit}>
                     <input
+                        data-testid="device-code-input"
                         class="device-code-input"
                         value={code}
                         onInput={e => setCode(e.target.value.toUpperCase())}
@@ -108,7 +109,7 @@ function Step3({ onComplete }) {
                         autoCapitalize="characters"
                         spellCheck={false}
                     />
-                    <button type="submit" class="btn-primary" disabled={submitting || !code.trim()}>
+                    <button data-testid="register-device-submit" type="submit" class="btn-primary" disabled={submitting || !code.trim()}>
                         {submitting ? 'Registering…' : 'Register'}
                     </button>
                     {error && <p class="error">{error}</p>}
@@ -137,7 +138,7 @@ function Step4() {
                         Create a channel to start publishing training programmes for your group.
                         Share the channel link with participants so their watches sync automatically.
                     </p>
-                    <button class="btn-primary" onClick={openNewChannel}>Create a channel</button>
+                    <button data-testid="wizard-create-channel-btn" class="btn-primary" onClick={openNewChannel}>Create a channel</button>
                 </div>
             </div>
         </div>
@@ -163,8 +164,8 @@ export function SetupPage() {
                 <button class="btn-ghost" onClick={back} disabled={step === 1}>Back</button>
                 <span class="setup-step-count">Step {step} of {TOTAL}</span>
                 {step < TOTAL
-                    ? <button class="btn-primary" onClick={next}>Next</button>
-                    : <button class="btn-primary" onClick={showHome}>Done</button>
+                    ? <button data-testid="setup-next-btn" class="btn-primary" onClick={next}>Next</button>
+                    : <button data-testid="setup-done-btn" class="btn-primary" onClick={showHome}>Done</button>
                 }
             </div>
         </div>

@@ -253,11 +253,11 @@ function NewChannelModal() {
             <form onSubmit={onSave}>
                 <div class="form-field">
                     <label>Channel name</label>
-                    <input autoFocus value={name} onInput={e => setName(e.target.value)} placeholder="e.g. Tuesday Runs with Sarah" />
+                    <input data-testid="channel-name-input" autoFocus value={name} onInput={e => setName(e.target.value)} placeholder="e.g. Tuesday Runs with Sarah" />
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-ghost" onClick={closeModal} disabled={busy}>Cancel</button>
-                    <button type="submit" class="btn-primary" disabled={busy || !name.trim()}>
+                    <button data-testid="create-channel-submit" type="submit" class="btn-primary" disabled={busy || !name.trim()}>
                         {busy ? 'Creating…' : 'Create channel'}
                     </button>
                 </div>

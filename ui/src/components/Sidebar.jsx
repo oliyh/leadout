@@ -82,7 +82,7 @@ function DeviceItem({ device }) {
                     {name && <span class="sidebar-device-code-badge">{device.device_code}</span>}
                 </span>
             </div>
-            <span class="sidebar-device-meta">
+            <span data-testid="device-last-synced" class="sidebar-device-meta">
                 Synced: {formatDateTime(device.last_synced_at)}
             </span>
         </div>

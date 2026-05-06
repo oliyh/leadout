@@ -30,3 +30,5 @@ server/leadout.db-wal
 # OS
 .DS_Store
 Thumbs.db
+test-results/
+node_modules/
