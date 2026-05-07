@@ -111,18 +111,33 @@ describe('POST /api/devices', () => {
     });
 
     // rule-failure.ParticipantRegistersDevice.1
-    it('rejects a device_code that is already registered to any account', async () => {
+    it('rejects a device_code that is already registered to the same account', async () => {
+        const account = await createAccount();
+
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ device_code: 'WATCH-DUP-SAME' });
+
+        const res = await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({ device_code: 'WATCH-DUP-SAME' });
+        expect(res.status).toBe(409);
+        expect(res.body.error).toBe('device_code already registered');
+    });
+
+    it('rejects a device_code that is already registered to a different account', async () => {
         const acc1 = await createAccount();
         const acc2 = await createAccount();
 
         await request(app).post('/api/devices')
             .set('Authorization', `Bearer ${acc1.token}`)
-            .send({ device_code: 'WATCH-DUP' });
+            .send({ device_code: 'WATCH-DUP-OTHER' });
 
         const res = await request(app).post('/api/devices')
             .set('Authorization', `Bearer ${acc2.token}`)
-            .send({ device_code: 'WATCH-DUP' });
+            .send({ device_code: 'WATCH-DUP-OTHER' });
         expect(res.status).toBe(409);
+        expect(res.body.error).toBe('device_code already registered');
     });
 
     it('returns 401 when no token is provided', async () => {
@@ -137,5 +152,101 @@ describe('POST /api/devices', () => {
             .set('Authorization', `Bearer ${account.token}`)
             .send({});
         expect(res.status).toBe(400);
+    });
+});
+
+// ── Watch device auth ─────────────────────────────────────────────────────────
+// All endpoints the watch calls after registration require a valid Bearer token.
+// Missing or wrong tokens must return 401 so the watch knows to re-register.
+
+describe('Watch device auth — GET /api/sync/:device_code', () => {
+    let app, watchToken;
+
+    beforeEach(async () => {
+        ({ app } = makeApp());
+        const account = await request(app).post('/api/auth/test').send({ google_id: 'g-wauth-sync' });
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.body.token}`)
+            .send({ device_code: 'WATCH-AUTH-SYNC' });
+        const claim = await request(app).get('/api/devices/WATCH-AUTH-SYNC/token');
+        watchToken = claim.body.token;
+    });
+
+    it('returns 200 with a valid watch token', async () => {
+        const res = await request(app).get('/api/sync/WATCH-AUTH-SYNC')
+            .set('Authorization', `Bearer ${watchToken}`);
+        expect(res.status).toBe(200);
+    });
+
+    it('returns 401 with no Authorization header', async () => {
+        const res = await request(app).get('/api/sync/WATCH-AUTH-SYNC');
+        expect(res.status).toBe(401);
+        expect(res.body.error).toBe('authentication required');
+    });
+
+    it('returns 401 with an invalid token', async () => {
+        const res = await request(app).get('/api/sync/WATCH-AUTH-SYNC')
+            .set('Authorization', 'Bearer not-the-right-token');
+        expect(res.status).toBe(401);
+        expect(res.body.error).toBe('authentication required');
+    });
+
+    it('returns 401 when the device code does not exist', async () => {
+        const res = await request(app).get('/api/sync/NONEXISTENT-DEVICE')
+            .set('Authorization', `Bearer ${watchToken}`);
+        expect(res.status).toBe(401);
+        expect(res.body.error).toBe('authentication required');
+    });
+});
+
+describe('Watch device auth — POST /api/sessions/start', () => {
+    let app, watchToken, programmeId;
+
+    beforeEach(async () => {
+        ({ app } = makeApp());
+        const account = await request(app).post('/api/auth/test').send({ google_id: 'g-wauth-sess' });
+        await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${account.body.token}`)
+            .send({ device_code: 'WATCH-AUTH-SESS' });
+        const claim = await request(app).get('/api/devices/WATCH-AUTH-SESS/token');
+        watchToken = claim.body.token;
+
+        const channel = await request(app).post('/api/channels')
+            .set('Authorization', `Bearer ${account.body.token}`)
+            .send({ instructor_oauth_id: account.body.id, name: 'Test Channel' });
+        const prog = await request(app).post(`/api/channels/${channel.body.id}/programmes`)
+            .set('Authorization', `Bearer ${account.body.token}`)
+            .send({ name: 'Test Session', scheduled_date: new Date().toISOString().slice(0, 10), pace_assumption: 330, blocks: [] });
+        programmeId = prog.body.id;
+    });
+
+    it('returns 201 with a valid watch token', async () => {
+        const res = await request(app).post('/api/sessions/start')
+            .set('Authorization', `Bearer ${watchToken}`)
+            .send({ device_code: 'WATCH-AUTH-SESS', programme_id: programmeId });
+        expect(res.status).toBe(201);
+    });
+
+    it('returns 401 with no Authorization header', async () => {
+        const res = await request(app).post('/api/sessions/start')
+            .send({ device_code: 'WATCH-AUTH-SESS', programme_id: programmeId });
+        expect(res.status).toBe(401);
+        expect(res.body.error).toBe('authentication required');
+    });
+
+    it('returns 401 with an invalid token', async () => {
+        const res = await request(app).post('/api/sessions/start')
+            .set('Authorization', 'Bearer not-the-right-token')
+            .send({ device_code: 'WATCH-AUTH-SESS', programme_id: programmeId });
+        expect(res.status).toBe(401);
+        expect(res.body.error).toBe('authentication required');
+    });
+
+    it('returns 401 when the device code does not exist', async () => {
+        const res = await request(app).post('/api/sessions/start')
+            .set('Authorization', `Bearer ${watchToken}`)
+            .send({ device_code: 'NONEXISTENT-DEVICE', programme_id: programmeId });
+        expect(res.status).toBe(401);
+        expect(res.body.error).toBe('authentication required');
     });
 });

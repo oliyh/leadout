@@ -32,6 +32,14 @@ async function createAccount(app, googleId) {
     return res.body; // includes .token
 }
 
+async function registerDevice(app, account, deviceCode) {
+    await request(app).post('/api/devices')
+        .set('Authorization', `Bearer ${account.token}`)
+        .send({ device_code: deviceCode });
+    const claim = await request(app).get(`/api/devices/${deviceCode}/token`);
+    return claim.body.token;
+}
+
 describe('Device type enrichment', () => {
     let app;
 
@@ -47,10 +55,9 @@ describe('Device type enrichment', () => {
 
     it('resolves device_type_name and device_type_image for a known part number', async () => {
         const account = await createAccount(app, 'g-dt-01');
-        await request(app).post('/api/devices')
-            .set('Authorization', `Bearer ${account.token}`)
-            .send({ device_code:'DT-01' });
-        await request(app).get('/api/sync/DT-01?model=006-B4258-00');
+        const watchToken = await registerDevice(app, account, 'DT-01');
+        await request(app).get('/api/sync/DT-01?model=006-B4258-00')
+            .set('Authorization', `Bearer ${watchToken}`);
 
         const res = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);
@@ -62,10 +69,9 @@ describe('Device type enrichment', () => {
 
     it('returns null device_type fields when model is not in the Garmin catalogue', async () => {
         const account = await createAccount(app, 'g-dt-02');
-        await request(app).post('/api/devices')
-            .set('Authorization', `Bearer ${account.token}`)
-            .send({ device_code:'DT-02' });
-        await request(app).get('/api/sync/DT-02?model=UNKNOWN-PART');
+        const watchToken = await registerDevice(app, account, 'DT-02');
+        await request(app).get('/api/sync/DT-02?model=UNKNOWN-PART')
+            .set('Authorization', `Bearer ${watchToken}`);
 
         const res = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);
@@ -109,10 +115,9 @@ describe('Device type enrichment', () => {
         vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
 
         const account = await createAccount(app, 'g-dt-05');
-        await request(app).post('/api/devices')
-            .set('Authorization', `Bearer ${account.token}`)
-            .send({ device_code:'DT-05' });
-        await request(app).get('/api/sync/DT-05?model=006-B4258-00');
+        const watchToken = await registerDevice(app, account, 'DT-05');
+        await request(app).get('/api/sync/DT-05?model=006-B4258-00')
+            .set('Authorization', `Bearer ${watchToken}`);
 
         const res = await request(app).get('/api/accounts/devices')
             .set('Authorization', `Bearer ${account.token}`);

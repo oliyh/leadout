@@ -87,9 +87,16 @@ test('instructor creates channel and programme; participant subscribes and syncs
         await participantPage.waitForURL(`/subscriptions/${channelId}`);
 
         // ── Simulate device sync ─────────────────────────────────────────────────
-        // Represents the Garmin watch polling the server after programme download.
+        // Watch polls /api/devices/:code/token once to claim its auth token,
+        // then uses it as a Bearer token on all subsequent sync calls.
 
-        const syncRes = await participantPage.request.get(`/api/sync/${deviceCode}`);
+        const tokenRes = await participantPage.request.get(`/api/devices/${deviceCode}/token`);
+        expect(tokenRes.status()).toBe(200);
+        const { token: watchToken } = await tokenRes.json();
+
+        const syncRes = await participantPage.request.get(`/api/sync/${deviceCode}`, {
+            headers: { Authorization: `Bearer ${watchToken}` },
+        });
         expect(syncRes.status()).toBe(200);
 
         const syncBody = await syncRes.json();

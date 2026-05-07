@@ -21,6 +21,12 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
             Background.exit(null);
             return;
         }
+        var watchToken = Application.Storage.getValue("watch_token");
+        if (!(watchToken instanceof String)) {
+            // Token not yet claimed — foreground handles token polling. Skip.
+            Background.exit(null);
+            return;
+        }
         makeSyncRequest(deviceCode as String, method(:onSyncResponse));
     }
 
@@ -42,10 +48,9 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
                 Background.exit({ "no_programme" => true });
             }
             return;
-        } else if (responseCode == 404) {
-            // Device is no longer registered — wipe stale cache and signal foreground.
-            Application.Storage.deleteValue("programme");
-            Background.exit({ "registration_required" => true });
+        } else if (responseCode == 401) {
+            // Token rejected — signal foreground to wipe token/code and re-register.
+            Background.exit({ "auth_failed" => true });
             return;
         }
         Background.exit(null);

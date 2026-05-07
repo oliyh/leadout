@@ -45,7 +45,9 @@ class leadout_datafieldApp extends Application.AppBase {
         var view = mView;
         if (!(data instanceof Dictionary) || view == null) { return; }
         var dict = data as Dictionary;
-        if (dict.hasKey("registration_required")) {
+        if (dict.hasKey("auth_failed")) {
+            handleAuthFailure();
+        } else if (dict.hasKey("registration_required")) {
             view.setRegistrationRequired(mDeviceCode);
         } else if (dict.hasKey("no_subscriptions")) {
             view.setNoSubscriptions();
@@ -59,7 +61,7 @@ class leadout_datafieldApp extends Application.AppBase {
     // Handles the response from /api/sync/:device_code.
     // 200 → { "programmes": [...], "subscription_count": N } — find today's and load it,
     //        or show the appropriate empty state.
-    // 404 → device not registered — show code on screen.
+    // 401 → token missing or invalid — wipe token and device code, re-register.
     // Other → network error, keep whatever is cached.
     function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
         System.println("onSyncResponse: code=" + responseCode);
@@ -81,13 +83,8 @@ class leadout_datafieldApp extends Application.AppBase {
                     view.setNoProgramme();
                 }
             }
-        } else if (responseCode == 404) {
-            // Device is no longer registered — wipe stale cache so the next open
-            // starts in STATE_UNREGISTERED rather than briefly showing old programme.
-            Application.Storage.deleteValue("programme");
-            if (view != null) {
-                view.setRegistrationRequired(mDeviceCode);
-            }
+        } else if (responseCode == 401) {
+            handleAuthFailure();
         } else {
             var msg = "";
             if (data instanceof Dictionary) {
@@ -103,18 +100,37 @@ class leadout_datafieldApp extends Application.AppBase {
         if (responseCode == 200) {
             var pendingId = Application.Storage.getValue("pending_participation_id");
             if (pendingId instanceof String) {
+                var watchToken = Application.Storage.getValue("watch_token");
+                var headers = { "Content-Type" => "application/json" } as Dictionary<String, String>;
+                if (watchToken instanceof String) {
+                    headers["Authorization"] = "Bearer " + (watchToken as String);
+                }
                 Communications.makeWebRequest(
                     API_BASE + "/api/sessions/start",
                     { "device_code" => mDeviceCode, "programme_id" => pendingId as String },
                     {
                         :method       => Communications.HTTP_REQUEST_METHOD_POST,
                         :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON,
-                        :headers      => { "Content-Type" => "application/json" }
+                        :headers      => headers
                     },
                     method(:onParticipationRetryResponse)
                 );
                 Application.Storage.deleteValue("pending_participation_id");
             }
+        }
+    }
+
+    // Clears the watch token and device code, generates a new device code, and
+    // enters the registration flow. Called whenever the server returns 401.
+    function handleAuthFailure() as Void {
+        Application.Storage.deleteValue("watch_token");
+        Application.Storage.deleteValue("device_code");
+        Application.Storage.deleteValue("programme");
+        mDeviceCode = getOrCreateDeviceCode();
+        var view = mView;
+        if (view != null) {
+            view.setDeviceCode(mDeviceCode);
+            view.setRegistrationRequired(mDeviceCode);
         }
     }
 
@@ -134,6 +150,7 @@ class leadout_datafieldApp extends Application.AppBase {
     function onSettingsChanged() as Void {
         var reset = Application.Properties.getValue("ResetState");
         if (reset instanceof Boolean && reset as Boolean) {
+            Application.Storage.deleteValue("watch_token");
             Application.Storage.deleteValue("device_code");
             Application.Storage.deleteValue("programme");
             Application.Storage.deleteValue("lastSyncTime");

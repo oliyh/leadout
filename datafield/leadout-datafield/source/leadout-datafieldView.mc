@@ -169,13 +169,15 @@ class leadout_datafieldView extends WatchUi.DataField {
             }
         }
 
-        // While unregistered, poll every 10 s so the watch detects registration automatically.
+        // While unregistered, poll the token endpoint every 10 s. When the web app
+        // registers the device, the server issues a one-time token which the watch
+        // claims here and stores; it then calls sync immediately with that token.
         if (mState == STATE_UNREGISTERED && !mPolling) {
             var now = System.getTimer();
             if (now - mLastPollMs > 10000) {
                 mLastPollMs = now;
                 mPolling = true;
-                makeSyncRequest(mDeviceCode, method(:onRegistrationPoll));
+                makeTokenRequest(mDeviceCode, method(:onTokenPoll));
             }
         }
 
@@ -259,13 +261,18 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     // Fire-and-forget POST to /api/sessions/start. No retry on failure.
     hidden function recordParticipation() as Void {
+        var watchToken = Application.Storage.getValue("watch_token");
+        var headers = { "Content-Type" => "application/json" } as Dictionary<String, String>;
+        if (watchToken instanceof String) {
+            headers["Authorization"] = "Bearer " + (watchToken as String);
+        }
         Communications.makeWebRequest(
             API_BASE + "/api/sessions/start",
             { "device_code" => mDeviceCode, "programme_id" => mProgrammeId },
             {
                 :method       => Communications.HTTP_REQUEST_METHOD_POST,
                 :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON,
-                :headers      => { "Content-Type" => "application/json" }
+                :headers      => headers
             },
             method(:onParticipationResponse)
         );
@@ -275,10 +282,28 @@ class leadout_datafieldView extends WatchUi.DataField {
         System.println("participation: " + responseCode);
     }
 
-    // Callback for the registration poll (fired from compute() every 10 s in STATE_UNREGISTERED).
-    // 200 → registered; load programme (or show appropriate empty state).
-    // 404 → still unregistered; compute() will retry after 10 s.
-    // Other → network issue; compute() will retry after 10 s.
+    // Callback for the token poll (fired from compute() every 10 s in STATE_UNREGISTERED).
+    // 200 { token } → token claimed; persist it and immediately sync to load a programme.
+    // 202 → device not yet registered; compute() retries after 10 s.
+    // Other (including 410 already-claimed) → leave mPolling=false so compute() retries.
+    function onTokenPoll(responseCode as Number, data as Dictionary?) as Void {
+        System.println("onTokenPoll: code=" + responseCode);
+        mPolling = false;
+        if (responseCode == 200 && data != null) {
+            var token = data["token"];
+            if (token instanceof String) {
+                Application.Storage.setValue("watch_token", token as String);
+                // Token stored — now sync immediately with it.
+                mPolling = true;
+                makeSyncRequest(mDeviceCode, method(:onRegistrationPoll));
+            }
+        }
+    }
+
+    // Callback for the sync fired immediately after claiming the token.
+    // 200 → registered and synced; load programme (or show appropriate empty state).
+    // 401 → token was rejected — delegate re-registration to the App.
+    // Other → network issue; compute() will retry the token poll after 10 s.
     function onRegistrationPoll(responseCode as Number, data as Dictionary?) as Void {
         System.println("onRegistrationPoll: code=" + responseCode);
         mPolling = false;
@@ -297,6 +322,8 @@ class leadout_datafieldView extends WatchUi.DataField {
                 }
             }
             WatchUi.requestUpdate();
+        } else if (responseCode == 401) {
+            getApp().handleAuthFailure();
         }
     }
 

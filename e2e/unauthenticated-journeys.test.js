@@ -86,7 +86,13 @@ test('signed-out user scans watch QR code, signs in, and watch registers automat
 
     await expect(page.getByTestId('register-success')).toBeVisible();
 
-    // Confirm the device is registered server-side.
-    const syncRes = await page.request.get(`/api/sync/${deviceCode}`);
+    // Confirm the device is registered server-side by claiming its token then syncing.
+    const tokenRes = await page.request.get(`/api/devices/${deviceCode}/token`);
+    expect(tokenRes.status()).toBe(200);
+    const { token: watchToken } = await tokenRes.json();
+
+    const syncRes = await page.request.get(`/api/sync/${deviceCode}`, {
+        headers: { Authorization: `Bearer ${watchToken}` },
+    });
     expect(syncRes.status()).toBe(200);
 });

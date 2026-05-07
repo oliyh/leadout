@@ -20,7 +20,9 @@ CREATE TABLE IF NOT EXISTS devices (
     last_synced_at TEXT,
     model_name TEXT,
     app_version TEXT,
-    distance_units TEXT
+    distance_units TEXT,
+    token TEXT,
+    registration_token TEXT
 );
 
 CREATE TABLE IF NOT EXISTS channels (
@@ -109,6 +111,8 @@ export class PostgresStore {
         await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS model_name TEXT');
         await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS app_version TEXT');
         await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS distance_units TEXT');
+        await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS token TEXT');
+        await pool.query('ALTER TABLE devices ADD COLUMN IF NOT EXISTS registration_token TEXT');
         return new PostgresStore(pool);
     }
 
@@ -146,10 +150,31 @@ export class PostgresStore {
     async createDevice(data) {
         const device = { ...data, id: randomUUID() };
         await this._pool.query(
-            'INSERT INTO devices (id, account_id, device_code, registered_at) VALUES ($1, $2, $3, $4)',
-            [device.id, device.account_id, device.device_code, device.registered_at]
+            'INSERT INTO devices (id, account_id, device_code, registered_at, token, registration_token) VALUES ($1, $2, $3, $4, $5, $6)',
+            [device.id, device.account_id, device.device_code, device.registered_at, device.token ?? null, device.registration_token ?? null]
         );
         return device;
+    }
+
+    async claimRegistrationToken(device_code) {
+        const client = await this._pool.connect();
+        try {
+            await client.query('BEGIN');
+            const { rows } = await client.query(
+                'SELECT * FROM devices WHERE device_code = $1 FOR UPDATE', [device_code]
+            );
+            if (!rows[0]) { await client.query('ROLLBACK'); return null; }
+            const device = rows[0];
+            if (!device.registration_token) { await client.query('ROLLBACK'); return false; }
+            await client.query('UPDATE devices SET registration_token = NULL WHERE id = $1', [device.id]);
+            await client.query('COMMIT');
+            return device.token;
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     }
 
     async getDevice(id) {

@@ -30,7 +30,9 @@ CREATE TABLE IF NOT EXISTS devices (
     account_id TEXT NOT NULL REFERENCES accounts(id),
     device_code TEXT UNIQUE NOT NULL,
     registered_at TEXT NOT NULL,
-    last_synced_at TEXT
+    last_synced_at TEXT,
+    token TEXT,
+    registration_token TEXT
 );
 
 CREATE TABLE IF NOT EXISTS channels (
@@ -95,6 +97,8 @@ export class SqliteStore {
         try { this._db.exec('ALTER TABLE devices ADD COLUMN model_name TEXT'); } catch {}
         try { this._db.exec('ALTER TABLE devices ADD COLUMN app_version TEXT'); } catch {}
         try { this._db.exec('ALTER TABLE devices ADD COLUMN distance_units TEXT'); } catch {}
+        try { this._db.exec('ALTER TABLE devices ADD COLUMN token TEXT'); } catch {}
+        try { this._db.exec('ALTER TABLE devices ADD COLUMN registration_token TEXT'); } catch {}
     }
 
     // ── Accounts ──────────────────────────────────────────────────────────────
@@ -124,9 +128,19 @@ export class SqliteStore {
     async createDevice(data) {
         const device = { ...data, id: randomUUID() };
         this._db.prepare(
-            'INSERT INTO devices (id, account_id, device_code, registered_at) VALUES (?, ?, ?, ?)'
-        ).run(device.id, device.account_id, device.device_code, device.registered_at);
+            'INSERT INTO devices (id, account_id, device_code, registered_at, token, registration_token) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(device.id, device.account_id, device.device_code, device.registered_at, device.token ?? null, device.registration_token ?? null);
         return device;
+    }
+
+    async claimRegistrationToken(device_code) {
+        return this._db.transaction(() => {
+            const device = this._db.prepare('SELECT * FROM devices WHERE device_code = ?').get(device_code);
+            if (!device) return null;
+            if (!device.registration_token) return false;
+            this._db.prepare('UPDATE devices SET registration_token = NULL WHERE id = ?').run(device.id);
+            return device.token;
+        })();
     }
 
     async getDevice(id) {

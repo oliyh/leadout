@@ -355,19 +355,28 @@ function testDeviceCode_nonEmpty(logger as Test.Logger) as Boolean {
 //   setRegistrationRequired(code):
 //     → mState = STATE_UNREGISTERED, mDeviceCode = code
 //
+// ── Token poll (fires from compute() every 10 s in STATE_UNREGISTERED) ────────
+//   onTokenPoll(200, { "token" => "..." }):
+//     → watch_token saved to storage, makeSyncRequest fired, mPolling = true
+//   onTokenPoll(202, null):
+//     → mPolling = false, mState unchanged (still STATE_UNREGISTERED, retry next tick)
+//   onTokenPoll(other, _):
+//     → mPolling = false, mState unchanged (retry next tick)
+//
 // ── RegisteredDevicePoll (spec rule: RegisteredDevicePoll) ───────────────────
+//   Called after onTokenPoll successfully stores a token and fires a sync.
 //   onRegistrationPoll(200, { "programmes" => [todayProg] }):
 //     → loadProgramme called, mState = STATE_WAITING, mPolling = false
 //   onRegistrationPoll(200, { "programmes" => [] }):
-//     → mState = STATE_SYNCING (registered but no programme today), mPolling = false
-//   onRegistrationPoll(404, null):
-//     → mPolling = false, mState unchanged (still STATE_UNREGISTERED, retry next tick)
-//   onRegistrationPoll(500, null):
+//     → mState = STATE_NO_SUBSCRIPTIONS or STATE_NO_PROGRAMME, mPolling = false
+//   onRegistrationPoll(401, _):
+//     → getApp().handleAuthFailure() called — token wiped, new device code generated
+//   onRegistrationPoll(other, _):
 //     → mPolling = false, mState unchanged (network error, retry next tick)
 //
 // ── Registration poll throttle ────────────────────────────────────────────────
 //   compute() when STATE_UNREGISTERED and !mPolling and (now - mLastPollMs) > 10000:
-//     → mPolling = true, web request made, mLastPollMs updated
+//     → mPolling = true, makeTokenRequest made, mLastPollMs updated
 //   compute() when STATE_UNREGISTERED and !mPolling and (now - mLastPollMs) <= 10000:
 //     → no web request made (throttled)
 //   compute() when STATE_UNREGISTERED and mPolling:
@@ -382,13 +391,15 @@ function testDeviceCode_nonEmpty(logger as Test.Logger) as Boolean {
 // server acceptance tests in acceptance.test.js AND these Monkey C tests must
 // both be updated — making field-name drift visible on both sides.
 //
-// Two server endpoints:
-//   GET  /api/sync/:device_code  → { "programmes" => Array, "subscription_count" => Number }
-//                                  or { "error" => "registration_required" } on 404
-//   POST /api/sessions/start     → request { "device_code" => String, "programme_id" => String }
+// Three server endpoints used by the watch:
+//   GET  /api/devices/:device_code/token → 202 (pending), 200 { "token" => String } (claimed), 410 (already claimed)
+//   GET  /api/sync/:device_code          → { "programmes" => Array, "subscription_count" => Number }
+//                                          Authorization: Bearer <watch_token> required; 401 means re-register.
+//   POST /api/sessions/start             → request { "device_code" => String, "programme_id" => String }
+//                                          Authorization: Bearer <watch_token> required; 401 means re-register.
 //
-// The watch does NOT read the 404 body or the participation 201 body — it only
-// checks HTTP status codes. The contracts for those are server-side only.
+// The watch does NOT read the 401/202/410 bodies — it only checks HTTP status codes.
+// The contracts for response bodies are server-side only.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Mirrors spec/contract.js SYNC_200_BODY + PROGRAMME_FIXTURE (scheduled for today).

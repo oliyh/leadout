@@ -29,7 +29,9 @@ async function httpRegisterDevice(app, account, deviceCode) {
         .set('Authorization', `Bearer ${account.token}`)
         .send({ device_code: deviceCode });
     expect(res.status).toBe(201);
-    return res.body;
+    const claim = await request(app).get(`/api/devices/${deviceCode}/token`);
+    expect(claim.status).toBe(200);
+    return { ...res.body, watch_token: claim.body.token };
 }
 
 async function httpCreateChannel(app, account, name) {
@@ -286,7 +288,7 @@ describe('Programme isolation', () => {
 // ── Sync isolation ────────────────────────────────────────────────────────────
 
 describe('Sync isolation', () => {
-    let app, alice, bob, aliceChannel, bobChannel;
+    let app, alice, bob, aliceChannel, bobChannel, aliceWatchToken, bobWatchToken;
 
     beforeEach(async () => {
         ({ app } = makeApp());
@@ -294,14 +296,15 @@ describe('Sync isolation', () => {
         bob   = await httpCreateAccount(app, 'g-iso-sync-bob');
         aliceChannel = await httpCreateChannel(app, alice, "Alice's Channel");
         bobChannel   = await httpCreateChannel(app, bob,   "Bob's Channel");
-        await httpRegisterDevice(app, alice, 'WATCH-ISO-ALICE');
-        await httpRegisterDevice(app, bob,   'WATCH-ISO-BOB');
+        ({ watch_token: aliceWatchToken } = await httpRegisterDevice(app, alice, 'WATCH-ISO-ALICE'));
+        ({ watch_token: bobWatchToken   } = await httpRegisterDevice(app, bob,   'WATCH-ISO-BOB'));
         await httpPublishProgramme(app, alice, aliceChannel.id, "Alice's Programme");
         await httpPublishProgramme(app, bob,   bobChannel.id,   "Bob's Programme");
     });
 
     it("Alice's sync only includes programmes from channels she's subscribed to", async () => {
-        const res = await request(app).get('/api/sync/WATCH-ISO-ALICE');
+        const res = await request(app).get('/api/sync/WATCH-ISO-ALICE')
+            .set('Authorization', `Bearer ${aliceWatchToken}`);
         expect(res.status).toBe(200);
         const names = res.body.programmes.map(p => p.name);
         expect(names).toContain("Alice's Programme");
@@ -309,7 +312,8 @@ describe('Sync isolation', () => {
     });
 
     it("Bob's sync only includes programmes from channels he's subscribed to", async () => {
-        const res = await request(app).get('/api/sync/WATCH-ISO-BOB');
+        const res = await request(app).get('/api/sync/WATCH-ISO-BOB')
+            .set('Authorization', `Bearer ${bobWatchToken}`);
         expect(res.status).toBe(200);
         const names = res.body.programmes.map(p => p.name);
         expect(names).toContain("Bob's Programme");
@@ -319,7 +323,8 @@ describe('Sync isolation', () => {
     it('subscribing Alice to Bob channel makes his programme appear in her sync', async () => {
         await httpSubscribe(app, alice, bobChannel.id);
 
-        const res = await request(app).get('/api/sync/WATCH-ISO-ALICE');
+        const res = await request(app).get('/api/sync/WATCH-ISO-ALICE')
+            .set('Authorization', `Bearer ${aliceWatchToken}`);
         const names = res.body.programmes.map(p => p.name);
         expect(names).toContain("Alice's Programme");
         expect(names).toContain("Bob's Programme");

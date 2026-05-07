@@ -11,12 +11,16 @@ import { DomainStore } from '../store/domain.js';
 
 function makeStore() { return new DomainStore(); }
 
+const SEED_TOKEN = 'seed-device-token-00000000000000000';
+
 async function seedRegisteredDevice(store) {
     const account = await store.findOrCreateAccount('google-seed');
     const device  = await store.createDevice({
-        device_code:   'SEED-DEVICE',
-        account_id:    account.id,
-        registered_at: new Date().toISOString(),
+        device_code:        'SEED-DEVICE',
+        account_id:         account.id,
+        registered_at:      new Date().toISOString(),
+        token:              SEED_TOKEN,
+        registration_token: SEED_TOKEN,
     });
     return { account, device };
 }
@@ -43,11 +47,11 @@ async function seedProgramme(store, channel_id, overrides = {}) {
 // ── rule-success.UnregisteredDevicePoll ───────────────────────────────────────
 
 describe('GET /api/sync/:device_code — unregistered device', () => {
-    it('returns 404 with registration_required', async () => {
+    it('returns 401 when no token is supplied', async () => {
         const app = createApp(makeStore());
         const res = await request(app).get('/api/sync/UNKNOWN-CODE');
-        expect(res.status).toBe(404);
-        expect(res.body.error).toBe('registration_required');
+        expect(res.status).toBe(401);
+        expect(res.body.error).toBe('authentication required');
     });
 });
 
@@ -64,7 +68,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
         await store.createSubscription({ account_id: account.id, channel_id: channel.id });
         await seedProgramme(store, channel.id);
 
-        const res = await request(app).get('/api/sync/SEED-DEVICE');
+        const res = await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
         expect(res.status).toBe(200);
         expect(Array.isArray(res.body.programmes)).toBe(true);
     });
@@ -78,7 +82,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
         await seedProgramme(store, ch1.id, { name: 'Session A' });
         await seedProgramme(store, ch2.id, { name: 'Session B' });
 
-        const res = await request(app).get('/api/sync/SEED-DEVICE');
+        const res = await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
         expect(res.body.programmes).toHaveLength(2);
         const names = res.body.programmes.map(p => p.name).sort();
         expect(names).toEqual(['Session A', 'Session B']);
@@ -92,7 +96,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
         const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
         await seedProgramme(store, channel.id, { scheduled_date: yesterday });
 
-        const res = await request(app).get('/api/sync/SEED-DEVICE');
+        const res = await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
         expect(res.status).toBe(200);
         expect(res.body.programmes).toHaveLength(0);
     });
@@ -105,7 +109,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
         await seedProgramme(store, channel.id, { name: 'Today' });
         await seedProgramme(store, channel.id, { name: 'Tomorrow', scheduled_date: tomorrow });
 
-        const res = await request(app).get('/api/sync/SEED-DEVICE');
+        const res = await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
         expect(res.body.programmes).toHaveLength(2);
     });
 
@@ -117,7 +121,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
         await seedProgramme(store, subscribed.id,   { name: 'Mine' });
         await seedProgramme(store, unsubscribed.id, { name: 'Not Mine' });
 
-        const res = await request(app).get('/api/sync/SEED-DEVICE');
+        const res = await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
         expect(res.body.programmes).toHaveLength(1);
         expect(res.body.programmes[0].name).toBe('Mine');
     });
@@ -128,7 +132,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
         const before = await store.findDeviceByCode('SEED-DEVICE');
         expect(before.last_synced_at).toBeUndefined();
 
-        await request(app).get('/api/sync/SEED-DEVICE');
+        await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
 
         const after = await store.findDeviceByCode('SEED-DEVICE');
         expect(after.last_synced_at).toBeTruthy();
@@ -140,7 +144,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
         await store.createSubscription({ account_id: account.id, channel_id: channel.id });
         const prog = await seedProgramme(store, channel.id);
 
-        await request(app).get('/api/sync/SEED-DEVICE');
+        await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
 
         const records = await store.findSyncRecordsByProgramme(prog.id);
         expect(records).toHaveLength(1);
@@ -154,12 +158,12 @@ describe('GET /api/sync/:device_code — registered device', () => {
         const v1   = new Date(Date.now() - 5000).toISOString();
         const prog = await seedProgramme(store, channel.id, { updated_at: v1 });
 
-        await request(app).get('/api/sync/SEED-DEVICE');
+        await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
 
         const v2 = new Date().toISOString();
         await store.updateProgramme(prog.id, { updated_at: v2 });
 
-        await request(app).get('/api/sync/SEED-DEVICE');
+        await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
 
         const records = await store.findSyncRecordsByProgramme(prog.id);
         expect(records[0].programme_version).toBe(v2);
@@ -180,7 +184,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
         await store.createSubscription({ account_id: account.id, channel_id: channel.id });
         const prog = await seedProgramme(store, channel.id);
 
-        await request(app).get('/api/sync/SEED-DEVICE');
+        await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
 
         const res = await request(app).get(`/api/programmes/${prog.id}/propagation`)
             .set('Authorization', `Bearer ${instructor.token}`);
@@ -200,7 +204,7 @@ describe('GET /api/sync/:device_code — registered device', () => {
         const v1   = new Date(Date.now() - 5000).toISOString();
         const prog = await seedProgramme(store, channel.id, { updated_at: v1 });
 
-        await request(app).get('/api/sync/SEED-DEVICE');
+        await request(app).get('/api/sync/SEED-DEVICE').set('Authorization', `Bearer ${SEED_TOKEN}`);
 
         const v2 = new Date().toISOString();
         await store.updateProgramme(prog.id, { updated_at: v2 });

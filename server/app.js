@@ -1,5 +1,5 @@
 import express from 'express';
-import { createHmac } from 'crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -127,8 +127,11 @@ export function createApp(store) {
         if (await store.findDeviceByCode(device_code)) {
             return res.status(409).json({ error: 'device_code already registered' });
         }
+        const token = randomUUID();
         const device = await store.createDevice({
-            device_code, account_id: req.authAccountId, registered_at: new Date().toISOString()
+            device_code, account_id: req.authAccountId,
+            registered_at: new Date().toISOString(),
+            token, registration_token: token,
         });
         res.status(201).json(device);
     });
@@ -257,12 +260,22 @@ export function createApp(store) {
     // ── Participation (ParticipantStartsSession) ──────────────────────────────
 
     app.post('/api/sessions/start', async (req, res) => {
+        const header = req.headers.authorization;
+        if (!header?.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'authentication required' });
+        }
+        const watchToken = header.slice(7);
         const { device_code, programme_id } = req.body;
         if (!device_code || !programme_id) {
             return res.status(400).json({ error: 'device_code and programme_id required' });
         }
         const device = await store.findDeviceByCode(device_code);
-        if (!device) return res.status(404).json({ error: 'device not registered' });
+        if (!device?.token) return res.status(401).json({ error: 'authentication required' });
+        const expected = Buffer.from(device.token, 'utf8');
+        const given    = Buffer.from(watchToken,    'utf8');
+        if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
+            return res.status(401).json({ error: 'authentication required' });
+        }
         if (!await store.getProgramme(programme_id)) {
             return res.status(404).json({ error: 'programme not found' });
         }
@@ -293,15 +306,38 @@ export function createApp(store) {
         res.status(201).json(prog);
     });
 
+    // ── Watch token pickup (WatchClaimsToken) ─────────────────────────────────
+    // Watch polls this until it receives its token. One-time only: registration_token
+    // is cleared on first claim so subsequent calls return 410.
+    // 202: device not yet registered (keep polling)
+    // 200: token claimed successfully
+    // 410: token already claimed (watch already has it)
+
+    app.get('/api/devices/:device_code/token', async (req, res) => {
+        const result = await store.claimRegistrationToken(req.params.device_code);
+        if (result === null)  return res.status(202).json({ status: 'pending' });
+        if (result === false) return res.status(410).json({ error: 'token already claimed' });
+        res.json({ token: result });
+    });
+
     // ── Watch sync API (DevicePollsServer) ────────────────────────────────────
-    // RegisteredDevicePoll: returns non-expired programmes from all subscribed
-    // channels; creates/updates ProgrammeSyncRecord per programme.
-    // UnregisteredDevicePoll: returns 404 with registration_required.
+    // Requires Authorization: Bearer <device_token> — returned via /api/devices/:code/token.
+    // Returns 401 for missing/invalid token so the watch knows to re-register.
 
     app.get('/api/sync/:device_code', async (req, res) => {
+        const header = req.headers.authorization;
+        if (!header?.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'authentication required' });
+        }
+        const watchToken = header.slice(7);
         const device = await store.findDeviceByCode(req.params.device_code);
-        if (!device) {
-            return res.status(404).json({ error: 'registration_required' });
+        if (!device?.token) {
+            return res.status(401).json({ error: 'authentication required' });
+        }
+        const expected = Buffer.from(device.token, 'utf8');
+        const given    = Buffer.from(watchToken,    'utf8');
+        if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
+            return res.status(401).json({ error: 'authentication required' });
         }
 
         const deviceUpdates = { last_synced_at: new Date().toISOString() };

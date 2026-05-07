@@ -48,6 +48,14 @@ export class DomainStore {
         return updated;
     }
 
+    async claimRegistrationToken(device_code) {
+        const device = await this.findDeviceByCode(device_code);
+        if (!device) return null;
+        if (!device.registration_token) return false;
+        this._devices.set(device.id, { ...device, registration_token: null });
+        return device.token;
+    }
+
     async getDevice(id) { return this._devices.get(id) ?? null; }
 
     async deleteDevice(id) { return this._devices.delete(id); }

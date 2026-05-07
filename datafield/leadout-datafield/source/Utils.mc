@@ -41,16 +41,36 @@ function getOrCreateDeviceCode() as String {
     return code;
 }
 
-// Issues a GET /api/sync/:deviceCode request. The callback receives (responseCode, data).
-// Used by the foreground open sync, the background temporal sync, and the registration poll.
+// Issues a GET /api/sync/:deviceCode request. Reads watch_token from Application.Storage
+// and includes it as an Authorization header. The callback receives (responseCode, data).
+// Used by the foreground open sync, the background temporal sync, and the post-token sync.
 (:background)
 function makeSyncRequest(deviceCode as String, callback as Method) as Void {
     var distUnits = System.getDeviceSettings().distanceUnits == System.UNIT_METRIC ? "metric" : "statute";
+    var watchToken = Application.Storage.getValue("watch_token");
+    var headers = (watchToken instanceof String)
+        ? { "Authorization" => "Bearer " + (watchToken as String) }
+        : {} as Dictionary<String, String>;
     Communications.makeWebRequest(
         API_BASE + "/api/sync/" + deviceCode,
         { "model"           => System.getDeviceSettings().partNumber,
           "app_version"     => APP_VERSION,
           "distance_units"  => distUnits },
+        { :method       => Communications.HTTP_REQUEST_METHOD_GET,
+          :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON,
+          :headers      => headers },
+        callback
+    );
+}
+
+// Polls GET /api/devices/:deviceCode/token. No auth required.
+// 202 = not yet registered; 200 { token } = token claimed; 410 = already claimed.
+// Used from STATE_UNREGISTERED to detect when the web app has registered the device.
+(:background)
+function makeTokenRequest(deviceCode as String, callback as Method) as Void {
+    Communications.makeWebRequest(
+        API_BASE + "/api/devices/" + deviceCode + "/token",
+        null,
         { :method       => Communications.HTTP_REQUEST_METHOD_GET,
           :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON },
         callback
