@@ -25,12 +25,31 @@ jobs:
   monkey-c-tests:
     name: Monkey C unit tests
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/matco/connectiq-tester:latest
+    defaults:
+      run:
+        working-directory: datafield/leadout-datafield
     steps:
+      - name: Install git
+        run: apt-get update -qq && apt-get install -y -qq git
       - uses: actions/checkout@v4
-      - uses: matco/action-connectiq-tester@v1
-        with:
-          path: datafield/leadout-datafield
-          device: fr265
+      - name: Install Connect IQ SDK 9.1.0
+        run: |
+          SDK_FILE=$(curl -s https://developer.garmin.com/downloads/connect-iq/sdks/sdks.json | jq -r '.[] | select(.version=="9.1.0") | .linux')
+          wget -q "https://developer.garmin.com/downloads/connect-iq/sdks/${SDK_FILE}" -O /tmp/connectiq.zip
+          unzip -q /tmp/connectiq.zip -d /connectiq-9
+      - name: Generate certificate
+        run: openssl genrsa -out /tmp/key.pem 4096 && openssl pkcs8 -topk8 -inform PEM -outform DER -in /tmp/key.pem -out /tmp/key.der -nocrypt
+      - name: Compile
+        run: /connectiq-9/bin/monkeyc -f monkey.jungle -d fr265 -o bin/app.prg -y /tmp/key.der -t
+      - name: Run tests
+        run: |
+          Xvfb :1 -screen 0 1280x1024x24 &
+          DISPLAY=:1 /connectiq-9/bin/simulator > /dev/null 2>&1 &
+          sleep 5
+          /connectiq-9/bin/monkeydo bin/app.prg fr265 -t | tee /tmp/result.txt || true
+          grep -q "^PASSED" /tmp/result.txt
 
   e2e:
     name: E2E tests
