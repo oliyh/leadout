@@ -112,21 +112,15 @@ leadout/
 ## Todo
 
 ### server / UI
-- postgres store - use DB_URL in coolify
-- separate pages to show 1. channels 2. devices 3. subscriptions
-  - these should fetch their own data to display (no more openExternalProgramme-like code)
-  - the homepage should render them all together, reusing the components
-
-- make the homepage look really good - use the images from the garmin store
-- include a 'how it works' diagram
-- wizard thing to walk user through installing on their watch and registering - or "I've already got a device code" 
+- google oauth broken
+- shrink images (use jpg)
 - when registering for the first time, it should make you login first, then remember the device code
 - when registered, take you to the home page, don't show "watch registered" screen
+- admin mode should not be open if env var unset, unless local
 
 - can we pre-emptively open the register page when datafield is fired up for the first time? rather than waiting for user to press lap. ensure it only happens once
 
-- ensure FONT_XTINY labels in watch view are consistently 10px offset from text underneath them
-
+- layout on watch screens
 - even though we can't programatically interact with the sim, we can check the log output - a successful startup looks like this (can add the registration too) and subscribe / add & update programmes, deregister watch - should see it all flow through - and take screenshots too (make sim-screenshot works) and compare them to expected screenshots
 ```
 Device code=ABC123
@@ -145,7 +139,6 @@ loadProgramme: name=Sprintervals v2 blocks=1
 - "register another" and "new channel" could be ghost entries below the devices and channels lists,
   and when on a channel page, possibly do the same with "New programme" - ask me about this
 
-- sync interval could be in settings, default to one hour
 - watch display when there is a pace target - we lose the 'next' block. is there room?
 
 - pyramid should be able to parameterise the rest period length
