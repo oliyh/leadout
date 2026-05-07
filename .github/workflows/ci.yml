@@ -50,6 +50,7 @@ jobs:
         run: $HOME/ciq-sdk/bin/monkeyc -f monkey.jungle -d fr265 -o bin/app.prg -y /tmp/key.der -t
       - name: Run tests
         run: |
+          export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
           Xvfb :1 -screen 0 1280x1024x24 &
           DISPLAY=:1 $HOME/ciq-sdk/bin/simulator > /tmp/sim.log 2>&1 &
           sleep 15
