@@ -3,6 +3,8 @@ SDK_JAR     := $(HOME)/.Garmin/ConnectIQ/Sdks/current/bin/monkeybrains.jar
 MONKEYDO    := $(HOME)/.Garmin/ConnectIQ/Sdks/current/bin/monkeydo
 DEV_KEY     := $(HOME)/dev/garmin-developer/developer_key
 DATAFIELD   := datafield/leadout-datafield
+DATAFIELD_IMAGE := leadout-datafield-dev
+DOCKER         := $(or $(shell which docker 2>/dev/null),$(shell which podman 2>/dev/null))
 PRG         := $(DATAFIELD)/bin/leadoutdatafield.prg
 PRG_TEST    := $(DATAFIELD)/bin/leadoutdatafield-test.prg
 PRG_SIM     := $(DATAFIELD)/bin/leadoutdatafield-sim.prg
@@ -12,7 +14,7 @@ DEVICE_SIM  := fr265s_sim
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
-.PHONY: env datafield datafield-sim datafield-test datafield-release datafield-run-tests install-datafield uninstall-datafield \
+.PHONY: env datafield datafield-sim datafield-test datafield-release datafield-run-tests datafield-docker-build datafield-run-tests-docker install-datafield uninstall-datafield \
         sim sim-lap sim-screenshot \
         ui-install ui-dev ui-build server-install server-start server-dev server-test dev \
         e2e e2e-debug
@@ -74,6 +76,12 @@ datafield-run-tests: datafield-test
 	fi
 	@$(MONKEYDO) $(PRG_TEST) $(DEVICE) -t 2>&1 | tee /tmp/datafield-test-results.txt; \
 	grep -q "^PASSED" /tmp/datafield-test-results.txt
+
+datafield-docker-build:
+	$(DOCKER) build -f datafield/Dockerfile -t $(DATAFIELD_IMAGE) datafield
+
+datafield-run-tests-docker: datafield-docker-build
+	$(DOCKER) run --rm -v $(PWD)/datafield/leadout-datafield:/workspace $(DATAFIELD_IMAGE)
 
 # Installs datafield on a watch connected via usb
 install-datafield: datafield
