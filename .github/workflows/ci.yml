@@ -51,9 +51,11 @@ jobs:
       - name: Run tests
         run: |
           Xvfb :1 -screen 0 1280x1024x24 &
-          DISPLAY=:1 $HOME/ciq-sdk/bin/simulator > /dev/null 2>&1 &
-          sleep 5
+          DISPLAY=:1 $HOME/ciq-sdk/bin/simulator > /tmp/sim.log 2>&1 &
+          sleep 15
+          echo "=== simulator log ===" && cat /tmp/sim.log || true
           $HOME/ciq-sdk/bin/monkeydo bin/app.prg fr265 -t | tee /tmp/result.txt || true
+          cat /tmp/result.txt
           grep -q "^PASSED" /tmp/result.txt
 
   e2e:
