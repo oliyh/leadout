@@ -42,7 +42,7 @@ jobs:
       - name: Install device files
         run: |
           mkdir -p $HOME/.Garmin/ConnectIQ/Devices
-          wget -q "https://github.com/matco/connectiq-tester/raw/main/devices.zip" -O /tmp/devices.zip
+          wget -q "https://raw.githubusercontent.com/matco/connectiq-tester/master/devices.zip" -O /tmp/devices.zip
           unzip -q /tmp/devices.zip -d $HOME/.Garmin/ConnectIQ/Devices
       - name: Generate certificate
         run: openssl genrsa -out /tmp/key.pem 4096 && openssl pkcs8 -topk8 -inform PEM -outform DER -in /tmp/key.pem -out /tmp/key.der -nocrypt
