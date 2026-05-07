@@ -514,8 +514,8 @@ function testContract_segment_timeKind(logger as Test.Logger) as Boolean {
 function testContract_segment_distanceKind(logger as Test.Logger) as Boolean {
     // Mirrors assertSegmentShape() for kind='distance' in spec/contract.js.
     var seg = { "name" => "Recovery", "kind" => "distance", "duration" => 0, "distance" => 200, "target_pace" => null };
-    Test.assertEqualMessage(seg["kind"],     "distance", "distance segment kind field is 'kind'");
-    Test.assertEqualMessage(seg["distance"], 200,        "distance segment target in metres");
+    Test.assertEqualMessage(seg["kind"] as String,     "distance", "distance segment kind field is 'kind'");
+    Test.assertEqualMessage(seg["distance"] as Number, 200,        "distance segment target in metres");
     // Test.assertEqualMessage(seg["target_pace"], null,    "null target_pace field present");
     return true;
 }
