@@ -22,6 +22,16 @@ jobs:
       - run: npm test
         working-directory: server
 
+  monkey-c-tests:
+    name: Monkey C unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: matco/action-connectiq-tester@v1
+        with:
+          path: datafield/leadout-datafield
+          device: fr265
+
   e2e:
     name: E2E tests
     runs-on: ubuntu-latest
