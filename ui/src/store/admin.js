@@ -27,6 +27,7 @@ export async function checkAdminAccess() {
 }
 
 export async function loadAdminData() {
+    if (!isAdmin.value) await checkAdminAccess();
     if (!isAdmin.value) return;
     const [accounts, channels] = await Promise.all([
         adminReq('/api/admin/accounts'),

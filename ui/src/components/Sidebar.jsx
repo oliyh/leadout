@@ -78,10 +78,13 @@ function DeviceItem({ device }) {
     return (
         <div class="sidebar-device-item">
             <div class="sidebar-device-item-row">
-                <span class="sidebar-device-code">
-                    {name ?? device.device_code}
-                    {name && <span class="sidebar-device-code-badge">{device.device_code}</span>}
-                </span>
+                {name
+                    ? <span class="sidebar-device-name">
+                        {name}
+                        <span class="sidebar-device-code-badge">{device.device_code}</span>
+                      </span>
+                    : <span class="sidebar-device-code">{device.device_code}</span>
+                }
             </div>
             <span data-testid="device-last-synced" class="sidebar-device-meta">
                 Synced: {formatDateTime(device.last_synced_at)}
@@ -141,7 +144,7 @@ export function Sidebar() {
             {/* ── Help ─────────────────────────────────────────────────── */}
             <div class="sidebar-section">
                 <div class="sidebar-section-title">Help</div>
-                <button class="btn-add" onClick={() => { showSetup(); close(); }}>
+                <button class="btn-ghost sidebar-help" onClick={() => { showSetup(); close(); }}>
                     Getting started
                 </button>
             </div>
@@ -150,7 +153,7 @@ export function Sidebar() {
             {isAdmin.value && (
                 <div class="sidebar-section">
                     <div class="sidebar-section-title">Admin</div>
-                    <button class="btn-add" onClick={() => { showAdmin(); close(); }}>
+                    <button class="btn-ghost sidebar-admin" onClick={() => { showAdmin(); close(); }}>
                         Admin panel
                     </button>
                 </div>

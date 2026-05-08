@@ -508,24 +508,32 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     flex-shrink: 0;
 }
 
-.sidebar-signout {
+.sidebar-signout, .sidebar-admin, .sidebar-help {
+    width: 100%;
+    text-align: left;
+    font-size: 12px;
+    color: #6c7086;
+
+    &:hover {
+        color: #cdd6f4; background: #313244;
+    }
+}
+
+.sidebar-signout { padding: 6px 8px; }
+.sidebar-admin, .sidebar-help { padding: 6px 8px 6px 28px; }
+
+
+.sidebar-privacy-link {
+    display: block;
     width: 100%;
     text-align: left;
     padding: 6px 8px;
     font-size: 12px;
     color: #6c7086;
-}
-.sidebar-signout:hover { color: #cdd6f4; background: #313244; }
-
-.sidebar-privacy-link {
-    display: block;
-    padding: 4px 8px;
-    font-size: 11px;
-    color: #45475a;
     text-decoration: none;
     border-radius: 4px;
 }
-.sidebar-privacy-link:hover { color: #6c7086; }
+.sidebar-privacy-link:hover { color: #cdd6f4; background: #313244; }
 
 .signin-error { color: #f38ba8; font-size: 12px; }
 .signin-hint  { color: #6c7086; font-size: 12px; }
@@ -557,10 +565,9 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 
 .sub-item {
     border-left: 3px solid transparent;
-    transition: background 0.1s;
 }
-.sub-item:hover { background: #313244; }
-.sub-item.active { background: #313244; border-left-color: #89b4fa; }
+.sub-item.active { border-left-color: #89b4fa; }
+.sub-item.active .sub-item-row { background: #313244; }
 .sub-item-row {
     display: flex;
     align-items: center;
@@ -568,11 +575,13 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     cursor: pointer;
     gap: 4px;
     padding: 8px 16px 4px;
+    transition: background 0.1s;
 }
+.sub-item-row:hover { background: #313244; }
 .sub-channel-name { font-size: 12px; font-weight: 600; color: #cdd6f4; }
 
 .sidebar-device-item {
-    padding: 4px 16px 6px;
+    padding: 4px 16px 6px 28px;
     border-left: 3px solid transparent;
 }
 .sidebar-device-item-row {
@@ -581,6 +590,7 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     justify-content: space-between;
     gap: 4px;
 }
+.sidebar-device-name { font-size: 13px; font-weight: 700; color: #cdd6f4; }
 .sidebar-device-code { font-family: monospace; font-size: 13px; font-weight: 700; color: #cdd6f4; letter-spacing: 0.08em; }
 .sidebar-device-code-badge { font-size: 10px; font-weight: 500; color: #6c7086; letter-spacing: 0.05em; margin-left: 6px; font-family: monospace; }
 .sidebar-device-meta { font-size: 11px; color: #6c7086; margin-top: 1px; }
