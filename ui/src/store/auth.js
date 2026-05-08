@@ -63,6 +63,7 @@ export function signOut() {
     localStorage.removeItem(LS_TOKEN);
     accountId.value = null;
     _gisInitialized = false;
+    window.location.href = '/';
 }
 
 // Called on every app startup. accountId and the bearer token are already

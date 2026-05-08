@@ -1,4 +1,5 @@
 import express from 'express';
+import morgan from 'morgan';
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -74,6 +75,7 @@ async function getDeviceTypeMap() {
 
 export function createApp(store) {
     const app = express();
+    app.use(morgan('combined'));
     app.use(express.json());
 
     // ── Test-only auth (NODE_ENV=test) ────────────────────────────────────────
