@@ -88,7 +88,7 @@ export function App() {
         return (
             <div class="landing">
                 <div class="landing-image">
-                    <img src="/images/banner.png" alt="Group running with Leadout on Garmin watches" />
+                    <img src="/images/banner.jpg" alt="Group running with Leadout on Garmin watches" />
                 </div>
                 <div class="landing-content">
                     <div class="landing-logo">Leadout</div>
