@@ -12,6 +12,84 @@ export const selected = computed(() =>
     programmes.value.find(p => p.id === selectedId.value) ?? null
 );
 
+// ── Undo / Redo ───────────────────────────────────────────────────────────────
+
+const MAX_HISTORY = 50;
+const MERGE_MS = 2000; // consecutive same-action edits within this window are merged
+
+// Map<progId, Array<{description, snapshot, ts}>>
+const undoStacks = signal(new Map());
+const redoStacks = signal(new Map());
+
+export const undoLabel = computed(() => {
+    const stack = undoStacks.value.get(selectedId.value) ?? [];
+    return stack.length ? stack[stack.length - 1].description : null;
+});
+
+export const redoLabel = computed(() => {
+    const stack = redoStacks.value.get(selectedId.value) ?? [];
+    return stack.length ? stack[stack.length - 1].description : null;
+});
+
+function pushHistory(progId, description, snapshot) {
+    const existing = undoStacks.value.get(progId) ?? [];
+    const last = existing[existing.length - 1];
+    if (last && last.description === description && Date.now() - last.ts < MERGE_MS) return;
+
+    const stack = [...existing, { description, snapshot, ts: Date.now() }];
+    const nextUndo = new Map(undoStacks.value);
+    nextUndo.set(progId, stack.length > MAX_HISTORY ? stack.slice(-MAX_HISTORY) : stack);
+    undoStacks.value = nextUndo;
+
+    const nextRedo = new Map(redoStacks.value);
+    nextRedo.set(progId, []);
+    redoStacks.value = nextRedo;
+}
+
+export function undo(progId) {
+    const stack = [...(undoStacks.value.get(progId) ?? [])];
+    if (!stack.length) return;
+    const entry = stack.pop();
+    const current = programmes.value.find(p => p.id === progId);
+    if (!current) return;
+
+    const nextRedo = new Map(redoStacks.value);
+    const redoStack = [...(nextRedo.get(progId) ?? []), { ...entry, snapshot: current }];
+    nextRedo.set(progId, redoStack.length > MAX_HISTORY ? redoStack.slice(-MAX_HISTORY) : redoStack);
+    redoStacks.value = nextRedo;
+
+    const nextUndo = new Map(undoStacks.value);
+    nextUndo.set(progId, stack);
+    undoStacks.value = nextUndo;
+
+    programmes.value = programmes.value.map(p => p.id === progId ? entry.snapshot : p);
+    pendingSync.value = new Set([...pendingSync.value, progId]);
+    toStorage();
+    scheduleSave(progId);
+}
+
+export function redo(progId) {
+    const stack = [...(redoStacks.value.get(progId) ?? [])];
+    if (!stack.length) return;
+    const entry = stack.pop();
+    const current = programmes.value.find(p => p.id === progId);
+    if (!current) return;
+
+    const nextUndo = new Map(undoStacks.value);
+    const undoStack = [...(nextUndo.get(progId) ?? []), { ...entry, snapshot: current }];
+    nextUndo.set(progId, undoStack.length > MAX_HISTORY ? undoStack.slice(-MAX_HISTORY) : undoStack);
+    undoStacks.value = nextUndo;
+
+    const nextRedo = new Map(redoStacks.value);
+    nextRedo.set(progId, stack);
+    redoStacks.value = nextRedo;
+
+    programmes.value = programmes.value.map(p => p.id === progId ? entry.snapshot : p);
+    pendingSync.value = new Set([...pendingSync.value, progId]);
+    toStorage();
+    scheduleSave(progId);
+}
+
 // ── LocalStorage ──────────────────────────────────────────────────────────────
 
 const LS_KEY = 'leadout:v1';
@@ -62,7 +140,9 @@ async function flush(progId) {
 
 function newId() { return crypto.randomUUID(); }
 
-function mutate(progId, fn) {
+function mutate(progId, fn, description) {
+    const current = programmes.value.find(p => p.id === progId);
+    if (current) pushHistory(progId, description, current);
     programmes.value = programmes.value.map(p => p.id === progId ? fn(p) : p);
     pendingSync.value = new Set([...pendingSync.value, progId]);
     toStorage();
@@ -103,8 +183,16 @@ export async function deleteProgramme(id) {
     if (selectedId.value === id) selectedId.value = null;
 }
 
+function describeProgPatch(patch) {
+    const keys = Object.keys(patch);
+    if (keys.includes('name')) return 'rename';
+    if (keys.includes('scheduled_date')) return 'update date';
+    if (keys.includes('pace_assumption')) return 'update pace';
+    return 'update programme';
+}
+
 export function updateProgramme(id, patch) {
-    mutate(id, p => ({ ...p, ...patch }));
+    mutate(id, p => ({ ...p, ...patch }), describeProgPatch(patch));
 }
 
 // ── Blocks ────────────────────────────────────────────────────────────────────
@@ -119,22 +207,22 @@ export function addBlock(progId, data) {
     mutate(progId, p => ({
         ...p,
         blocks: [...p.blocks, { ...block, position: p.blocks.length }],
-    }));
+    }), 'add block');
     return block;
 }
 
-export function updateBlock(progId, blockId, patch) {
+export function updateBlock(progId, blockId, patch, description = 'rename block') {
     mutate(progId, p => ({
         ...p,
         blocks: p.blocks.map(b => b.id === blockId ? { ...b, ...patch } : b),
-    }));
+    }), description);
 }
 
 export function deleteBlock(progId, blockId) {
     mutate(progId, p => ({
         ...p,
         blocks: p.blocks.filter(b => b.id !== blockId).map((b, i) => ({ ...b, position: i })),
-    }));
+    }), 'delete block');
 }
 
 export function moveBlock(progId, blockId, direction) {
@@ -145,7 +233,7 @@ export function moveBlock(progId, blockId, direction) {
         if (to < 0 || to >= blocks.length) return p;
         [blocks[idx], blocks[to]] = [blocks[to], blocks[idx]];
         return { ...p, blocks: blocks.map((b, i) => ({ ...b, position: i })) };
-    });
+    }, `move block ${direction}`);
 }
 
 // ── Segments ──────────────────────────────────────────────────────────────────
@@ -160,11 +248,11 @@ export function addSegment(progId, blockId, data) {
                 segments: [...b.segments, { ...seg, position: b.segments.length }],
             }
         ),
-    }));
+    }), 'add segment');
     return seg;
 }
 
-export function updateSegment(progId, blockId, segId, patch) {
+export function updateSegment(progId, blockId, segId, patch, description = 'update segment') {
     mutate(progId, p => ({
         ...p,
         blocks: p.blocks.map(b =>
@@ -173,7 +261,7 @@ export function updateSegment(progId, blockId, segId, patch) {
                 segments: b.segments.map(s => s.id === segId ? { ...s, ...patch } : s),
             }
         ),
-    }));
+    }), description);
 }
 
 export function deleteSegment(progId, blockId, segId) {
@@ -187,7 +275,7 @@ export function deleteSegment(progId, blockId, segId) {
                     .map((s, i) => ({ ...s, position: i })),
             }
         ),
-    }));
+    }), 'delete segment');
 }
 
 export function moveSegment(progId, blockId, segId, direction) {
@@ -202,5 +290,5 @@ export function moveSegment(progId, blockId, segId, direction) {
             [segs[idx], segs[to]] = [segs[to], segs[idx]];
             return { ...b, segments: segs.map((s, i) => ({ ...s, position: i })) };
         }),
-    }));
+    }), 'reorder segment');
 }

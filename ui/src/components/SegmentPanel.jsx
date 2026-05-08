@@ -27,7 +27,7 @@ export function SegmentPanel({ progId, blockId, seg }) {
     const [distance, setDistance] = useState(String(seg.distance ?? ''));
     const [pace, setPace]         = useState(seg.target_pace ? fmtPace(seg.target_pace) : '');
 
-    function save(overrides = {}) {
+    function save(overrides = {}, description = 'update segment') {
         const state = { name, kind, duration, distance, pace, ...overrides };
         updateSegment(progId, blockId, seg.id, {
             name:        state.name.trim() || seg.name,
@@ -35,16 +35,16 @@ export function SegmentPanel({ progId, blockId, seg }) {
             duration:    state.kind === 'time' ? (Number(state.duration) || seg.duration) : null,
             distance:    state.kind === 'distance' ? (Number(state.distance) || null) : null,
             target_pace: state.pace ? parsePace(state.pace) : null,
-        });
+        }, description);
     }
 
     const debouncedSave = useDebounce(save, 600);
 
-    function onName(e) { setName(e.target.value); debouncedSave({ name: e.target.value }); }
-    function onKind(e) { setKind(e.target.value); save({ kind: e.target.value }); }
-    function onDuration(e) { setDuration(e.target.value); debouncedSave({ duration: e.target.value }); }
-    function onDistance(e) { setDistance(e.target.value); debouncedSave({ distance: e.target.value }); }
-    function onPace(e) { setPace(e.target.value); debouncedSave({ pace: e.target.value }); }
+    function onName(e) { setName(e.target.value); debouncedSave({ name: e.target.value }, 'rename segment'); }
+    function onKind(e) { setKind(e.target.value); save({ kind: e.target.value }, 'change type'); }
+    function onDuration(e) { setDuration(e.target.value); debouncedSave({ duration: e.target.value }, 'update duration'); }
+    function onDistance(e) { setDistance(e.target.value); debouncedSave({ distance: e.target.value }, 'update distance'); }
+    function onPace(e) { setPace(e.target.value); debouncedSave({ pace: e.target.value }, 'update pace target'); }
 
     function onDelete() {
         deleteSegment(progId, blockId, seg.id);

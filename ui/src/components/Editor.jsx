@@ -1,4 +1,5 @@
-import { saving, lastSaved, updateProgramme, deleteProgramme } from '../store/programmes.js';
+import { useEffect } from 'preact/hooks';
+import { saving, lastSaved, updateProgramme, deleteProgramme, undoLabel, redoLabel, undo, redo } from '../store/programmes.js';
 import { openConfirmDelete } from '../store/modal.js';
 import { Timeline } from './Timeline.jsx';
 
@@ -28,6 +29,22 @@ function SaveIndicator() {
 }
 
 export function Editor({ prog }) {
+    useEffect(() => {
+        function onKeyDown(e) {
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+            const key = e.key.toLowerCase();
+            if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undo(prog.id);
+            } else if ((e.ctrlKey || e.metaKey) && (key === 'y' || (key === 'z' && e.shiftKey))) {
+                e.preventDefault();
+                redo(prog.id);
+            }
+        }
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [prog.id]);
+
     function onNameBlur(e) {
         const val = e.target.value.trim();
         if (val && val !== prog.name) updateProgramme(prog.id, { name: val });
@@ -79,6 +96,22 @@ export function Editor({ prog }) {
                     </div>
                 </div>
                 <div class="editor-actions">
+                    <button
+                        class="btn-ghost"
+                        disabled={!undoLabel.value}
+                        onClick={() => undo(prog.id)}
+                        title="Ctrl+Z"
+                    >
+                        ↩ {undoLabel.value ?? 'Undo'}
+                    </button>
+                    <button
+                        class="btn-ghost"
+                        disabled={!redoLabel.value}
+                        onClick={() => redo(prog.id)}
+                        title="Ctrl+Shift+Z"
+                    >
+                        ↪ {redoLabel.value ?? 'Redo'}
+                    </button>
                     <button class="btn-secondary" onClick={() => openConfirmDelete(prog.id)}>Delete</button>
                 </div>
             </div>
