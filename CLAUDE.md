@@ -165,40 +165,25 @@ Recommended strategy: treat background sync as a best-effort 'nice to have'. Pri
 | Layer | Technology |
 |---|---|
 | Watch app | Monkey C (Connect IQ SDK 8.x), VS Code with Monkey C extension |
-| Backend API | Node.js or any lightweight framework — 5 endpoints, 3 tables |
-| Database | SQLite or PostgreSQL — minimal schema |
-| Hosting | Any VPS ($5/month sufficient) or Cloudflare Workers + D1 (serverless) |
-| Auth | Garmin Connect Developer Programme OAuth2 PKCE |
-| Instructor web UI | Any web framework — simple form-based programme builder |
+| Backend API | Node.js |
+| Database | SQLite (local development), PostgreSQL (production) |
+| Hosting | Self-hosted Coolify |
+| Auth | Google Oauth for UI / server. Watches can be claimed once by an authenticated user and are given a token for communication with the server |
+| Web UI | Preact built with Vite |
 
-## Open Questions & Risks
+## ADRs
 
 ### Garmin Developer Programme
 
-Using Garmin's OAuth API requires applying to the Garmin Connect Developer Programme. This is a business-facing programme — approval is not guaranteed for independent developers. **This is the highest-risk dependency in the project and should be investigated first.**
-
-### Background Sync Reliability
-
-Background sync behaviour varies by watch model and firmware. The 5-minute minimum is enforced but actual firing can be unreliable on some devices. Testing on target hardware early is recommended.
+Obtaining access to the Garmin Developer Programme seems impossible. This precludes using Garmin OAuth.
 
 ### Data Field UI Constraints
 
-A Data Field occupies one panel on the activity data screen, not the full screen. The available canvas size depends on how many other data fields the user has configured. Rich UI (large countdown, next segment preview) works best when Leadout occupies a dedicated full-screen data page — users would need to configure this.
-
-## Build Order
-
-| Phase | Deliverable |
-|---|---|
-| 1 | Backend API — channels, programmes, subscriptions |
-| 2 | Instructor web UI — programme builder, OAuth sign-in |
-| 3 | Watch Data Field — interval timer, vibration, manual start trigger |
-| 4 | Watch Widget — programme selection, sync status |
-| 5 | WhatsApp link flow — participant subscription via web page |
-| 6 | GPS geofencing — location-triggered segment transitions |
-| 7 | Background sync — automatic programme download |
-| 8 | Map display — on supported devices |
+A Data Field occupies one panel on the activity data screen, not the full screen. The available canvas size depends on how many other data fields the user has configured. Leadout needs a dedicated full-screen data page - this is described in the setup instructions to help users configure this.
 
 ## Working Practices
 
 - Write all temporary/exploratory files into `tmp/` in this project root (gitignored). Do not write to `/tmp` or other system locations.
 - Prefer writing logic to a script file (in `scripts/` or `tmp/`) and executing it with `bash` or `python3`, rather than using heredocs or piped inline commands. This avoids repeated permission prompts and keeps logic reusable.
+- Avoid `sed` to read particular lines of code as this is a potential write operation. Use `Read` instead
+- Avoid using absolute file paths when the files are within the current working directory
