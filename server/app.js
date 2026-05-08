@@ -423,14 +423,17 @@ export function createApp(store) {
 
     // ── Admin routes ──────────────────────────────────────────────────────────
     // ADMIN_ACCOUNT_ID env var gates access in deployed envs.
-    // When unset (local dev) any existing account is treated as admin.
+    // When unset, admin routes are only open on localhost — blocked everywhere else.
 
     async function requireAdmin(req, res, next) {
         const adminId = process.env.ADMIN_ACCOUNT_ID;
         if (adminId) {
             if (req.authAccountId !== adminId) return res.status(403).json({ error: 'forbidden' });
         } else {
-            // Local dev: any existing account is admin.
+            // No ADMIN_ACCOUNT_ID set: only allow on localhost.
+            const host = req.hostname;
+            const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+            if (!isLocal) return res.status(403).json({ error: 'forbidden' });
             const account = await store.getAccount(req.authAccountId);
             if (!account) return res.status(403).json({ error: 'account not found' });
         }

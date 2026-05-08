@@ -1,7 +1,7 @@
 # Stage 1: build UI
 FROM node:22-alpine AS ui-builder
-ARG VITE_GOOGLE_CLIENT_ID
-ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+ARG GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
 WORKDIR /build
 COPY ui/package.json ui/package-lock.json* ./
 RUN npm install
@@ -10,6 +10,8 @@ RUN npm run build
 
 # Stage 2: run server
 FROM node:22-alpine
+ARG GOOGLE_CLIENT_ID
+ENV GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
 WORKDIR /app
 COPY server/package.json server/package-lock.json* ./
 RUN npm ci --omit=dev
