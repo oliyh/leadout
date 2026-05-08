@@ -7,6 +7,24 @@ import { openConfirmUnsubscribe, openConfirmRemoveDevice, openNewChannel, openRe
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
+function formatLastSynced(lastSyncedAt) {
+    const now = new Date();
+    const synced = new Date(lastSyncedAt);
+    const diffMs = now - synced;
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const isStale = diffMs > 24 * 3600000;
+
+    const exactTime = synced.toLocaleString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+    });
+
+    if (isStale) return { text: exactTime, tooltip: null, stale: true };
+    if (diffMinutes < 60) return { text: `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`, tooltip: exactTime, stale: false };
+    return { text: `About ${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`, tooltip: exactTime, stale: false };
+}
+
 function formatDate(iso) {
     const d = new Date(iso + 'T00:00:00');
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -104,7 +122,10 @@ function DeviceRow({ device }) {
                 </span>
                 <span class="home-row-meta">
                     {device.last_synced_at
-                        ? `Last synced ${new Date(device.last_synced_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                        ? (() => {
+                            const { text, tooltip, stale } = formatLastSynced(device.last_synced_at);
+                            return <>Last synced <span class={stale ? 'sync-stale' : undefined} title={tooltip ?? undefined}>{text}</span></>;
+                        })()
                         : `Registered ${new Date(device.registered_at).toLocaleDateString('en-GB')}`
                     }
                 </span>
