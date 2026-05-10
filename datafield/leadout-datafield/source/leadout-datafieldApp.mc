@@ -22,8 +22,23 @@ class leadout_datafieldApp extends Application.AppBase {
     }
 
     function onStart(state as Dictionary?) as Void {
-        // Foreground sync on open. A failed sync never wipes local storage —
-        // the view falls back to the last successfully cached programme.
+        if (Application.Storage.getValue("watch_token") instanceof String) {
+            makeSyncRequest(mDeviceCode, method(:onSyncResponse));
+        } else {
+            // No token yet — check if one is waiting to be claimed before syncing.
+            // Covers the case where the user registered on the website but hasn't
+            // started a run yet (compute() doesn't fire outside an activity).
+            makeTokenRequest(mDeviceCode, method(:onStartTokenPoll));
+        }
+    }
+
+    function onStartTokenPoll(responseCode as Number, data as Dictionary?) as Void {
+        if (responseCode == 200 && data != null) {
+            var token = data["token"];
+            if (token instanceof String) {
+                Application.Storage.setValue("watch_token", token as String);
+            }
+        }
         makeSyncRequest(mDeviceCode, method(:onSyncResponse));
     }
 
