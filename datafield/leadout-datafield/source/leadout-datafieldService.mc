@@ -34,12 +34,10 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
                 Application.Storage.setValue("watch_token", token as String);
             }
         }
-        var deviceCode = Application.Storage.getValue("device_code");
-        if (deviceCode instanceof String) {
-            makeSyncRequest(deviceCode as String, method(:onSyncResponse));
-        } else {
-            Background.exit(null);
-        }
+        // Don't chain into sync here — the storage write may not be committed until
+        // Background.exit fires, so a same-run sync would go without auth and trigger
+        // an auth_failed wipe. The next temporal event will pick up the token and sync.
+        Background.exit(null);
     }
 
     function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
