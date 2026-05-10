@@ -143,6 +143,15 @@ export class SqliteStore {
         })();
     }
 
+    async resetDeviceToken(id) {
+        const newToken = randomUUID();
+        const changes = this._db.prepare(
+            'UPDATE devices SET token = ?, registration_token = ? WHERE id = ?'
+        ).run(newToken, newToken, id).changes;
+        if (!changes) return null;
+        return this._db.prepare('SELECT * FROM devices WHERE id = ?').get(id) ?? null;
+    }
+
     async getDevice(id) {
         return this._db.prepare('SELECT * FROM devices WHERE id = ?').get(id) ?? null;
     }

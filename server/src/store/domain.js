@@ -56,6 +56,15 @@ export class DomainStore {
         return device.token;
     }
 
+    async resetDeviceToken(id) {
+        const device = this._devices.get(id);
+        if (!device) return null;
+        const newToken = randomUUID();
+        const updated = { ...device, token: newToken, registration_token: newToken };
+        this._devices.set(id, updated);
+        return updated;
+    }
+
     async getDevice(id) { return this._devices.get(id) ?? null; }
 
     async deleteDevice(id) { return this._devices.delete(id); }

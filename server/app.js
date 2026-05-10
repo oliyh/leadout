@@ -482,6 +482,12 @@ export function createApp(store) {
         res.json(result);
     });
 
+    admin.post('/devices/:id/reset-token', wrap(async (req, res) => {
+        const device = await store.resetDeviceToken(req.params.id);
+        if (!device) return res.status(404).json({ error: 'device not found' });
+        res.status(204).end();
+    }));
+
     admin.get('/channels', async (_req, res) => {
         const channels = await store.getAllChannels();
         const result = await Promise.all(channels.map(async ch => {

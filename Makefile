@@ -10,7 +10,7 @@ PRG_TEST    := $(DATAFIELD)/bin/leadoutdatafield-test.prg
 PRG_SIM     := $(DATAFIELD)/bin/leadoutdatafield-sim.prg
 PRG_RELEASE := $(DATAFIELD)/bin/leadoutdatafield.iq
 DEVICE      := fr265s
-DEVICE_SIM  := fr265s_sim
+DEVICE_SIM  := $(DEVICE)_sim
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 

@@ -177,6 +177,16 @@ export class PostgresStore {
         }
     }
 
+    async resetDeviceToken(id) {
+        const newToken = randomUUID();
+        const res = await this._pool.query(
+            'UPDATE devices SET token = $1, registration_token = $2 WHERE id = $3',
+            [newToken, newToken, id]
+        );
+        if (!res.rowCount) return null;
+        return (await this._pool.query('SELECT * FROM devices WHERE id = $1', [id])).rows[0] ?? null;
+    }
+
     async getDevice(id) {
         return (await this._pool.query('SELECT * FROM devices WHERE id = $1', [id])).rows[0] ?? null;
     }

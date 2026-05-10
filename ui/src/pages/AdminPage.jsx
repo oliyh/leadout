@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { adminAccounts, adminChannels, isAdmin, loadAdminData } from '../store/admin.js';
+import { adminAccounts, adminChannels, isAdmin, loadAdminData, adminResetDeviceToken } from '../store/admin.js';
 
 function fmt(iso) {
     if (!iso) return 'never';
@@ -10,6 +10,18 @@ function fmt(iso) {
 }
 
 function AdminAccount({ account }) {
+    const [resetting, setResetting] = useState(null);
+
+    async function handleResetToken(deviceId) {
+        setResetting(deviceId);
+        try {
+            await adminResetDeviceToken(deviceId);
+            await loadAdminData();
+        } finally {
+            setResetting(null);
+        }
+    }
+
     return (
         <div class="admin-card">
             <div class="admin-card-header">
@@ -23,10 +35,17 @@ function AdminAccount({ account }) {
                         ? <span class="muted">none</span>
                         : account.devices.map(d => (
                             <div key={d.id} class="admin-row">
-                                <span>{d.device_type_name ?? d.device_code}</span>
+                                <span>{d.device_type_name ?? ""} {d.device_code}</span>
                                 <span class="muted">
                                     {d.app_version ?? '—'} · {d.distance_units ?? '—'} · synced {fmt(d.last_synced_at)}
                                 </span>
+                                <button
+                                    class="btn-danger"
+                                    disabled={resetting === d.id}
+                                    onClick={() => handleResetToken(d.id)}
+                                >
+                                    {resetting === d.id ? 'Resetting…' : 'Reset token'}
+                                </button>
                             </div>
                         ))
                     }

@@ -4,6 +4,7 @@
 //   - Dev mode (no ADMIN_ACCOUNT_ID): any existing account is admitted; invalid tokens rejected (401/403)
 //   - Production mode (ADMIN_ACCOUNT_ID set): only the designated account is admitted (403 for everyone else)
 //   - Admin data content: sees all accounts/channels, not just their own
+//   - POST /api/admin/devices/:id/reset-token: access control, 404, token invalidation and re-claim
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
@@ -200,5 +201,80 @@ describe('Admin data content', () => {
         expect(subAccountIds).toContain(otherAccount.id);
 
         expect(Array.isArray(ch.programmes)).toBe(true);
+    });
+});
+
+// ── POST /api/admin/devices/:id/reset-token ───────────────────────────────────
+
+describe('POST /api/admin/devices/:id/reset-token', () => {
+    let app, adminAccount, otherAccount, device, watchToken;
+    withAdminEnv();
+
+    beforeEach(async () => {
+        ({ app } = makeApp());
+        adminAccount = await httpCreateAccount(app, 'g-reset-admin');
+        otherAccount = await httpCreateAccount(app, 'g-reset-other');
+        process.env.ADMIN_ACCOUNT_ID = adminAccount.id;
+
+        const devRes = await request(app).post('/api/devices')
+            .set('Authorization', `Bearer ${otherAccount.token}`)
+            .send({ device_code: 'WATCH-RESET-01' });
+        device = devRes.body;
+
+        const claim = await request(app).get('/api/devices/WATCH-RESET-01/token');
+        watchToken = claim.body.token;
+    });
+
+    function adminPost(path) {
+        return request(app).post(path).set('Authorization', `Bearer ${adminAccount.token}`);
+    }
+
+    it('returns 401 when no Authorization header is provided', async () => {
+        const res = await request(app).post(`/api/admin/devices/${device.id}/reset-token`);
+        expect(res.status).toBe(401);
+    });
+
+    it('returns 403 for a non-admin account', async () => {
+        const res = await request(app).post(`/api/admin/devices/${device.id}/reset-token`)
+            .set('Authorization', `Bearer ${otherAccount.token}`);
+        expect(res.status).toBe(403);
+    });
+
+    it('returns 404 for an unknown device id', async () => {
+        const res = await adminPost('/api/admin/devices/nonexistent-id/reset-token');
+        expect(res.status).toBe(404);
+    });
+
+    it('returns 204 on success', async () => {
+        const res = await adminPost(`/api/admin/devices/${device.id}/reset-token`);
+        expect(res.status).toBe(204);
+    });
+
+    it('invalidates the old watch token — sync returns 401', async () => {
+        await adminPost(`/api/admin/devices/${device.id}/reset-token`);
+
+        const res = await request(app).get('/api/sync/WATCH-RESET-01')
+            .set('Authorization', `Bearer ${watchToken}`);
+        expect(res.status).toBe(401);
+    });
+
+    it('allows the watch to claim a new token after reset', async () => {
+        await adminPost(`/api/admin/devices/${device.id}/reset-token`);
+
+        const claim = await request(app).get('/api/devices/WATCH-RESET-01/token');
+        expect(claim.status).toBe(200);
+        expect(claim.body.token).toBeTruthy();
+        expect(claim.body.token).not.toBe(watchToken);
+    });
+
+    it('new token works for sync', async () => {
+        await adminPost(`/api/admin/devices/${device.id}/reset-token`);
+
+        const claim = await request(app).get('/api/devices/WATCH-RESET-01/token');
+        const newToken = claim.body.token;
+
+        const res = await request(app).get('/api/sync/WATCH-RESET-01')
+            .set('Authorization', `Bearer ${newToken}`);
+        expect(res.status).toBe(200);
     });
 });

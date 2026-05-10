@@ -26,6 +26,19 @@ export async function checkAdminAccess() {
     }
 }
 
+export async function adminResetDeviceToken(deviceId) {
+    const token = getToken();
+    const r = await fetch(`/api/admin/devices/${deviceId}/reset-token`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
+    if (!r.ok) {
+        const err = new Error();
+        err.status = r.status;
+        throw err;
+    }
+}
+
 export async function loadAdminData() {
     if (!isAdmin.value) await checkAdminAccess();
     if (!isAdmin.value) return;
