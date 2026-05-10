@@ -327,20 +327,25 @@ export function createApp(store) {
     // Returns 401 for missing/invalid token so the watch knows to re-register.
 
     app.get('/api/sync/:device_code', async (req, res) => {
+        const device_code = req.params.device_code;
         const header = req.headers.authorization;
         if (!header?.startsWith('Bearer ')) {
+            console.log(`sync ${device_code}: no bearer token`);
             return res.status(401).json({ error: 'authentication required' });
         }
         const watchToken = header.slice(7);
-        const device = await store.findDeviceByCode(req.params.device_code);
+        const device = await store.findDeviceByCode(device_code);
         if (!device?.token) {
+            console.log(`sync ${device_code}: device not found`);
             return res.status(401).json({ error: 'authentication required' });
         }
         const expected = Buffer.from(device.token, 'utf8');
         const given    = Buffer.from(watchToken,    'utf8');
         if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
+            console.log(`sync ${device_code}: token mismatch — stored=${device.token} given=${watchToken}`);
             return res.status(401).json({ error: 'authentication required' });
         }
+        console.log(`sync ${device_code}: ok token=${watchToken}`);
 
         const deviceUpdates = { last_synced_at: new Date().toISOString() };
         if (req.query.model)           deviceUpdates.model_name      = req.query.model;
