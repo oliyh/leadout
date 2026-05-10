@@ -120,13 +120,17 @@ class leadout_datafieldApp extends Application.AppBase {
         }
     }
 
-    // Clears the watch token and device code, generates a new device code, and
-    // enters the registration flow. Called whenever the server returns 401.
+    // Called whenever the server returns 401. Only wipes and regenerates the device code
+    // if we had a token that was rejected — a 401 with no prior token just means the
+    // device hasn't claimed its registration token yet, so the code stays valid.
     function handleAuthFailure() as Void {
+        var hadToken = Application.Storage.getValue("watch_token") instanceof String;
         Application.Storage.deleteValue("watch_token");
-        Application.Storage.deleteValue("device_code");
         Application.Storage.deleteValue("programme");
-        mDeviceCode = getOrCreateDeviceCode();
+        if (hadToken) {
+            Application.Storage.deleteValue("device_code");
+            mDeviceCode = getOrCreateDeviceCode();
+        }
         var view = mView;
         if (view != null) {
             view.setDeviceCode(mDeviceCode);
