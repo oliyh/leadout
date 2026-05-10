@@ -77,6 +77,21 @@ function makeTokenRequest(deviceCode as String, callback as Method) as Void {
     );
 }
 
+// Clears watch_token and programme from storage on a 401 response.
+// If a token was present (rejected by server), also clears device_code and returns true
+// so the caller knows to generate a new one. Returns false when no token was stored —
+// meaning the 401 is a first-time "not yet registered" case and device_code is still valid.
+(:background)
+function clearAuthState() as Boolean {
+    var hadToken = Application.Storage.getValue("watch_token") instanceof String;
+    Application.Storage.deleteValue("watch_token");
+    Application.Storage.deleteValue("programme");
+    if (hadToken) {
+        Application.Storage.deleteValue("device_code");
+    }
+    return hadToken;
+}
+
 // Finds the first programme in an array whose scheduled_date is today.
 // Returns null if none is found. The array items are raw server Dictionaries.
 (:background)

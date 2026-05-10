@@ -310,6 +310,57 @@ function testDeviceCode_nonEmpty(logger as Test.Logger) as Boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// clearAuthState
+// Regression guard for the first-registration 401 bug:
+//   When the watch has no token yet, a 401 from /api/sync is expected (the device
+//   just hasn't claimed its registration token). clearAuthState() must NOT wipe
+//   device_code in that case — the user's web registration is still valid.
+//   Only when a token was present and got rejected should device_code be cleared.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testClearAuthState_noToken_preservesDeviceCode(logger as Test.Logger) as Boolean {
+    Application.Storage.setValue("device_code", "WF68H2");
+    Application.Storage.deleteValue("watch_token");
+    var wiped = clearAuthState();
+    Test.assertMessage(!wiped, "returns false when no token was stored");
+    var code = Application.Storage.getValue("device_code");
+    Test.assertMessage(code instanceof String, "device_code still in storage");
+    Test.assertEqualMessage(code, "WF68H2", "device_code unchanged");
+    return true;
+}
+
+(:test)
+function testClearAuthState_withToken_wipesDeviceCode(logger as Test.Logger) as Boolean {
+    Application.Storage.setValue("device_code", "WF68H2");
+    Application.Storage.setValue("watch_token", "some-uuid-token");
+    var wiped = clearAuthState();
+    Test.assertMessage(wiped, "returns true when token was stored");
+    var code = Application.Storage.getValue("device_code");
+    Test.assertMessage(!(code instanceof String), "device_code removed from storage");
+    return true;
+}
+
+(:test)
+function testClearAuthState_alwaysWipesToken(logger as Test.Logger) as Boolean {
+    Application.Storage.setValue("watch_token", "some-uuid-token");
+    clearAuthState();
+    var token = Application.Storage.getValue("watch_token");
+    Test.assertMessage(!(token instanceof String), "watch_token always removed");
+    return true;
+}
+
+(:test)
+function testClearAuthState_alwaysWipesProgramme(logger as Test.Logger) as Boolean {
+    Application.Storage.setValue("programme", { "name" => "Tuesday Intervals" } as Dictionary);
+    Application.Storage.deleteValue("watch_token");
+    clearAuthState();
+    var prog = Application.Storage.getValue("programme");
+    Test.assertMessage(!(prog instanceof Dictionary), "programme always removed");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // View state machine — obligations documented, unit tests blocked by platform
 //
 // leadout_datafieldView extends WatchUi.DataField, which requires the UI runtime.
