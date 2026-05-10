@@ -17,17 +17,29 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
     function onTemporalEvent() as Void {
         var deviceCode = Application.Storage.getValue("device_code");
         if (!(deviceCode instanceof String)) {
-            // Device code not yet generated (app never opened foreground). Skip.
             Background.exit(null);
             return;
         }
-        var watchToken = Application.Storage.getValue("watch_token");
-        if (!(watchToken instanceof String)) {
-            // Token not yet claimed — foreground handles token polling. Skip.
-            Background.exit(null);
-            return;
+        if (!(Application.Storage.getValue("watch_token") instanceof String)) {
+            makeTokenRequest(deviceCode as String, method(:onTokenResponse));
+        } else {
+            makeSyncRequest(deviceCode as String, method(:onSyncResponse));
         }
-        makeSyncRequest(deviceCode as String, method(:onSyncResponse));
+    }
+
+    function onTokenResponse(responseCode as Number, data as Dictionary?) as Void {
+        if (responseCode == 200 && data != null) {
+            var token = data["token"];
+            if (token instanceof String) {
+                Application.Storage.setValue("watch_token", token as String);
+            }
+        }
+        var deviceCode = Application.Storage.getValue("device_code");
+        if (deviceCode instanceof String) {
+            makeSyncRequest(deviceCode as String, method(:onSyncResponse));
+        } else {
+            Background.exit(null);
+        }
     }
 
     function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
