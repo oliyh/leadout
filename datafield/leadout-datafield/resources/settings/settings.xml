@@ -5,4 +5,11 @@
     <setting propertyKey="@Properties.SyncFrequency" title="@Strings.SyncFrequencyTitle">
         <settingConfig type="numeric" min="5" max="120"/>
     </setting>
+    <setting propertyKey="@Properties.TriggerLap" title="@Strings.TriggerLapTitle">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.TriggerLapSegment</listEntry>
+            <listEntry value="1">@Strings.TriggerLapBlock</listEntry>
+            <listEntry value="2">@Strings.TriggerLapNever</listEntry>
+        </settingConfig>
+    </setting>
 </settings>

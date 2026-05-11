@@ -208,15 +208,18 @@ class leadout_datafieldView extends WatchUi.DataField {
                 mSegmentStartMs = System.getTimer();
                 mSegmentStartDistM = mElapsedDistM;
                 alertSegment();
+                triggerLapIfConfigured(false);
             } else if (mCurrentBlock < mBlocks.size() - 1) {
                 mCurrentBlock += 1;
                 mCurrentSegment = 0;
                 mState = STATE_WAITING;
                 alertBlockComplete();
+                triggerLapIfConfigured(true);
             } else {
                 mSessionEndMs = System.getTimer();
                 mState = STATE_COMPLETE;
                 alertSessionComplete();
+                triggerLapIfConfigured(true);
             }
         }
     }
@@ -292,10 +295,10 @@ class leadout_datafieldView extends WatchUi.DataField {
         if (responseCode == 200 && data != null) {
             var token = data["token"];
             if (token instanceof String) {
-                Application.Storage.setValue("watch_token", token as String);
-                // Token stored — now sync immediately with it.
+                var t = token as String;
+                Application.Storage.setValue("watch_token", t);
                 mPolling = true;
-                makeSyncRequest(mDeviceCode, method(:onRegistrationPoll));
+                makeSyncRequest(mDeviceCode, t, method(:onRegistrationPoll));
             }
         }
     }
@@ -358,6 +361,12 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
         if (Attention has :vibrate) {
             Attention.vibrate([new Attention.VibeProfile(100, 1000)] as Array<Attention.VibeProfile>);
+        }
+    }
+
+    hidden function triggerLapIfConfigured(isBlockEnd as Boolean) as Void {
+        if (shouldTriggerLap(isBlockEnd) && (Activity has :lap)) {
+            Activity.lap();
         }
     }
 

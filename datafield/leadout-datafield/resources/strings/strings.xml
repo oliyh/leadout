@@ -4,4 +4,8 @@
     <string id="label">My Value</string>
     <string id="ResetStateTitle">Reset Leadout</string>
     <string id="SyncFrequencyTitle">Sync Frequency (Minutes)</string>
+    <string id="TriggerLapTitle">Trigger Lap</string>
+    <string id="TriggerLapSegment">Every segment</string>
+    <string id="TriggerLapBlock">Every block</string>
+    <string id="TriggerLapNever">Never</string>
 </strings>

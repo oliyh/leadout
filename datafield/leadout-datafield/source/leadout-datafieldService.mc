@@ -20,10 +20,12 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
             Background.exit(null);
             return;
         }
-        if (!(Application.Storage.getValue("watch_token") instanceof String)) {
+        var storedToken = Application.Storage.getValue("watch_token");
+        var token = (storedToken instanceof String) ? storedToken as String : null;
+        if (token == null) {
             makeTokenRequest(deviceCode as String, method(:onTokenResponse));
         } else {
-            makeSyncRequest(deviceCode as String, method(:onSyncResponse));
+            makeSyncRequest(deviceCode as String, token, method(:onSyncResponse));
         }
     }
 

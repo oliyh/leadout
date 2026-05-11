@@ -41,15 +41,14 @@ function getOrCreateDeviceCode() as String {
     return code;
 }
 
-// Issues a GET /api/sync/:deviceCode request. Reads watch_token from Application.Storage
-// and includes it as an Authorization header. The callback receives (responseCode, data).
+// Issues a GET /api/sync/:deviceCode request. Includes token as a Bearer Authorization
+// header if non-null. The callback receives (responseCode, data).
 // Used by the foreground open sync, the background temporal sync, and the post-token sync.
 (:background)
-function makeSyncRequest(deviceCode as String, callback as Method) as Void {
+function makeSyncRequest(deviceCode as String, token as String?, callback as Method) as Void {
     var distUnits = System.getDeviceSettings().distanceUnits == System.UNIT_METRIC ? "metric" : "statute";
-    var watchToken = Application.Storage.getValue("watch_token");
-    var headers = (watchToken instanceof String)
-        ? { "Authorization" => "Bearer " + (watchToken as String) }
+    var headers = (token != null)
+        ? { "Authorization" => "Bearer " + (token as String) }
         : {} as Dictionary<String, String>;
     Communications.makeWebRequest(
         API_BASE + "/api/sync/" + deviceCode,
@@ -90,6 +89,17 @@ function clearAuthState() as Boolean {
         Application.Storage.deleteValue("device_code");
     }
     return hadToken;
+}
+
+// Returns true if a lap should be triggered given the TriggerLap setting and transition type.
+// TriggerLap values: 0 = every segment, 1 = every block (default), 2 = never.
+// isBlockEnd is true when the last segment in a block finishes; false for mid-block segments.
+function shouldTriggerLap(isBlockEnd as Boolean) as Boolean {
+    var setting = Application.Properties.getValue("TriggerLap");
+    var mode = (setting instanceof Number) ? (setting as Number) : 1;
+    if (mode == 2) { return false; }
+    if (mode == 1 && !isBlockEnd) { return false; }
+    return true;
 }
 
 // Finds the first programme in an array whose scheduled_date is today.

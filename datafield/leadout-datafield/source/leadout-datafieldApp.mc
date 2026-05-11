@@ -11,19 +11,22 @@ class leadout_datafieldApp extends Application.AppBase {
 
     hidden var mView as leadout_datafieldView?;
     hidden var mDeviceCode as String = "";
+    hidden var mWatchToken as String? = null;
 
     function initialize() {
         AppBase.initialize();
         // Stable per-device identifier — generated once, persisted forever.
         // Displayed on screen so the participant can register at /register.
         mDeviceCode = getOrCreateDeviceCode();
+        var storedToken = Application.Storage.getValue("watch_token");
+        mWatchToken = (storedToken instanceof String) ? storedToken as String : null;
         System.println("Device code=" + mDeviceCode);
         Background.registerForTemporalEvent(new Time.Duration(syncPeriodSeconds()));
     }
 
     function onStart(state as Dictionary?) as Void {
-        if (Application.Storage.getValue("watch_token") instanceof String) {
-            makeSyncRequest(mDeviceCode, method(:onSyncResponse));
+        if (mWatchToken != null) {
+            makeSyncRequest(mDeviceCode, mWatchToken, method(:onSyncResponse));
         } else {
             // No token yet — check if one is waiting to be claimed before syncing.
             // Covers the case where the user registered on the website but hasn't
@@ -36,10 +39,11 @@ class leadout_datafieldApp extends Application.AppBase {
         if (responseCode == 200 && data != null) {
             var token = data["token"];
             if (token instanceof String) {
-                Application.Storage.setValue("watch_token", token as String);
+                mWatchToken = token as String;
+                Application.Storage.setValue("watch_token", mWatchToken);
             }
         }
-        makeSyncRequest(mDeviceCode, method(:onSyncResponse));
+        makeSyncRequest(mDeviceCode, mWatchToken, method(:onSyncResponse));
     }
 
     function onStop(state as Dictionary?) as Void {
@@ -115,10 +119,9 @@ class leadout_datafieldApp extends Application.AppBase {
         if (responseCode == 200) {
             var pendingId = Application.Storage.getValue("pending_participation_id");
             if (pendingId instanceof String) {
-                var watchToken = Application.Storage.getValue("watch_token");
                 var headers = { "Content-Type" => "application/json" } as Dictionary<String, String>;
-                if (watchToken instanceof String) {
-                    headers["Authorization"] = "Bearer " + (watchToken as String);
+                if (mWatchToken != null) {
+                    headers["Authorization"] = "Bearer " + (mWatchToken as String);
                 }
                 Communications.makeWebRequest(
                     API_BASE + "/api/sessions/start",
@@ -136,6 +139,7 @@ class leadout_datafieldApp extends Application.AppBase {
     }
 
     function handleAuthFailure() as Void {
+        mWatchToken = null;
         if (clearAuthState()) {
             mDeviceCode = getOrCreateDeviceCode();
         }
@@ -168,13 +172,14 @@ class leadout_datafieldApp extends Application.AppBase {
             Application.Storage.deleteValue("lastSyncTime");
             Application.Storage.deleteValue("pending_participation_id");
             Application.Properties.setValue("ResetState", false);
+            mWatchToken = null;
             mDeviceCode = getOrCreateDeviceCode();
             var view = mView;
             if (view != null) {
                 view.setDeviceCode(mDeviceCode);
                 view.reset();
             }
-            makeSyncRequest(mDeviceCode, method(:onSyncResponse));
+            makeSyncRequest(mDeviceCode, mWatchToken, method(:onSyncResponse));
         }
         Background.registerForTemporalEvent(new Time.Duration(syncPeriodSeconds()));
     }
