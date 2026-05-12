@@ -20,19 +20,16 @@ class leadout_datafieldApp extends Application.AppBase {
         mDeviceCode = getOrCreateDeviceCode();
         var storedToken = Application.Storage.getValue("watch_token");
         mWatchToken = (storedToken instanceof String) ? storedToken as String : null;
-        System.println("Device code=" + mDeviceCode);
+        System.println("[App.initialize] deviceCode=" + mDeviceCode
+            + " hasToken=" + (mWatchToken != null));
         Background.registerForTemporalEvent(new Time.Duration(syncPeriodSeconds()));
     }
 
     function onStart(state as Dictionary?) as Void {
-        if (mWatchToken != null) {
-            makeSyncRequest(mDeviceCode, mWatchToken, method(:onSyncResponse));
-        } else {
-            // No token yet — check if one is waiting to be claimed before syncing.
-            // Covers the case where the user registered on the website but hasn't
-            // started a run yet (compute() doesn't fire outside an activity).
-            makeTokenRequest(mDeviceCode, method(:onStartTokenPoll));
-        }
+        // Intentionally empty. onStart runs in both foreground and background contexts, so
+        // it is unsafe to call isOldSdk() or make web requests here. All startup logic that
+        // needs the view or SDK detection is in getInitialView(), which is foreground-only.
+        System.println("[App.onStart] hasToken=" + (mWatchToken != null));
     }
 
     function onStartTokenPoll(responseCode as Number, data as Dictionary?) as Void {
@@ -54,18 +51,44 @@ class leadout_datafieldApp extends Application.AppBase {
     }
 
     function getInitialView() as [Views] or [Views, InputDelegates] {
+        // getInitialView is foreground-only — safe to call isOldSdk() and make web requests.
+        var old = isOldSdk();
+        System.println("[App.getInitialView] hasToken=" + (mWatchToken != null) + " oldSdk=" + old);
         mView = new leadout_datafieldView();
         mView.setDeviceCode(mDeviceCode);
+        if (old) {
+            // Old SDK: foreground web requests unavailable; background service handles sync.
+            // Show the device code immediately if not yet registered.
+            if (mWatchToken == null) {
+                System.println("[App.getInitialView] old SDK, no token — setting STATE_UNREGISTERED");
+                mView.setRegistrationRequired(mDeviceCode);
+            } else {
+                System.println("[App.getInitialView] old SDK, has token — background sync will load programme");
+            }
+        } else {
+            // New SDK: kick off a foreground sync so the view is populated without waiting
+            // for the user to open the widget or the background service to fire.
+            if (mWatchToken != null) {
+                System.println("[App.getInitialView] new SDK, has token — making foreground sync request");
+                makeSyncRequest(mDeviceCode, mWatchToken, method(:onSyncResponse));
+            } else {
+                System.println("[App.getInitialView] new SDK, no token — polling token endpoint");
+                makeTokenRequest(mDeviceCode, method(:onStartTokenPoll));
+            }
+        }
         return [mView];
     }
 
     // Called when the background temporal sync completes and passes back data.
     function onBackgroundData(data as Application.PersistableType) as Void {
+        System.println("[App.onBackgroundData] data=" + data + " viewReady=" + (mView != null));
         var view = mView;
         if (!(data instanceof Dictionary) || view == null) { return; }
         var dict = data as Dictionary;
         if (dict.hasKey("auth_failed")) {
             handleAuthFailure();
+        } else if (dict.hasKey("sync_failed")) {
+            view.setFetchFailed(0, "");
         } else if (dict.hasKey("registration_required")) {
             view.setRegistrationRequired(mDeviceCode);
         } else if (dict.hasKey("no_subscriptions")) {

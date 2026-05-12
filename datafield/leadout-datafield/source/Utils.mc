@@ -91,6 +91,18 @@ function clearAuthState() as Boolean {
     return hadToken;
 }
 
+// Returns true if the device runs Connect IQ API < 5.0.
+// On older firmware, DataFields cannot call makeWebRequest from foreground context and
+// Communications.openWebPage is unavailable. These are uncatchable runtime errors, so
+// the flag must be checked before attempting the call.
+(:background)
+function isOldSdk() as Boolean {
+    var settings = System.getDeviceSettings();
+    if (!(settings has :monkeyVersion)) { return true; }
+    var ver = settings.monkeyVersion as Array<Number>;
+    return ver[0] < 5;
+}
+
 // Returns true if a lap should be triggered given the TriggerLap setting and transition type.
 // TriggerLap values: 0 = every segment, 1 = every block (default), 2 = never.
 // isBlockEnd is true when the last segment in a block finishes; false for mid-block segments.

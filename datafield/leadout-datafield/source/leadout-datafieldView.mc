@@ -65,7 +65,10 @@ class leadout_datafieldView extends WatchUi.DataField {
 
         var cached = Application.Storage.getValue("programme");
         if (cached instanceof Dictionary) {
+            System.println("[View.initialize] cached programme found — loading");
             loadProgramme(cached as Dictionary);
+        } else {
+            System.println("[View.initialize] no cached programme — state=SYNCING");
         }
     }
 
@@ -90,11 +93,13 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     function setRegistrationRequired(deviceCode as String) as Void {
         var firstTime = mState != STATE_UNREGISTERED;
+        System.println("[View.setRegistrationRequired] deviceCode=" + deviceCode
+            + " firstTime=" + firstTime + " prevState=" + mState);
         mDeviceCode = deviceCode;
         mState = STATE_UNREGISTERED;
         mLastPollMs = 0;
-        // Open the site automatically on first detection — user doesn't need to press LAP.
-        if (firstTime && (Communications has :openWebPage)) {
+        if (firstTime && !isOldSdk() && (Communications has :openWebPage)) {
+            System.println("[View.setRegistrationRequired] opening web page");
             Communications.openWebPage(API_BASE + "/?device_code=" + deviceCode, null, null);
         }
         WatchUi.requestUpdate();
@@ -133,7 +138,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     function onTimerLap() as Void {
         if (mState == STATE_UNREGISTERED) {
             // LAP re-opens the site in case the user dismissed it.
-            if (Communications has :openWebPage) {
+            if (!isOldSdk() && (Communications has :openWebPage)) {
                 Communications.openWebPage(API_BASE + "/?device_code=" + mDeviceCode, null, null);
             }
             return;
@@ -147,7 +152,7 @@ class leadout_datafieldView extends WatchUi.DataField {
                 mSessionStartMs = System.getTimer();
                 mSessionStartDistM = mElapsedDistM;
                 Application.Storage.setValue("pending_participation_id", mProgrammeId);
-                recordParticipation();
+                if (!isOldSdk()) { recordParticipation(); }
             }
         }
     }
@@ -172,7 +177,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         // While unregistered, poll the token endpoint every 10 s. When the web app
         // registers the device, the server issues a one-time token which the watch
         // claims here and stores; it then calls sync immediately with that token.
-        if (mState == STATE_UNREGISTERED && !mPolling) {
+        if (mState == STATE_UNREGISTERED && !mPolling && !isOldSdk()) {
             var now = System.getTimer();
             if (now - mLastPollMs > 10000) {
                 mLastPollMs = now;
@@ -364,6 +369,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
     }
 
+    (:typecheck(disableBackwardCompatibilityCheck))
     hidden function triggerLapIfConfigured(isBlockEnd as Boolean) as Void {
         if (shouldTriggerLap(isBlockEnd) && (Activity has :lap)) {
             Activity.lap();

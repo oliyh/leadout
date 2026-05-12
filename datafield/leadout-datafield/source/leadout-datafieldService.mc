@@ -16,33 +16,48 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
 
     function onTemporalEvent() as Void {
         var deviceCode = Application.Storage.getValue("device_code");
+        System.println("[Service.onTemporalEvent] deviceCode=" + deviceCode);
         if (!(deviceCode instanceof String)) {
+            System.println("[Service.onTemporalEvent] no device code — exiting background");
             Background.exit(null);
             return;
         }
         var storedToken = Application.Storage.getValue("watch_token");
         var token = (storedToken instanceof String) ? storedToken as String : null;
+        System.println("[Service.onTemporalEvent] hasToken=" + (token != null));
         if (token == null) {
+            System.println("[Service.onTemporalEvent] no token — requesting token");
             makeTokenRequest(deviceCode as String, method(:onTokenResponse));
         } else {
+            System.println("[Service.onTemporalEvent] has token — making sync request");
             makeSyncRequest(deviceCode as String, token, method(:onSyncResponse));
         }
     }
 
     function onTokenResponse(responseCode as Number, data as Dictionary?) as Void {
+        System.println("[Service.onTokenResponse] code=" + responseCode);
+        if (responseCode == Communications.SECURE_CONNECTION_REQUIRED) {
+            System.println("[Service.onTokenResponse] Need an https connection (or disable require https in the sim settings)");
+        }
+        // if code is -1001 
         if (responseCode == 200 && data != null) {
             var token = data["token"];
             if (token instanceof String) {
+                System.println("[Service.onTokenResponse] token received — storing");
                 Application.Storage.setValue("watch_token", token as String);
+            } else {
+                System.println("[Service.onTokenResponse] 200 but no token field in response");
             }
         }
         // Don't chain into sync here — the storage write may not be committed until
         // Background.exit fires, so a same-run sync would go without auth and trigger
         // an auth_failed wipe. The next temporal event will pick up the token and sync.
+        System.println("[Service.onTokenResponse] exiting background");
         Background.exit(null);
     }
 
     function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
+        System.println("[Service.onSyncResponse] responseCode: " + responseCode);
         if (responseCode == 200 && data != null) {
             var programmes = data["programmes"] as Array<Dictionary>;
             var prog = findTodaysProgramme(programmes);
@@ -65,7 +80,7 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
             Background.exit({ "auth_failed" => true });
             return;
         }
-        Background.exit(null);
+        Background.exit({ "sync_failed" => true });
     }
 
 }

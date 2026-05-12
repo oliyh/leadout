@@ -133,3 +133,19 @@ loadProgramme: name=Sprintervals v2 blocks=1
 - pyramid should be able to parameterise the rest period length
 - other templates - should be more parameterisable (params can be defaulted though)
 - should still be able to view programmes from the past
+
+- sdk 3.3 support
+- i made "isOldSdk" background tagged - maybe we can put stuff back in onStart, and see if background service is happy again
+- can now register, but syncing makes the request and gets a 200 but the view does not update to show the programme - is that because it's a background sync and the view is not refreshing? it says "no programmes today"
+- still get  compile warning about the lap thing
+- when it has a programme - even a modest one - it runs out of memory :cry: can we compress it somehow...
+
+- new features - add with allium
+- "repeat" segment (or is this a block level attribute?) which will repeat segments until
+a) n repetitions
+b) distance achieved
+c) time achieved
+
+- geo gate that you have to go through to complete a segment, instead of completing a distance or a time
+
+- diagram on home page explaining instructor -> channel -> subscription -> participant watch
