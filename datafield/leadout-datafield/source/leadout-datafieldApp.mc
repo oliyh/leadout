@@ -95,6 +95,14 @@ class leadout_datafieldApp extends Application.AppBase {
             view.setNoSubscriptions();
         } else if (dict.hasKey("no_programme")) {
             view.setNoProgramme();
+        } else if (dict.hasKey("programme_ready")) {
+            // Service saved the programme to Storage before sending this sentinel.
+            // Read from Storage rather than Background.exit data to avoid old-SDK
+            // serialisation issues with nested Arrays of Dictionaries.
+            var cached = Application.Storage.getValue("programme");
+            if (cached instanceof Dictionary) {
+                view.setProgramme(cached as Dictionary);
+            }
         } else {
             view.setProgramme(dict);
         }

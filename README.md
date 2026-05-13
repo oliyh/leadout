@@ -140,11 +140,14 @@ loadProgramme: name=Sprintervals v2 blocks=1
 - still get  compile warning about the lap thing
 - when it has a programme - even a modest one - it runs out of memory :cry: can we compress it somehow, or load it one block at a time?
 
-- new features - add with allium
-- "repeat" segment (or is this a block level attribute?) which will repeat segments until
-a) n repetitions
-b) distance achieved
-c) time achieved
+- when there is a repeat repetitions segment, it should count up to it on the watch face, not down..
+  start at 1/3, then 2/3, then final repetition shows 3/3
+  this is in contrast to the "until time/distance" which count down to 0
+
+- programme duration still not right with repeat segments
+  - until repetition segment should multiply duration and distance by its multiplier - e.g. 100m fast (15s), 50m slow (20s), repeat x2 should give 300m (70s)
+  - until time segment should just use the time parameter for duration. to estimate distance, it should find the fraction of time that the enclosed segments are estimated at, and multiply the sum of their distance by the fraction to get the total estimated distance
+  - until distance segment should just use the distance paramter for distance. for duration, it should use the duration of its enclosed segments multiplied by the fraction of the total distance that they themselevs are estimated at, similar to the until time segment, 
 
 - geo gate that you have to go through to complete a segment, instead of completing a distance or a time
 

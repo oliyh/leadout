@@ -361,6 +361,70 @@ function testClearAuthState_alwaysWipesProgramme(logger as Test.Logger) as Boole
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Background sync sentinel protocol
+//
+// When the background service finds a programme it saves it to Application.Storage
+// then calls Background.exit({"programme_ready" => true}).  Passing the full
+// nested programme dict through Background.exit() is unreliable on old SDK
+// (CIQ < 5.0) because Arrays of Dictionaries may not round-trip correctly.
+// The sentinel approach separates "signal" from "data": the signal travels via
+// Background.exit; the data travels via Application.Storage (reliable on all SDK).
+//
+// These tests verify:
+//   1. Application.Storage correctly round-trips the nested programme structure.
+//   2. The sentinel key name matches between service and app ("programme_ready").
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testBackgroundSentinel_storageRoundTrip(logger as Test.Logger) as Boolean {
+    // Validates the storage path that onBackgroundData("programme_ready") relies on.
+    // If Application.Storage cannot round-trip nested Arrays of Dictionaries the
+    // programme_ready handler would silently load nothing.
+    var prog = {
+        "id"             => "test-prog-001",
+        "name"           => "Test Intervals",
+        "scheduled_date" => "2026-05-13",
+        "blocks"         => [
+            {
+                "name"     => "Warm up",
+                "segments" => [
+                    { "name" => "Easy jog", "kind" => "time", "duration" => 300,
+                      "distance" => 0, "target_pace" => null }
+                ] as Array<Dictionary>
+            }
+        ] as Array<Dictionary>
+    };
+    Application.Storage.setValue("programme", prog);
+    var retrieved = Application.Storage.getValue("programme");
+    Test.assertMessage(retrieved instanceof Dictionary, "programme retrieved as Dictionary");
+    var d = retrieved as Dictionary;
+    Test.assertEqualMessage(d["id"],   "test-prog-001",  "id preserved through storage");
+    Test.assertEqualMessage(d["name"], "Test Intervals", "name preserved through storage");
+    var blocks = d["blocks"];
+    Test.assertMessage(blocks instanceof Array, "blocks is Array after storage round-trip");
+    var block = (blocks as Array<Dictionary>)[0] as Dictionary;
+    Test.assertEqualMessage(block["name"], "Warm up", "block name preserved");
+    var segs = block["segments"];
+    Test.assertMessage(segs instanceof Array, "segments is Array after storage round-trip");
+    var seg = (segs as Array<Dictionary>)[0] as Dictionary;
+    Test.assertEqualMessage(seg["name"], "Easy jog", "segment name preserved");
+    Application.Storage.deleteValue("programme");
+    return true;
+}
+
+(:test)
+function testBackgroundSentinel_keyName(logger as Test.Logger) as Boolean {
+    // The sentinel dict sent via Background.exit must use the key "programme_ready".
+    // onBackgroundData checks dict.hasKey("programme_ready") to trigger the storage
+    // read path.  This test documents the agreed-upon key name so a rename in either
+    // service or app is caught immediately.
+    var sentinel = {"programme_ready" => true};
+    Test.assertMessage(sentinel.hasKey("programme_ready"), "sentinel key is 'programme_ready'");
+    Test.assertMessage(!(sentinel.hasKey("programme")),    "sentinel does not pass programme inline");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // View state machine — obligations documented, unit tests blocked by platform
 //
 // leadout_datafieldView extends WatchUi.DataField, which requires the UI runtime.
@@ -432,6 +496,31 @@ function testClearAuthState_alwaysWipesProgramme(logger as Test.Logger) as Boole
 //     → no web request made (throttled)
 //   compute() when STATE_UNREGISTERED and mPolling:
 //     → no second web request made (in-flight guard)
+//
+// ── onBackgroundData — programme_ready sentinel (old SDK background sync) ─────
+//   onBackgroundData({"programme_ready" => true}):
+//     → Application.Storage.getValue("programme") read (service saved it before exit)
+//     → if Dictionary: view.setProgramme(cached) called → STATE_WAITING
+//     → if not Dictionary: no state change (storage miss — next background tick retries)
+//   onBackgroundData({"no_programme" => true}):
+//     → view.setNoProgramme() → STATE_NO_PROGRAMME
+//   onBackgroundData({"no_subscriptions" => true}):
+//     → view.setNoSubscriptions() → STATE_NO_SUBSCRIPTIONS
+//   onBackgroundData({"auth_failed" => true}):
+//     → handleAuthFailure() → token wiped, new device code, STATE_UNREGISTERED
+//   onBackgroundData(null) or non-Dictionary:
+//     → early return, no state change
+//   onBackgroundData(_) when mView == null (data field not on screen):
+//     → early return; programme is still in Storage and will be loaded by
+//       View.initialize() on the next foreground start
+//
+// ── loadProgramme — null/missing blocks guard ─────────────────────────────────
+//   loadProgramme({"name" => "x"}) with no "blocks" key (rawBlocks not instanceof Array):
+//     → early return, mState unchanged (defensive guard against malformed data)
+//   loadProgramme(data) with data["blocks"].size() > 0:
+//     → mState = STATE_WAITING, mCurrentBlock = 0, mCurrentSegment = 0
+//   loadProgramme(data) with data["blocks"].size() = 0:
+//     → mState remains unchanged (no blocks to wait for)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────

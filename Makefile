@@ -9,12 +9,12 @@ PRG         := $(DATAFIELD)/bin/leadoutdatafield.prg
 PRG_TEST    := $(DATAFIELD)/bin/leadoutdatafield-test.prg
 PRG_SIM     := $(DATAFIELD)/bin/leadoutdatafield-sim.prg
 PRG_RELEASE := $(DATAFIELD)/bin/leadoutdatafield.iq
-DEVICE      := fr265s
+DEVICE      ?= fr265s
 DEVICE_SIM  := $(DEVICE)_sim
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
-.PHONY: env datafield datafield-sim datafield-test datafield-release datafield-run-tests datafield-docker-build datafield-run-tests-docker install-datafield uninstall-datafield \
+.PHONY: env datafield datafield-sim datafield-test datafield-test-all datafield-release datafield-run-tests datafield-docker-build datafield-run-tests-docker install-datafield uninstall-datafield \
         sim sim-lap sim-screenshot \
         ui-install ui-dev ui-build server-install server-start server-dev server-test dev \
         e2e e2e-debug
@@ -76,6 +76,10 @@ datafield-test: datafield-build-test
 	fi
 	@$(MONKEYDO) $(PRG_TEST) $(DEVICE) -t 2>&1 | tee /tmp/datafield-test-results.txt; \
 	grep -q "^PASSED" /tmp/datafield-test-results.txt
+
+datafield-test-all:
+	$(MAKE) datafield-test DEVICE=fr265s
+	$(MAKE) datafield-test DEVICE=fr245
 
 datafield-build-docker:
 	$(DOCKER) build -f datafield/Dockerfile -t $(DATAFIELD_IMAGE) datafield

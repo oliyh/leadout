@@ -371,7 +371,12 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     hidden function loadProgramme(data as Dictionary) as Void {
         System.println("loadProgramme: name=" + data["name"] + " blocks=" + (data["blocks"] != null ? (data["blocks"] as Array<Object>).size() : "null"));
-        var jsonBlocks = data["blocks"] as Array<Dictionary>;
+        var rawBlocks = data["blocks"];
+        if (!(rawBlocks instanceof Array)) {
+            System.println("[loadProgramme] blocks missing — ignoring");
+            return;
+        }
+        var jsonBlocks = rawBlocks as Array<Dictionary>;
         var blocks = [] as Array<Dictionary>;
         for (var i = 0; i < jsonBlocks.size(); i++) {
             var jb = jsonBlocks[i] as Dictionary;

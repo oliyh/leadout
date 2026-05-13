@@ -64,7 +64,11 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
             if (prog != null) {
                 Application.Storage.setValue("programme", prog);
                 Application.Storage.setValue("lastSyncTime", System.getTimer());
-                Background.exit(prog);
+                // Send a lightweight sentinel rather than the full nested dict.
+                // Background.exit() on old SDK (CIQ < 5) does not reliably round-trip
+                // Arrays of Dictionaries; the programme is already in Storage so the
+                // foreground reads it from there via the "programme_ready" handler.
+                Background.exit({"programme_ready" => true});
                 return;
             }
             // Registered but no programme today — signal which empty state to show.
