@@ -136,9 +136,10 @@ loadProgramme: name=Sprintervals v2 blocks=1
 
 - sdk 3.3 support
 - i made "isOldSdk" background tagged - maybe we can put stuff back in onStart, and see if background service is happy again
-- can now register, but syncing makes the request and gets a 200 but the view does not update to show the programme - is that because it's a background sync and the view is not refreshing? it says "no programmes today"
 - still get  compile warning about the lap thing
 - when it has a programme - even a modest one - it runs out of memory :cry: can we compress it somehow, or load it one block at a time?
+
+is foreground sync loop really a loop? it seems to try once and then give up...
 
 - when there is a repeat repetitions segment, it should count up to it on the watch face, not down..
   start at 1/3, then 2/3, then final repetition shows 3/3

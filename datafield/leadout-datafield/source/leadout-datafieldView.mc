@@ -693,9 +693,9 @@ class leadout_datafieldView extends WatchUi.DataField {
                 var headerText = "";
                 if (exitType.equals("count")) {
                     var total = repSeg[:repeat_count] as Number;
-                    var remaining = total - mCurrentRep + 1;
-                    if (remaining < 1) { remaining = 1; }
-                    headerText = remaining.format("%d") + "/" + total.format("%d");
+                    var current = mCurrentRep;
+                    if (current > total) { current = total; }
+                    headerText = current.format("%d") + "/" + total.format("%d");
                 } else if (exitType.equals("time")) {
                     var target = repSeg[:duration] as Number;
                     var elapsedSecs = (System.getTimer() - mRepeatStartMs) / 1000;
