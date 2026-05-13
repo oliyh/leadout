@@ -18,10 +18,12 @@
  *   Programme:     id (String), name (String), scheduled_date (String YYYY-MM-DD),
  *                  blocks (Array), pace_assumption (Number, seconds/km)
  *   Block:         name (String), segments (Array)
- *   Segment:       name (String), kind ("time"|"distance"),
- *                  duration (Number, seconds — time segments),
- *                  distance (Number, metres — distance segments),
- *                  target_pace (Number seconds/km | null)
+ *   Segment:       name (String), kind ("time"|"distance"|"repeat"),
+ *                  duration (Number, seconds — time segments and time-exit repeats),
+ *                  distance (Number, metres — distance segments and distance-exit repeats),
+ *                  target_pace (Number seconds/km | null — absent on repeat segments),
+ *                  exit_type ("count"|"time"|"distance" — repeat segments only),
+ *                  repeat_count (Number — count-exit repeats only)
  *   ParticipationRequest:  device_code (String), programme_id (String)
  */
 
@@ -51,6 +53,7 @@ export const PROGRAMME_FIXTURE = {
             segments: [
                 { name: 'Fast',     kind: 'time',     duration: 120, distance: 0,   target_pace: 240  },
                 { name: 'Recovery', kind: 'distance', duration: 0,   distance: 200, target_pace: null },
+                { name: 'Repeat',   kind: 'repeat',   exit_type: 'count', repeat_count: 5, duration: null, distance: null, target_pace: null },
             ],
         },
     ],
@@ -107,12 +110,22 @@ export function assertBlockShape(b) {
 export function assertSegmentShape(s) {
     if (typeof s.name !== 'string')
         throw new Error(`segment.name must be string (got ${typeof s.name})`);
-    if (s.kind !== 'time' && s.kind !== 'distance')
-        throw new Error(`segment.kind must be 'time' or 'distance' (got '${s.kind}')`);
+    if (s.kind !== 'time' && s.kind !== 'distance' && s.kind !== 'repeat')
+        throw new Error(`segment.kind must be 'time', 'distance', or 'repeat' (got '${s.kind}')`);
     if (s.kind === 'time' && typeof s.duration !== 'number')
         throw new Error(`time segment.duration must be number (got ${typeof s.duration})`);
     if (s.kind === 'distance' && typeof s.distance !== 'number')
         throw new Error(`distance segment.distance must be number (got ${typeof s.distance})`);
+    if (s.kind === 'repeat') {
+        if (s.exit_type !== 'count' && s.exit_type !== 'time' && s.exit_type !== 'distance')
+            throw new Error(`repeat segment.exit_type must be 'count', 'time', or 'distance' (got '${s.exit_type}')`);
+        if (s.exit_type === 'count' && typeof s.repeat_count !== 'number')
+            throw new Error(`count-exit repeat segment.repeat_count must be number (got ${typeof s.repeat_count})`);
+        if (s.exit_type === 'time' && typeof s.duration !== 'number')
+            throw new Error(`time-exit repeat segment.duration must be number (got ${typeof s.duration})`);
+        if (s.exit_type === 'distance' && typeof s.distance !== 'number')
+            throw new Error(`distance-exit repeat segment.distance must be number (got ${typeof s.distance})`);
+    }
 }
 
 export function assertParticipation201(body) {

@@ -40,6 +40,13 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mSessionEndMs as Number;        // timer when STATE_COMPLETE reached
     hidden var mSessionStartDistM as Float;    // distance at session start
 
+    // Repeat-loop state. Set when a block with a repeat segment begins, cleared
+    // on block end or when the repeat exits. mRepeatStartIndex = -1 means not in a group.
+    hidden var mRepeatStartIndex as Number;    // first segment index of the current group
+    hidden var mRepeatStartMs as Number;       // getTimer() when the group began
+    hidden var mRepeatStartDistM as Float;     // elapsedDistance when the group began
+    hidden var mCurrentRep as Number;          // 1-based rep counter (which rep is running)
+
     function initialize() {
         DataField.initialize();
 
@@ -62,6 +69,10 @@ class leadout_datafieldView extends WatchUi.DataField {
         mSessionStartMs = 0;
         mSessionEndMs = 0;
         mSessionStartDistM = 0.0f;
+        mRepeatStartIndex = -1;
+        mRepeatStartMs = 0;
+        mRepeatStartDistM = 0.0f;
+        mCurrentRep = 0;
 
         var cached = Application.Storage.getValue("programme");
         if (cached instanceof Dictionary) {
@@ -148,6 +159,9 @@ class leadout_datafieldView extends WatchUi.DataField {
             mCurrentSegment = 0;
             mSegmentStartMs = System.getTimer();
             mSegmentStartDistM = -1.0f;  // will be captured on first compute()
+            // Eagerly init repeat state if this block contains a repeat segment,
+            // so the progress header is visible from the very first rep.
+            initRepeatForBlock(currentSegments());
             if (mCurrentBlock == 0 && !mDeviceCode.equals("") && !mProgrammeId.equals("")) {
                 mSessionStartMs = System.getTimer();
                 mSessionStartDistM = mElapsedDistM;
@@ -192,40 +206,164 @@ class leadout_datafieldView extends WatchUi.DataField {
 
         var segments = currentSegments();
         var seg = segments[mCurrentSegment];
-        var advance = false;
-
         var kind = seg[:kind] as String;
+
+        // Guard: repeat markers should never be the current segment, but skip if they are.
+        if (kind.equals("repeat")) { return; }
+
+        // ── Continuous time/distance exit check (can fire mid-segment) ────────
+        if (mRepeatStartIndex >= 0) {
+            var repSeg = currentRepeatMarkerSeg(segments);
+            if (repSeg != null) {
+                var repExitType = repSeg[:exit_type] as String;
+                if (!repExitType.equals("count")) {
+                    var elapsedMs = System.getTimer() - mRepeatStartMs;
+                    var coveredM  = mElapsedDistM - mRepeatStartDistM;
+                    if (shouldExitRepeat(repSeg, mCurrentRep, elapsedMs, coveredM)) {
+                        doRepeatExit(segments, currentRepeatMarkerIdx(segments));
+                        return;
+                    }
+                }
+            }
+        }
+
+        // ── Normal segment completion check ───────────────────────────────────
+        var advance = false;
         if (kind.equals("distance")) {
             var distTarget = seg[:distance] as Float;
             if (mSegmentStartDistM >= 0.0f) {
                 advance = (mElapsedDistM - mSegmentStartDistM) >= distTarget;
             }
         } else {
-            // time-based (default)
             var duration = seg[:duration] as Number;
             var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
             advance = elapsedSecs >= duration;
         }
 
         if (advance) {
-            if (mCurrentSegment < segments.size() - 1) {
-                mCurrentSegment += 1;
+            doAdvance(segments);
+        }
+    }
+
+    // ── Repeat helpers ────────────────────────────────────────────────────
+
+    // Called when a block starts. Scans for the first repeat segment; if found,
+    // sets up group state so the header is visible from rep 1.
+    hidden function initRepeatForBlock(segments as Array<Dictionary>) as Void {
+        for (var i = 0; i < segments.size(); i++) {
+            if (((segments[i] as Dictionary)[:kind] as String).equals("repeat")) {
+                mRepeatStartIndex = 0;
+                mRepeatStartMs    = System.getTimer();
+                mRepeatStartDistM = mElapsedDistM;
+                mCurrentRep       = 1;
+                return;
+            }
+        }
+        mRepeatStartIndex = -1;
+        mRepeatStartMs    = 0;
+        mRepeatStartDistM = 0.0f;
+        mCurrentRep       = 0;
+    }
+
+    hidden function clearRepeatState() as Void {
+        mRepeatStartIndex = -1;
+        mRepeatStartMs    = 0;
+        mRepeatStartDistM = 0.0f;
+        mCurrentRep       = 0;
+    }
+
+    hidden function currentRepeatMarkerSeg(segments as Array<Dictionary>) as Dictionary? {
+        for (var i = mRepeatStartIndex; i < segments.size(); i++) {
+            var s = segments[i] as Dictionary;
+            if ((s[:kind] as String).equals("repeat")) { return s; }
+        }
+        return null;
+    }
+
+    hidden function currentRepeatMarkerIdx(segments as Array<Dictionary>) as Number {
+        for (var i = mRepeatStartIndex; i < segments.size(); i++) {
+            if (((segments[i] as Dictionary)[:kind] as String).equals("repeat")) { return i; }
+        }
+        return -1;
+    }
+
+    hidden function doAdvance(segments as Array<Dictionary>) as Void {
+        var nextIdx = mCurrentSegment + 1;
+
+        if (nextIdx >= segments.size()) {
+            doBlockOrSessionEnd();
+            return;
+        }
+
+        var nextSeg = segments[nextIdx] as Dictionary;
+        if ((nextSeg[:kind] as String).equals("repeat")) {
+            var elapsedMs = System.getTimer() - mRepeatStartMs;
+            var coveredM  = mElapsedDistM - mRepeatStartDistM;
+            if (shouldExitRepeat(nextSeg, mCurrentRep, elapsedMs, coveredM)) {
+                doRepeatExit(segments, nextIdx);
+            } else {
+                mCurrentRep    += 1;
+                mCurrentSegment = mRepeatStartIndex;
                 mSegmentStartMs = System.getTimer();
                 mSegmentStartDistM = mElapsedDistM;
                 alertSegment();
                 triggerLapIfConfigured(false);
-            } else if (mCurrentBlock < mBlocks.size() - 1) {
-                mCurrentBlock += 1;
-                mCurrentSegment = 0;
-                mState = STATE_WAITING;
-                alertBlockComplete();
-                triggerLapIfConfigured(true);
-            } else {
-                mSessionEndMs = System.getTimer();
-                mState = STATE_COMPLETE;
-                alertSessionComplete();
-                triggerLapIfConfigured(true);
             }
+        } else {
+            mCurrentSegment    = nextIdx;
+            mSegmentStartMs    = System.getTimer();
+            mSegmentStartDistM = mElapsedDistM;
+            alertSegment();
+            triggerLapIfConfigured(false);
+        }
+    }
+
+    // Called when the repeat exit condition is met. Advances past the repeat
+    // marker and initialises the next group if another repeat follows.
+    hidden function doRepeatExit(segments as Array<Dictionary>, repeatIdx as Number) as Void {
+        var afterRepeat = repeatIdx + 1;
+
+        // Look for a subsequent repeat group in this block.
+        var nextRepeatIdx = -1;
+        for (var i = afterRepeat; i < segments.size(); i++) {
+            if (((segments[i] as Dictionary)[:kind] as String).equals("repeat")) {
+                nextRepeatIdx = i;
+                break;
+            }
+        }
+        if (nextRepeatIdx >= 0) {
+            mRepeatStartIndex = afterRepeat;
+            mRepeatStartMs    = System.getTimer();
+            mRepeatStartDistM = mElapsedDistM;
+            mCurrentRep       = 1;
+        } else {
+            clearRepeatState();
+        }
+
+        if (afterRepeat < segments.size()) {
+            mCurrentSegment    = afterRepeat;
+            mSegmentStartMs    = System.getTimer();
+            mSegmentStartDistM = mElapsedDistM;
+            alertSegment();
+            triggerLapIfConfigured(false);
+        } else {
+            doBlockOrSessionEnd();
+        }
+    }
+
+    hidden function doBlockOrSessionEnd() as Void {
+        clearRepeatState();
+        if (mCurrentBlock < mBlocks.size() - 1) {
+            mCurrentBlock  += 1;
+            mCurrentSegment = 0;
+            mState          = STATE_WAITING;
+            alertBlockComplete();
+            triggerLapIfConfigured(true);
+        } else {
+            mSessionEndMs = System.getTimer();
+            mState        = STATE_COMPLETE;
+            alertSessionComplete();
+            triggerLapIfConfigured(true);
         }
     }
 
@@ -242,15 +380,30 @@ class leadout_datafieldView extends WatchUi.DataField {
             for (var j = 0; j < jsonSegs.size(); j++) {
                 var js = jsonSegs[j] as Dictionary;
                 var segKind = (js["kind"] instanceof String) ? js["kind"] as String : "time";
-                var segDist = (js["distance"] instanceof Float) ? js["distance"] as Float :
-                              (js["distance"] instanceof Number) ? (js["distance"] as Number).toFloat() : 0.0f;
-                segs.add({
-                    :name       => js["name"] as String,
-                    :kind       => segKind,
-                    :duration   => (js["duration"] instanceof Number) ? js["duration"] as Number : 0,
-                    :distance   => segDist,
-                    :target_pace => (js["target_pace"] instanceof Number) ? js["target_pace"] as Number : null
-                });
+                if (segKind.equals("repeat")) {
+                    var exitType = (js["exit_type"] instanceof String) ? js["exit_type"] as String : "count";
+                    var repDist = (js["distance"] instanceof Float)  ? js["distance"] as Float :
+                                  (js["distance"] instanceof Number) ? (js["distance"] as Number).toFloat() : 0.0f;
+                    segs.add({
+                        :name         => "Repeat",
+                        :kind         => "repeat",
+                        :exit_type    => exitType,
+                        :repeat_count => (js["repeat_count"] instanceof Number) ? js["repeat_count"] as Number : 1,
+                        :duration     => (js["duration"] instanceof Number) ? js["duration"] as Number : 0,
+                        :distance     => repDist,
+                        :target_pace  => null
+                    });
+                } else {
+                    var segDist = (js["distance"] instanceof Float)  ? js["distance"] as Float :
+                                  (js["distance"] instanceof Number) ? (js["distance"] as Number).toFloat() : 0.0f;
+                    segs.add({
+                        :name        => js["name"] as String,
+                        :kind        => segKind,
+                        :duration    => (js["duration"] instanceof Number) ? js["duration"] as Number : 0,
+                        :distance    => segDist,
+                        :target_pace => (js["target_pace"] instanceof Number) ? js["target_pace"] as Number : null
+                    });
+                }
             }
             blocks.add({
                 :name => jb["name"] as String,
@@ -262,6 +415,10 @@ class leadout_datafieldView extends WatchUi.DataField {
         mProgrammeId = (data["id"] instanceof String) ? data["id"] as String : "";
         mCurrentBlock = 0;
         mCurrentSegment = 0;
+        mRepeatStartIndex = -1;
+        mRepeatStartMs = 0;
+        mRepeatStartDistM = 0.0f;
+        mCurrentRep = 0;
         if (blocks.size() > 0) {
             mState = STATE_WAITING;
         }
@@ -523,6 +680,37 @@ class leadout_datafieldView extends WatchUi.DataField {
         var segKind = seg[:kind] as String;
         var targetPace = seg[:target_pace];  // Number sec/km or null
 
+        // ── Repeat progress header (above segment name) ───────────────────
+        if (mRepeatStartIndex >= 0) {
+            var repSeg = currentRepeatMarkerSeg(segments);
+            if (repSeg != null) {
+                var exitType = repSeg[:exit_type] as String;
+                var headerText = "";
+                if (exitType.equals("count")) {
+                    var total = repSeg[:repeat_count] as Number;
+                    var remaining = total - mCurrentRep + 1;
+                    if (remaining < 1) { remaining = 1; }
+                    headerText = remaining.format("%d") + "/" + total.format("%d");
+                } else if (exitType.equals("time")) {
+                    var target = repSeg[:duration] as Number;
+                    var elapsedSecs = (System.getTimer() - mRepeatStartMs) / 1000;
+                    var remaining = target - elapsedSecs;
+                    if (remaining < 0) { remaining = 0; }
+                    headerText = formatDuration(remaining);
+                } else {
+                    var target = repSeg[:distance] as Float;
+                    var covered = mElapsedDistM - mRepeatStartDistM;
+                    var remaining = target - covered;
+                    if (remaining < 0.0f) { remaining = 0.0f; }
+                    headerText = remaining.format("%d") + "m";
+                }
+                dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, h / 8, Graphics.FONT_XTINY,
+                    headerText,
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
+        }
+
         // ── Segment name ──────────────────────────────────────────────────
         dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, h / 4, Graphics.FONT_MEDIUM,
@@ -573,25 +761,32 @@ class leadout_datafieldView extends WatchUi.DataField {
             dc.drawText(rightX, valueY, Graphics.FONT_TINY,
                 (mCurrentPaceSec > 0) ? formatDuration(mCurrentPaceSec) : "--:--",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-        } else if (mCurrentSegment < segments.size() - 1) {
-            var next = segments[mCurrentSegment + 1];
-            var nextKind = next[:kind] as String;
-            var nextLabel = nextKind.equals("distance")
-                ? (next[:name] as String) + " " + (next[:distance] as Float).format("%d") + "m"
-                : (next[:name] as String) + " " + formatDuration(next[:duration] as Number);
-            dc.drawText(cx, h * 3 / 4 - 14, Graphics.FONT_XTINY,
-                "Next",
-                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            dc.drawText(cx, h * 3 / 4 + 10, Graphics.FONT_TINY,
-                nextLabel,
-                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-        } else if (mCurrentBlock < mBlocks.size() - 1) {
-            dc.drawText(cx, h * 3 / 4 - 14, Graphics.FONT_XTINY,
-                "Next",
-                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            dc.drawText(cx, h * 3 / 4 + 10, Graphics.FONT_TINY,
-                (mBlocks[mCurrentBlock + 1][:name] as String),
-                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else {
+            // Find next display segment — skip repeat markers
+            var nextIdx = mCurrentSegment + 1;
+            while (nextIdx < segments.size() && ((segments[nextIdx] as Dictionary)[:kind] as String).equals("repeat")) {
+                nextIdx++;
+            }
+            if (nextIdx < segments.size()) {
+                var next = segments[nextIdx] as Dictionary;
+                var nextKind = next[:kind] as String;
+                var nextLabel = nextKind.equals("distance")
+                    ? (next[:name] as String) + " " + (next[:distance] as Float).format("%d") + "m"
+                    : (next[:name] as String) + " " + formatDuration(next[:duration] as Number);
+                dc.drawText(cx, h * 3 / 4 - 14, Graphics.FONT_XTINY,
+                    "Next",
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                dc.drawText(cx, h * 3 / 4 + 10, Graphics.FONT_TINY,
+                    nextLabel,
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            } else if (mCurrentBlock < mBlocks.size() - 1) {
+                dc.drawText(cx, h * 3 / 4 - 14, Graphics.FONT_XTINY,
+                    "Next",
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                dc.drawText(cx, h * 3 / 4 + 10, Graphics.FONT_TINY,
+                    (mBlocks[mCurrentBlock + 1][:name] as String),
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
         }
         dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
     }

@@ -150,12 +150,27 @@ function mutate(progId, fn, description) {
 }
 
 function makeSegment(data, position) {
+    const kind = data.kind || 'time';
+    if (kind === 'repeat') {
+        const exit_type = data.exit_type || 'count';
+        return {
+            id:           data.id || newId(),
+            name:         'Repeat',
+            kind:         'repeat',
+            exit_type,
+            repeat_count: exit_type === 'count' ? (Number(data.repeat_count) || 3) : null,
+            duration:     exit_type === 'time'  ? (Number(data.duration)     || 600) : null,
+            distance:     exit_type === 'distance' ? (Number(data.distance)  || null) : null,
+            target_pace:  null,
+            position,
+        };
+    }
     return {
         id:          data.id || newId(),
         name:        data.name || 'Segment',
-        kind:        data.kind || 'time',
-        duration:    data.kind === 'distance' ? null : (Number(data.duration) || 60),
-        distance:    data.kind === 'distance' ? (Number(data.distance) || null) : null,
+        kind,
+        duration:    kind === 'distance' ? null : (Number(data.duration) || 60),
+        distance:    kind === 'distance' ? (Number(data.distance) || null) : null,
         target_pace: data.target_pace ? Number(data.target_pace) : null,
         position,
     };

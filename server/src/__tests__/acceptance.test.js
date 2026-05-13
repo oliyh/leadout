@@ -176,7 +176,7 @@ describe('Channel and programme flow', () => {
         expect(prog.name).toBe('Tuesday Intervals');
         expect(prog.blocks).toHaveLength(2);
         expect(prog.blocks[0].segments).toHaveLength(1);
-        expect(prog.blocks[1].segments).toHaveLength(2);
+        expect(prog.blocks[1].segments).toHaveLength(3);
     });
 
     it('programme list shows participation_count and sync_count as 0 before any activity', async () => {

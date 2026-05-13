@@ -114,6 +114,42 @@ function shouldTriggerLap(isBlockEnd as Boolean) as Boolean {
     return true;
 }
 
+// Returns the index of the first segment in the repeat group whose marker is
+// at repeatIdx. Scans backwards for a previous repeat marker; the group starts
+// at (previous marker index + 1), or 0 if none exists.
+function repeatGroupStart(segments as Array<Dictionary>, repeatIdx as Number) as Number {
+    for (var i = repeatIdx - 1; i >= 0; i--) {
+        if (((segments[i] as Dictionary)[:kind] as String).equals("repeat")) {
+            return i + 1;
+        }
+    }
+    return 0;
+}
+
+// Returns true when the repeat exit condition encoded in seg is satisfied.
+// seg:          a repeat segment Dictionary with :exit_type, :repeat_count, :duration, :distance.
+// currentRep:   1-based index of the rep just completed.
+// elapsedMs:    milliseconds elapsed since the group began.
+// coveredDistM: metres covered since the group began.
+function shouldExitRepeat(
+    seg          as Dictionary,
+    currentRep   as Number,
+    elapsedMs    as Number,
+    coveredDistM as Float
+) as Boolean {
+    var exitType = seg[:exit_type] as String;
+    if (exitType.equals("count")) {
+        return currentRep >= (seg[:repeat_count] as Number);
+    }
+    if (exitType.equals("time")) {
+        return elapsedMs / 1000 >= (seg[:duration] as Number);
+    }
+    if (exitType.equals("distance")) {
+        return coveredDistM >= (seg[:distance] as Float);
+    }
+    return false;
+}
+
 // Finds the first programme in an array whose scheduled_date is today.
 // Returns null if none is found. The array items are raw server Dictionaries.
 (:background)

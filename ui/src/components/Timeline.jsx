@@ -12,15 +12,21 @@ function fmtDuration(sec) {
 }
 
 function blockTotal(block) {
-    return block.segments.reduce((sum, s) => sum + (s.duration ?? 0), 0);
+    return block.segments.reduce((sum, s) => s.kind === 'repeat' ? sum : sum + (s.duration ?? 0), 0);
 }
 
 function segLabel(seg) {
+    if (seg.kind === 'repeat') {
+        if (seg.exit_type === 'count')    return `×${seg.repeat_count ?? '?'}`;
+        if (seg.exit_type === 'time')     return fmtDuration(seg.duration ?? 0);
+        if (seg.exit_type === 'distance') return `${seg.distance ?? '?'}m`;
+    }
     if (seg.kind === 'distance') return `${seg.distance ?? '?'}m`;
     return fmtDuration(seg.duration ?? 0);
 }
 
 function segEstimate(seg, pace) {
+    if (seg.kind === 'repeat') return null;
     if (!pace || pace <= 0) return null;
     if (seg.kind === 'distance' && seg.distance) {
         return `~${fmtDuration(Math.round(seg.distance / 1000 * pace))}`;
@@ -32,6 +38,7 @@ function segEstimate(seg, pace) {
 }
 
 function segWidth(seg) {
+    if (seg.kind === 'repeat')   return 72;
     if (seg.kind === 'distance') return Math.max(MIN_SEG_PX, (seg.distance ?? 0) * 0.25);
     return Math.max(MIN_SEG_PX, (seg.duration ?? 0) * PX_PER_SEC);
 }
@@ -90,7 +97,7 @@ function SegmentStrip({ prog, block, act, readonly }) {
                     return (
                         <div
                             key={seg.id}
-                            class={`timeline-segment${isActive ? ' selected' : ''}${seg.kind === 'distance' ? ' seg-distance' : ''}${readonly ? ' seg-readonly' : ''}`}
+                            class={`timeline-segment${isActive ? ' selected' : ''}${seg.kind === 'distance' ? ' seg-distance' : ''}${seg.kind === 'repeat' ? ' seg-repeat' : ''}${readonly ? ' seg-readonly' : ''}`}
                             style={{ width: `${width}px` }}
                             draggable={!readonly}
                             onClick={readonly ? undefined : () => selectSegment(prog.id, block.id, seg.id)}

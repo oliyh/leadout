@@ -138,7 +138,7 @@ loadProgramme: name=Sprintervals v2 blocks=1
 - i made "isOldSdk" background tagged - maybe we can put stuff back in onStart, and see if background service is happy again
 - can now register, but syncing makes the request and gets a 200 but the view does not update to show the programme - is that because it's a background sync and the view is not refreshing? it says "no programmes today"
 - still get  compile warning about the lap thing
-- when it has a programme - even a modest one - it runs out of memory :cry: can we compress it somehow...
+- when it has a programme - even a modest one - it runs out of memory :cry: can we compress it somehow, or load it one block at a time?
 
 - new features - add with allium
 - "repeat" segment (or is this a block level attribute?) which will repeat segments until

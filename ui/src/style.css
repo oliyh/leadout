@@ -275,6 +275,7 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 .timeline-segment:nth-child(odd)  { background: #f0a06a; color: white; }
 .timeline-segment:nth-child(even) { background: #6aabf0; color: white; }
 .timeline-segment.seg-distance { background: repeating-linear-gradient(45deg, #6ab87a, #6ab87a 6px, #4e9e60 6px, #4e9e60 12px); }
+.timeline-segment.seg-repeat { background: #3d3d5c; color: #cba6f7; font-weight: 700; border: 2px dashed #cba6f7; align-items: center; justify-content: center; }
 .timeline-segment:hover { filter: brightness(1.08); }
 .timeline-segment.selected { outline: 2px solid #cba6f7; outline-offset: 1px; filter: brightness(1.05); }
 .timeline-segment.seg-readonly { cursor: default; }

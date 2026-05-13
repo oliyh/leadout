@@ -624,3 +624,135 @@ function testContract_participationRequest_fields(logger as Test.Logger) as Bool
     Test.assertMessage(payload["programme_id"] instanceof String, "programme_id is String key");
     return true;
 }
+
+(:test)
+function testContract_segment_repeatKind(logger as Test.Logger) as Boolean {
+    // Mirrors assertSegmentShape() for kind='repeat' in spec/contract.js.
+    // The watch reads exit_type, repeat_count (count-exit), duration (time-exit),
+    // distance (distance-exit) from a repeat segment using these exact field names.
+    var seg = {
+        "name"         => "Repeat",
+        "kind"         => "repeat",
+        "exit_type"    => "count",
+        "repeat_count" => 5,
+        "duration"     => 0,
+        "distance"     => 0,
+        "target_pace"  => 0
+    };
+    Test.assertEqualMessage(seg["kind"]         as String, "repeat", "repeat segment kind");
+    Test.assertEqualMessage(seg["exit_type"]    as String, "count",  "repeat segment exit_type field");
+    Test.assertEqualMessage(seg["repeat_count"] as Number, 5,        "count-exit repeat_count field");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// repeatGroupStart
+// Scans backwards from a repeat marker to find the start index of the current
+// repeat group. The group starts at (previous repeat index + 1) or 0 if none.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testRepeatGroupStart_singleGroup(logger as Test.Logger) as Boolean {
+    // [Fast, Slow, ×5] — no prior repeat, group starts at 0
+    var segments = [
+        { :kind => "time",   :name => "Fast"   },
+        { :kind => "time",   :name => "Slow"   },
+        { :kind => "repeat", :name => "Repeat" }
+    ] as Array<Dictionary>;
+    Test.assertEqualMessage(repeatGroupStart(segments, 2), 0, "single group starts at index 0");
+    return true;
+}
+
+(:test)
+function testRepeatGroupStart_twoSequentialGroups(logger as Test.Logger) as Boolean {
+    // [Fast, Slow, ×5, Sprint, Rest, ×3] — second group starts after first repeat (index 3)
+    var segments = [
+        { :kind => "time",   :name => "Fast"   },
+        { :kind => "time",   :name => "Slow"   },
+        { :kind => "repeat", :name => "Repeat" },
+        { :kind => "time",   :name => "Sprint" },
+        { :kind => "time",   :name => "Rest"   },
+        { :kind => "repeat", :name => "Repeat" }
+    ] as Array<Dictionary>;
+    Test.assertEqualMessage(repeatGroupStart(segments, 5), 3, "second group starts after first repeat");
+    return true;
+}
+
+(:test)
+function testRepeatGroupStart_repeatAtIndex0(logger as Test.Logger) as Boolean {
+    // Degenerate: repeat is the very first segment — group starts at 0
+    var segments = [
+        { :kind => "repeat", :name => "Repeat" },
+        { :kind => "time",   :name => "Fast"   }
+    ] as Array<Dictionary>;
+    Test.assertEqualMessage(repeatGroupStart(segments, 0), 0, "repeat at index 0 returns 0");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// shouldExitRepeat
+// Returns true when the exit condition in the repeat segment is satisfied.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testShouldExitRepeat_count_notDone(logger as Test.Logger) as Boolean {
+    var seg = { :exit_type => "count", :repeat_count => 5, :duration => 0, :distance => 0.0f };
+    Test.assertMessage(!shouldExitRepeat(seg, 3, 0, 0.0f), "rep 3 of 5 — not done");
+    return true;
+}
+
+(:test)
+function testShouldExitRepeat_count_done(logger as Test.Logger) as Boolean {
+    var seg = { :exit_type => "count", :repeat_count => 5, :duration => 0, :distance => 0.0f };
+    Test.assertMessage(shouldExitRepeat(seg, 5, 0, 0.0f), "rep 5 of 5 — done");
+    return true;
+}
+
+(:test)
+function testShouldExitRepeat_count_singleRep(logger as Test.Logger) as Boolean {
+    var seg = { :exit_type => "count", :repeat_count => 1, :duration => 0, :distance => 0.0f };
+    Test.assertMessage(shouldExitRepeat(seg, 1, 0, 0.0f), "rep 1 of 1 — exits immediately");
+    return true;
+}
+
+(:test)
+function testShouldExitRepeat_time_notElapsed(logger as Test.Logger) as Boolean {
+    var seg = { :exit_type => "time", :repeat_count => 0, :duration => 60, :distance => 0.0f };
+    Test.assertMessage(!shouldExitRepeat(seg, 1, 59000, 0.0f), "59 s elapsed of 60 s — not done");
+    return true;
+}
+
+(:test)
+function testShouldExitRepeat_time_exactlyElapsed(logger as Test.Logger) as Boolean {
+    var seg = { :exit_type => "time", :repeat_count => 0, :duration => 60, :distance => 0.0f };
+    Test.assertMessage(shouldExitRepeat(seg, 1, 60000, 0.0f), "60 s elapsed of 60 s — done");
+    return true;
+}
+
+(:test)
+function testShouldExitRepeat_time_over(logger as Test.Logger) as Boolean {
+    var seg = { :exit_type => "time", :repeat_count => 0, :duration => 60, :distance => 0.0f };
+    Test.assertMessage(shouldExitRepeat(seg, 1, 65000, 0.0f), "65 s elapsed of 60 s — done");
+    return true;
+}
+
+(:test)
+function testShouldExitRepeat_distance_notReached(logger as Test.Logger) as Boolean {
+    var seg = { :exit_type => "distance", :repeat_count => 0, :duration => 0, :distance => 400.0f };
+    Test.assertMessage(!shouldExitRepeat(seg, 1, 0, 399.0f), "399 m of 400 m — not done");
+    return true;
+}
+
+(:test)
+function testShouldExitRepeat_distance_exactlyReached(logger as Test.Logger) as Boolean {
+    var seg = { :exit_type => "distance", :repeat_count => 0, :duration => 0, :distance => 400.0f };
+    Test.assertMessage(shouldExitRepeat(seg, 1, 0, 400.0f), "400 m of 400 m — done");
+    return true;
+}
+
+(:test)
+function testShouldExitRepeat_distance_exceeded(logger as Test.Logger) as Boolean {
+    var seg = { :exit_type => "distance", :repeat_count => 0, :duration => 0, :distance => 400.0f };
+    Test.assertMessage(shouldExitRepeat(seg, 1, 0, 500.0f), "500 m of 400 m — done");
+    return true;
+}

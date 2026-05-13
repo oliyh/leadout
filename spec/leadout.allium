@@ -115,11 +115,12 @@ entity Block {
 -- completion. An optional target_pace appears on every variant: when present
 -- it drives on-watch pace guidance and timeline placement fallback; when
 -- absent the programme's pace_assumption is used for timeline placement.
+-- Repeat segments are structural markers; they have no target_pace.
 entity Segment {
     block: Block
     name: String
     position: Integer
-    kind: TimeBased | DistanceBased | LocationBased
+    kind: TimeBased | DistanceBased | LocationBased | Repeat
     target_pace: Pace?
 }
 
@@ -135,6 +136,34 @@ variant DistanceBased : Segment {
 variant LocationBased : Segment {
     waypoint: Location
     trigger_radius: Distance
+}
+
+-- A repeat marker. The group of segments between this repeat and the previous
+-- repeat (or the block start if none) forms a loop. The exit condition
+-- determines when the loop terminates. No target_pace; Repeat segments are
+-- invisible at runtime — the watch jumps directly to the first segment of
+-- the next iteration (or exits) without displaying the repeat marker itself.
+variant Repeat : Segment {
+    exit: CountExit | TimeExit | DistanceExit
+}
+
+-- Loop runs exactly repeat_count times in total.
+variant CountExit : Repeat {
+    repeat_count: Integer
+}
+
+-- Loop runs until the elapsed time since the first iteration started meets
+-- or exceeds the target duration. Exits immediately when the condition
+-- is met, even mid-segment.
+variant TimeExit : Repeat {
+    target_duration: Duration
+}
+
+-- Loop runs until the total distance covered since the first iteration
+-- started meets or exceeds the target distance. Exits immediately when
+-- the condition is met, even mid-segment.
+variant DistanceExit : Repeat {
+    target_distance: Distance
 }
 
 -- A template generates a single block (and its segments) in one of two
@@ -236,6 +265,20 @@ entity Session {
     -- The kind = TimeBased guard narrows the variant, making .duration accessible.
     segment_timer_elapsed: segment_started_at + current_segment.duration <= now
         when status = active and current_segment.kind = TimeBased
+
+    -- Repeat state: present only while inside a repeat loop (a Repeat segment
+    -- has been passed but not yet exited). Absent between blocks and when no
+    -- Repeat segment has been encountered yet in the current block.
+    repeat_segment_index: Integer when status = active
+    repeat_started_at: Timestamp when status = active
+    repeat_distance_at_start: Distance when status = active
+    current_rep: Integer when status = active
+
+    -- For CountExit loops: which rep is currently running (1-based, counts
+    -- up to the repeat_count). Used to derive the display index.
+    -- The display shows remaining reps: repeat_count - current_rep + 1.
+    -- For TimeExit / DistanceExit loops: the display shows the countdown
+    -- toward the exit condition instead.
 
     -- Pace guidance: the watch can display whether the runner is meeting the
     -- segment's target pace. Only meaningful when the current segment carries
@@ -578,13 +621,152 @@ rule LocationSegmentComplete {
     ensures: SegmentAdvance(session)
 }
 
--- More segments remain in this block: advance segment index, reset timer.
+-- The next segment is a Repeat marker: evaluate its exit condition.
+-- If the exit is not yet satisfied, loop back to the first segment of
+-- the group and increment the rep counter. If satisfied, fall through.
+rule RepeatMarkerReached {
+    when: SegmentAdvance(session)
+    requires: session.status = active
+    requires: not session.is_last_segment_in_block
+    requires: session.next_segment.kind = Repeat
+    ensures: RepeatEvaluate(session)
+}
+
+-- CountExit: more reps remain — loop back to start of group.
+rule RepeatLoopsCount {
+    when: RepeatEvaluate(session)
+    requires: session.next_segment.exit.kind = CountExit
+    requires: session.current_rep < session.next_segment.exit.repeat_count
+    ensures: session.current_segment_index = session.repeat_segment_index
+    ensures: session.current_rep = session.current_rep + 1
+    ensures: session.segment_started_at = now
+}
+
+-- CountExit: all reps complete — fall through past the Repeat marker.
+rule RepeatExitsCount {
+    when: RepeatEvaluate(session)
+    requires: session.next_segment.exit.kind = CountExit
+    requires: session.current_rep >= session.next_segment.exit.repeat_count
+    ensures: RepeatExited(session)
+}
+
+-- TimeExit: target duration not yet reached — loop back.
+rule RepeatLoopsTime {
+    when: RepeatEvaluate(session)
+    requires: session.next_segment.exit.kind = TimeExit
+    requires: session.repeat_started_at + session.next_segment.exit.target_duration > now
+    ensures: session.current_segment_index = session.repeat_segment_index
+    ensures: session.current_rep = session.current_rep + 1
+    ensures: session.segment_started_at = now
+}
+
+-- TimeExit: target duration reached — exit immediately.
+rule RepeatExitsTime {
+    when: RepeatEvaluate(session)
+    requires: session.next_segment.exit.kind = TimeExit
+    requires: session.repeat_started_at + session.next_segment.exit.target_duration <= now
+    ensures: RepeatExited(session)
+}
+
+-- DistanceExit: target distance not yet covered — loop back.
+rule RepeatLoopsDistance {
+    when: RepeatEvaluate(session)
+    requires: session.next_segment.exit.kind = DistanceExit
+    requires: distance_covered_since(session.repeat_started_at) < session.next_segment.exit.target_distance
+    ensures: session.current_segment_index = session.repeat_segment_index
+    ensures: session.current_rep = session.current_rep + 1
+    ensures: session.segment_started_at = now
+}
+
+-- DistanceExit: target distance reached — exit immediately.
+rule RepeatExitsDistance {
+    when: RepeatEvaluate(session)
+    requires: session.next_segment.exit.kind = DistanceExit
+    requires: distance_covered_since(session.repeat_started_at) >= session.next_segment.exit.target_distance
+    ensures: RepeatExited(session)
+}
+
+-- After a repeat loop exits, clear repeat state and advance past the
+-- Repeat marker to the segment after it (or end the block if it was last).
+rule RepeatExitContinues {
+    when: RepeatExited(session)
+    requires: not session.is_last_segment_in_block
+    ensures: session.current_segment_index = session.current_segment_index + 2
+    ensures: session.repeat_segment_index = null
+    ensures: session.repeat_started_at = null
+    ensures: session.repeat_distance_at_start = null
+    ensures: session.current_rep = null
+    ensures: session.segment_started_at = now
+}
+
+-- The Repeat marker was the last segment in the block: block ends on exit.
+rule RepeatExitEndsBlock {
+    when: RepeatExited(session)
+    requires: session.is_last_segment_in_block
+    requires: not session.is_last_block
+    ensures: session.status = waiting
+    ensures: session.current_block_index = session.current_block_index + 1
+    ensures: session.current_segment_index = null
+    ensures: session.segment_started_at = null
+    ensures: session.repeat_segment_index = null
+    ensures: session.repeat_started_at = null
+    ensures: session.repeat_distance_at_start = null
+    ensures: session.current_rep = null
+}
+
+-- The Repeat marker was the last segment of the last block: session complete.
+rule RepeatExitCompletesSession {
+    when: RepeatExited(session)
+    requires: session.is_last_segment_in_block
+    requires: session.is_last_block
+    ensures: session.status = complete
+    ensures: session.current_segment_index = null
+    ensures: session.segment_started_at = null
+    ensures: session.repeat_segment_index = null
+    ensures: session.repeat_started_at = null
+    ensures: session.repeat_distance_at_start = null
+    ensures: session.current_rep = null
+}
+
+-- More segments remain in this block (and the next is not a Repeat marker),
+-- and we are either already inside a repeat group or there is no repeat ahead.
+-- EnterRepeatGroup handles the first-entry case when a Repeat exists ahead.
 rule SegmentContinues {
     when: SegmentAdvance(session)
     requires: session.status = active
     requires: not session.is_last_segment_in_block
+    requires: session.next_segment.kind != Repeat
+    requires: session.repeat_segment_index != null
+        or not exists session.current_block.segments where kind = Repeat
     ensures: session.current_segment_index = session.current_segment_index + 1
     ensures: session.segment_started_at = now
+}
+
+-- Entering a repeat group for the first time: record the first segment of
+-- the group and initialise rep tracking. Fired when advancing past a normal
+-- segment whose next-next segment is a Repeat (i.e. we are now inside the
+-- group on rep 1). The repeat_segment_index points to the first segment of
+-- the group (one after the previous Repeat or the block start).
+-- Note: this rule fires in place of SegmentContinues when entering a group.
+-- The group start index is current_segment_index + 1 (the segment we just
+-- moved to), since that is the first segment inside the loop.
+rule EnterRepeatGroup {
+    when: SegmentAdvance(session)
+    requires: session.status = active
+    requires: not session.is_last_segment_in_block
+    requires: session.next_segment.kind != Repeat
+    requires: session.repeat_segment_index = null
+    requires: exists repeat_ahead in session.current_block.segments
+        where kind = Repeat and position > session.current_segment_index
+    ensures: session.current_segment_index = session.current_segment_index + 1
+    ensures: session.segment_started_at = now
+    ensures: session.repeat_segment_index = session.current_segment_index + 1
+    ensures: session.repeat_started_at = now
+    ensures: session.current_rep = 1
+    @guidance
+        -- repeat_distance_at_start should be set to the current GPS-accumulated
+        -- distance at the point the group begins. This is a platform value not
+        -- tracked as domain state; implementation supplies it.
 }
 
 -- Last segment of the current block; more blocks remain. Return to waiting
@@ -598,6 +780,10 @@ rule BlockCompletes {
     ensures: session.current_block_index = session.current_block_index + 1
     ensures: session.current_segment_index = null
     ensures: session.segment_started_at = null
+    ensures: session.repeat_segment_index = null
+    ensures: session.repeat_started_at = null
+    ensures: session.repeat_distance_at_start = null
+    ensures: session.current_rep = null
 }
 
 -- Last segment of the last block: the session is complete.
@@ -609,6 +795,10 @@ rule SessionCompletes {
     ensures: session.status = complete
     ensures: session.current_segment_index = null
     ensures: session.segment_started_at = null
+    ensures: session.repeat_segment_index = null
+    ensures: session.repeat_started_at = null
+    ensures: session.repeat_distance_at_start = null
+    ensures: session.current_rep = null
 }
 
 -- ── Actor declarations ─────────────────────────────────────────────────────
@@ -875,12 +1065,27 @@ surface WatchDataField {
         session.segment_started_at when session.status = active
         session.next_segment when session.status = active
         session.has_pace_guidance when session.status = active
+        -- Repeat progress header (shown above segment name when inside a loop)
+        session.current_rep when session.status = active
+        session.repeat_started_at when session.status = active
 
     provides:
         LapButtonPressed(session)
             when session.status = waiting
         SessionStarted(runner, session.programme)
             when session.status = waiting and session.current_block_index = 0
+
+    @guarantee RepeatProgressHeader
+        -- When session.current_rep is present (inside a repeat loop), a small
+        -- header area above the segment name shows loop progress:
+        --   CountExit: "N / repeat_count" where N = repeat_count - current_rep + 1
+        --     (remaining reps, counting down to 1).
+        --   TimeExit: countdown of time remaining toward target_duration,
+        --     derived from session.repeat_started_at and target_duration.
+        --   DistanceExit: distance remaining toward target_distance,
+        --     derived from distance covered since repeat_started_at.
+        -- Segment names are always plain (no embedded rep index).
+        -- When current_rep is absent the header area is not shown.
 
     @guarantee PaceIndication
         -- When the current segment has a target_pace, the watch indicates
@@ -945,6 +1150,13 @@ surface InstructorProgrammePropagation {
 }
 
 -- ── Deferred specifications ────────────────────────────────────────────────
+
+-- Returns the total GPS distance accumulated by the session's watch hardware
+-- since the given timestamp. Used by DistanceExit repeat evaluation.
+-- Pure black box; the implementation reads from the native activity's distance
+-- sensor. Not specifiable as domain state because the watch accumulates it
+-- continuously outside the Leadout domain model.
+deferred distance_covered_since
 
 -- Copies a source programme's blocks and segments into a new programme with
 -- a new scheduled_date. All other fields are inherited from the source.

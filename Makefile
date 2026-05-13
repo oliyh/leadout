@@ -9,7 +9,7 @@ PRG         := $(DATAFIELD)/bin/leadoutdatafield.prg
 PRG_TEST    := $(DATAFIELD)/bin/leadoutdatafield-test.prg
 PRG_SIM     := $(DATAFIELD)/bin/leadoutdatafield-sim.prg
 PRG_RELEASE := $(DATAFIELD)/bin/leadoutdatafield.iq
-DEVICE      := fr245
+DEVICE      := fr265s
 DEVICE_SIM  := $(DEVICE)_sim
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
@@ -24,7 +24,7 @@ env:
 
 # ======== Datafield ==========
 
-datafield:
+datafield-build:
 	$(JAVA) -Xms1g \
 		-Dfile.encoding=UTF-8 \
 		-Dapple.awt.UIElement=true \
@@ -44,7 +44,7 @@ datafield-sim:
 		-y $(DEV_KEY) \
 		-d $(DEVICE_SIM) -w
 
-datafield-test:
+datafield-build-test:
 	$(JAVA) -Xms1g \
 		-Dfile.encoding=UTF-8 \
 		-Dapple.awt.UIElement=true \
@@ -68,7 +68,7 @@ datafield-release:
 # Build test binary then run it via monkeydo against the simulator.
 # Starts the simulator automatically if not already running.
 # monkeydo exits non-zero even on success, so we detect pass/fail from output.
-datafield-run-tests: datafield-test
+datafield-test: datafield-build-test
 	@if ! pgrep -x simulator > /dev/null; then \
 	    echo "Starting simulator..."; \
 	    DISPLAY=:0 GDK_BACKEND=x11 ciq-simulator & \
@@ -77,14 +77,14 @@ datafield-run-tests: datafield-test
 	@$(MONKEYDO) $(PRG_TEST) $(DEVICE) -t 2>&1 | tee /tmp/datafield-test-results.txt; \
 	grep -q "^PASSED" /tmp/datafield-test-results.txt
 
-datafield-docker-build:
+datafield-build-docker:
 	$(DOCKER) build -f datafield/Dockerfile -t $(DATAFIELD_IMAGE) datafield
 
-datafield-run-tests-docker: datafield-docker-build
+datafield-test-docker: datafield-docker-build
 	$(DOCKER) run --rm -v $(PWD)/datafield/leadout-datafield:/workspace $(DATAFIELD_IMAGE)
 
 # Installs datafield on a watch connected via usb
-install-datafield: datafield
+install-datafield: datafield-build
 	@test -n "$(WATCH_MTP)" || (echo "No MTP device found — is the watch plugged in?"; exit 1)
 	gio copy -p "file://$(PWD)/$(PRG)" "$(WATCH_APPS)/"
 
