@@ -39,19 +39,24 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
         if (responseCode == Communications.SECURE_CONNECTION_REQUIRED) {
             System.println("[Service.onTokenResponse] Need an https connection (or disable require https in the sim settings)");
         }
-        // if code is -1001 
         if (responseCode == 200 && data != null) {
             var token = data["token"];
             if (token instanceof String) {
-                System.println("[Service.onTokenResponse] token received — storing");
-                Application.Storage.setValue("watch_token", token as String);
+                var t = token as String;
+                System.println("[Service.onTokenResponse] token received — storing and syncing");
+                Application.Storage.setValue("watch_token", t);
+                var deviceCode = Application.Storage.getValue("device_code");
+                if (deviceCode instanceof String) {
+                    // Pass token directly rather than reading back from Storage (write may
+                    // not be committed yet). Chain straight into sync so registration
+                    // and first programme load happen in a single background run.
+                    makeSyncRequest(deviceCode as String, t, method(:onSyncResponse));
+                    return;
+                }
             } else {
                 System.println("[Service.onTokenResponse] 200 but no token field in response");
             }
         }
-        // Don't chain into sync here — the storage write may not be committed until
-        // Background.exit fires, so a same-run sync would go without auth and trigger
-        // an auth_failed wipe. The next temporal event will pick up the token and sync.
         System.println("[Service.onTokenResponse] exiting background");
         Background.exit(null);
     }

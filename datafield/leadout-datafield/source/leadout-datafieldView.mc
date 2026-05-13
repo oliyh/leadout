@@ -11,7 +11,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     // ── State ─────────────────────────────────────────────────────────────
 
     enum SessionState {
-        STATE_SYNCING,           // registered, waiting for first successful sync
+        STATE_SYNCING,           // has token, no programme data yet — awaiting sync
         STATE_UNREGISTERED,      // device not registered — show device code
         STATE_NO_SUBSCRIPTIONS,  // synced OK but account has no channel subscriptions
         STATE_NO_PROGRAMME,      // synced OK, subscribed, but no programme today
@@ -598,7 +598,7 @@ class leadout_datafieldView extends WatchUi.DataField {
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else {
             dc.drawText(cx, cy, Graphics.FONT_SMALL,
-                "Syncing...",
+                "Awaiting sync",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
     }
