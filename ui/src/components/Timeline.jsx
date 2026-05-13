@@ -11,8 +11,32 @@ function fmtDuration(sec) {
     return s === 0 ? `${m}m` : `${m}m${s}s`;
 }
 
-function blockTotal(block) {
-    return block.segments.reduce((sum, s) => s.kind === 'repeat' ? sum : sum + (s.duration ?? 0), 0);
+function normPace(val) {
+    if (!val) return 0;
+    if (typeof val === 'object') return val.seconds_per_km ?? 0;
+    return Number(val) || 0;
+}
+
+function segDuration(seg, progPace) {
+    if (seg.kind === 'time') return seg.duration ?? 0;
+    if (seg.kind === 'distance') {
+        const pace = normPace(seg.target_pace) || normPace(progPace);
+        if (pace > 0 && seg.distance) return Math.round(seg.distance / 1000 * pace);
+        return 0;
+    }
+    if (seg.kind === 'repeat') {
+        if (seg.exit_type === 'time') return seg.duration ?? 0;
+        if (seg.exit_type === 'distance') {
+            const pace = normPace(progPace);
+            if (pace > 0 && seg.distance) return Math.round(seg.distance / 1000 * pace);
+        }
+        return 0;
+    }
+    return 0;
+}
+
+function blockTotal(block, progPace) {
+    return block.segments.reduce((sum, s) => sum + segDuration(s, progPace), 0);
 }
 
 function segLabel(seg) {
@@ -25,13 +49,14 @@ function segLabel(seg) {
     return fmtDuration(seg.duration ?? 0);
 }
 
-function segEstimate(seg, pace) {
+function segEstimate(seg, progPace) {
     if (seg.kind === 'repeat') return null;
+    const pace = normPace(seg.target_pace) || normPace(progPace);
     if (!pace || pace <= 0) return null;
     if (seg.kind === 'distance' && seg.distance) {
         return `~${fmtDuration(Math.round(seg.distance / 1000 * pace))}`;
     }
-    if (seg.kind !== 'distance' && seg.duration) {
+    if (seg.kind === 'time' && seg.duration) {
         return `~${Math.round(seg.duration / pace * 1000)}m`;
     }
     return null;
@@ -125,7 +150,7 @@ function SegmentStrip({ prog, block, act, readonly }) {
 
 function BlockRow({ prog, block, index, total, readonly }) {
     const act = activeSegment.value;
-    const total_ = blockTotal(block);
+    const total_ = blockTotal(block, prog.pace_assumption);
     const activeSeg = !readonly && act?.blockId === block.id
         ? block.segments.find(s => s.id === act.segId)
         : null;
@@ -163,7 +188,7 @@ function BlockRow({ prog, block, index, total, readonly }) {
 }
 
 export function Timeline({ prog, readonly }) {
-    const grand = prog.blocks.reduce((sum, b) => sum + blockTotal(b), 0);
+    const grand = prog.blocks.reduce((sum, b) => sum + blockTotal(b, prog.pace_assumption), 0);
 
     function fmtTotal(sec) {
         const m = Math.floor(sec / 60);
