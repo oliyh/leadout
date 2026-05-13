@@ -35,8 +35,46 @@ function segDuration(seg, progPace) {
     return 0;
 }
 
+function segDistanceM(seg, progPace) {
+    if (seg.kind === 'distance') return seg.distance ?? 0;
+    if (seg.kind === 'time') {
+        const pace = normPace(seg.target_pace) || normPace(progPace);
+        if (pace > 0 && seg.duration) return Math.round(seg.duration / pace * 1000);
+    }
+    return 0;
+}
+
 function blockTotal(block, progPace) {
-    return block.segments.reduce((sum, s) => sum + segDuration(s, progPace), 0);
+    let total = 0;
+    let enclosedSecs = 0;
+    let enclosedDist = 0;
+
+    for (const seg of block.segments) {
+        if (seg.kind !== 'repeat') {
+            const dur = segDuration(seg, progPace);
+            total += dur;
+            enclosedSecs += dur;
+            enclosedDist += segDistanceM(seg, progPace);
+        } else {
+            total -= enclosedSecs; // undo enclosed segments already added
+            if (seg.exit_type === 'count') {
+                total += enclosedSecs * (seg.repeat_count || 1);
+            } else if (seg.exit_type === 'time') {
+                total += seg.duration ?? 0;
+            } else if (seg.exit_type === 'distance') {
+                if (enclosedDist > 0) {
+                    total += Math.round(enclosedSecs * ((seg.distance || 0) / enclosedDist));
+                } else {
+                    const pace = normPace(progPace);
+                    if (pace > 0 && seg.distance) total += Math.round(seg.distance / 1000 * pace);
+                }
+            }
+            enclosedSecs = 0;
+            enclosedDist = 0;
+        }
+    }
+
+    return total;
 }
 
 function segLabel(seg) {

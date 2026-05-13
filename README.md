@@ -141,14 +141,7 @@ loadProgramme: name=Sprintervals v2 blocks=1
 
 is foreground sync loop really a loop? it seems to try once and then give up...
 
-- when there is a repeat repetitions segment, it should count up to it on the watch face, not down..
-  start at 1/3, then 2/3, then final repetition shows 3/3
-  this is in contrast to the "until time/distance" which count down to 0
-
-- programme duration still not right with repeat segments
-  - until repetition segment should multiply duration and distance by its multiplier - e.g. 100m fast (15s), 50m slow (20s), repeat x2 should give 300m (70s)
-  - until time segment should just use the time parameter for duration. to estimate distance, it should find the fraction of time that the enclosed segments are estimated at, and multiply the sum of their distance by the fraction to get the total estimated distance
-  - until distance segment should just use the distance paramter for distance. for duration, it should use the duration of its enclosed segments multiplied by the fraction of the total distance that they themselevs are estimated at, similar to the until time segment, 
+- segments, blocks and programmes shold also show distance estimate alongside time estimate using conversion logic
 
 - geo gate that you have to go through to complete a segment, instead of completing a distance or a time
 
