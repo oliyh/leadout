@@ -118,7 +118,7 @@ class leadout_datafieldApp extends Application.AppBase {
         var view = mView;
         if (responseCode == 200 && data != null) {
             var programmes = data["programmes"] as Array<Dictionary>;
-            var prog = findTodaysProgramme(programmes);
+            var prog = findNextProgramme(programmes);
             if (prog != null) {
                 Application.Storage.setValue("programme", prog);
                 Application.Storage.setValue("lastSyncTime", System.getTimer());

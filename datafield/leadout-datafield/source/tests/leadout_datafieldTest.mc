@@ -145,92 +145,89 @@ function testTodayDateString_consistent(logger as Test.Logger) as Boolean {
 // findTodaysProgramme
 // Spec rule RegisteredDevicePoll: server returns all upcoming_programmes;
 //   the watch selects the one where programme.is_for_today (scheduled_date = today).
-//   upcoming_programmes already excludes expired ones (scheduled_date >= today),
-//   but the watch must still filter to exactly today's date.
+//   upcoming_programmes already excludes expired ones (scheduled_date >= today).
+//   The watch picks the earliest upcoming programme (today or future).
 // ─────────────────────────────────────────────────────────────────────────────
 
 (:test)
-function testFindTodaysProgramme_emptyArray(logger as Test.Logger) as Boolean {
-    // RegisteredDevicePoll with no programmes → nothing to load.
-    var result = findTodaysProgramme([] as Array<Dictionary>);
+function testFindNextProgramme_emptyArray(logger as Test.Logger) as Boolean {
+    var result = findNextProgramme([] as Array<Dictionary>);
     Test.assertMessage(result == null, "empty array returns null");
     return true;
 }
 
 (:test)
-function testFindTodaysProgramme_noTodayMatch(logger as Test.Logger) as Boolean {
-    // All programmes are past — none is_for_today.
+function testFindNextProgramme_pastDatesExcluded(logger as Test.Logger) as Boolean {
+    // All programmes are in the past — none is upcoming.
     var programmes = [
         { "scheduled_date" => "2020-01-01", "name" => "old session" }
     ] as Array<Dictionary>;
-    Test.assertMessage(findTodaysProgramme(programmes) == null, "past date returns null");
+    Test.assertMessage(findNextProgramme(programmes) == null, "past date returns null");
     return true;
 }
 
 (:test)
-function testFindTodaysProgramme_futureDateNotMatched(logger as Test.Logger) as Boolean {
-    // Future programmes are upcoming but not today — must not be loaded.
+function testFindNextProgramme_futureDateReturned(logger as Test.Logger) as Boolean {
+    // A future programme should be returned so it is pre-loaded before the session day.
     var programmes = [
         { "scheduled_date" => "2099-12-31", "name" => "future" }
     ] as Array<Dictionary>;
-    Test.assertMessage(findTodaysProgramme(programmes) == null, "future date returns null");
+    var result = findNextProgramme(programmes);
+    Test.assertMessage(result != null, "future programme is returned");
+    Test.assertEqualMessage((result as Dictionary)["name"], "future", "correct programme");
     return true;
 }
 
 (:test)
-function testFindTodaysProgramme_singleTodayMatch(logger as Test.Logger) as Boolean {
-    // Exactly one programme is_for_today — it is returned.
+function testFindNextProgramme_todayReturned(logger as Test.Logger) as Boolean {
     var today = todayDateString();
     var prog = { "scheduled_date" => today, "name" => "morning run" } as Dictionary;
-    var result = findTodaysProgramme([prog] as Array<Dictionary>);
+    var result = findNextProgramme([prog] as Array<Dictionary>);
     Test.assertMessage(result != null, "today's programme is found");
     Test.assertEqualMessage((result as Dictionary)["name"], "morning run", "correct programme");
     return true;
 }
 
 (:test)
-function testFindTodaysProgramme_todayAtEndOfArray(logger as Test.Logger) as Boolean {
-    // Today's programme is the last item — must not be missed by early exit.
+function testFindNextProgramme_todayAtEndOfArray(logger as Test.Logger) as Boolean {
+    // Today is the earliest upcoming date — must win over a future entry.
     var today = todayDateString();
     var programmes = [
-        { "scheduled_date" => "2020-03-01", "name" => "old1" },
-        { "scheduled_date" => "2021-06-15", "name" => "old2" },
-        { "scheduled_date" => today,        "name" => "today" }
+        { "scheduled_date" => "2020-03-01", "name" => "old"    },
+        { "scheduled_date" => "2099-06-15", "name" => "future" },
+        { "scheduled_date" => today,        "name" => "today"  }
     ] as Array<Dictionary>;
-    var result = findTodaysProgramme(programmes);
-    Test.assertMessage(result != null, "programme at end of array found");
-    Test.assertEqualMessage((result as Dictionary)["name"], "today", "correct programme");
+    var result = findNextProgramme(programmes);
+    Test.assertMessage(result != null, "today found even at end of array");
+    Test.assertEqualMessage((result as Dictionary)["name"], "today", "today preferred over future");
     return true;
 }
 
 (:test)
-function testFindTodaysProgramme_firstMatchReturned(logger as Test.Logger) as Boolean {
-    // Spec open question: multiple sessions per day is deferred.
-    // Current behaviour: first programme with today's date wins.
-    var today = todayDateString();
+function testFindNextProgramme_earliestFutureSelected(logger as Test.Logger) as Boolean {
+    // No programme today — earliest future date wins.
     var programmes = [
-        { "scheduled_date" => "2020-01-01", "name" => "old"     },
-        { "scheduled_date" => today,        "name" => "morning" },
-        { "scheduled_date" => today,        "name" => "evening" }
+        { "scheduled_date" => "2099-06-01", "name" => "later"   },
+        { "scheduled_date" => "2099-01-01", "name" => "sooner"  }
     ] as Array<Dictionary>;
-    var result = findTodaysProgramme(programmes);
+    var result = findNextProgramme(programmes);
     Test.assertMessage(result != null, "a programme is found");
-    Test.assertEqualMessage((result as Dictionary)["name"], "morning", "first today match returned");
+    Test.assertEqualMessage((result as Dictionary)["name"], "sooner", "earliest future date selected");
     return true;
 }
 
 (:test)
-function testFindTodaysProgramme_mixedPastTodayFuture(logger as Test.Logger) as Boolean {
-    // Realistic sync payload: past, today and future programmes.
+function testFindNextProgramme_mixedPastTodayFuture(logger as Test.Logger) as Boolean {
+    // Realistic sync payload: today is earlier than future, so today wins.
     var today = todayDateString();
     var programmes = [
         { "scheduled_date" => "2020-01-01", "name" => "past"   },
         { "scheduled_date" => today,        "name" => "today"  },
         { "scheduled_date" => "2099-01-01", "name" => "future" }
     ] as Array<Dictionary>;
-    var result = findTodaysProgramme(programmes);
+    var result = findNextProgramme(programmes);
     Test.assertMessage(result != null, "today's programme found in mixed array");
-    Test.assertEqualMessage((result as Dictionary)["name"], "today", "correct programme selected");
+    Test.assertEqualMessage((result as Dictionary)["name"], "today", "today preferred over future");
     return true;
 }
 
@@ -569,9 +566,9 @@ function testContract_syncResponse_subscriptionCount_zero(logger as Test.Logger)
 }
 
 (:test)
-function testContract_findTodaysProgramme_withContractFixture(logger as Test.Logger) as Boolean {
+function testContract_findNextProgramme_withContractFixture(logger as Test.Logger) as Boolean {
     // Given the full contract fixture programme (scheduled for today),
-    // findTodaysProgramme finds it. This verifies the watch reads "scheduled_date"
+    // findNextProgramme finds it. This verifies the watch reads "scheduled_date"
     // from the server's programme object — the same key the server sends.
     var today = todayDateString();
     var programmes = [
@@ -597,7 +594,7 @@ function testContract_findTodaysProgramme_withContractFixture(logger as Test.Log
             ] as Array<Dictionary>
         }
     ] as Array<Dictionary>;
-    var result = findTodaysProgramme(programmes);
+    var result = findNextProgramme(programmes);
     Test.assertMessage(result != null, "contract fixture programme found by today's date");
     Test.assertEqualMessage((result as Dictionary)["id"],   "prog-contract-001", "correct id");
     Test.assertEqualMessage((result as Dictionary)["name"], "Tuesday Intervals", "correct name");

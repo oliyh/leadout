@@ -65,7 +65,7 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
         System.println("[Service.onSyncResponse] responseCode: " + responseCode);
         if (responseCode == 200 && data != null) {
             var programmes = data["programmes"] as Array<Dictionary>;
-            var prog = findTodaysProgramme(programmes);
+            var prog = findNextProgramme(programmes);
             if (prog != null) {
                 Application.Storage.setValue("programme", prog);
                 Application.Storage.setValue("lastSyncTime", System.getTimer());
@@ -76,7 +76,7 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
                 Background.exit({"programme_ready" => true});
                 return;
             }
-            // Registered but no programme today — signal which empty state to show.
+            // No upcoming programme at all — signal which empty state to show.
             var subCount = data["subscription_count"];
             if (subCount instanceof Number && (subCount as Number) == 0) {
                 Background.exit({ "no_subscriptions" => true });

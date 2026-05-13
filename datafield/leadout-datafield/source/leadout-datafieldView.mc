@@ -14,8 +14,9 @@ class leadout_datafieldView extends WatchUi.DataField {
         STATE_SYNCING,           // has token, no programme data yet — awaiting sync
         STATE_UNREGISTERED,      // device not registered — show device code
         STATE_NO_SUBSCRIPTIONS,  // synced OK but account has no channel subscriptions
-        STATE_NO_PROGRAMME,      // synced OK, subscribed, but no programme today
-        STATE_WAITING,           // programme loaded — lap press starts the next block
+        STATE_NO_PROGRAMME,      // synced OK, subscribed, but no upcoming programme
+        STATE_UPCOMING,          // programme loaded but scheduled for a future date
+        STATE_WAITING,           // programme loaded for today — lap press starts the next block
         STATE_ACTIVE,            // running through segments in the current block
         STATE_COMPLETE           // all blocks done
     }
@@ -27,6 +28,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mCurrentSegment as Number;
     hidden var mSegmentStartMs as Number;
     hidden var mProgrammeName as String;
+    hidden var mProgrammeDate as String;
     hidden var mProgrammeId as String;
     hidden var mBlocks as Array<Dictionary>;
     hidden var mCurrentPaceSec as Number;      // live pace in sec/km, 0 = no signal
@@ -58,6 +60,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mSegmentStartMs = 0;
         mBlocks = [] as Array<Dictionary>;
         mProgrammeName = "";
+        mProgrammeDate = "";
         mProgrammeId = "";
         mCurrentPaceSec = 0;
         mSegmentStartDistM = -1.0f;
@@ -138,6 +141,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mLastErrorMsg = "";
         mBlocks = [] as Array<Dictionary>;
         mProgrammeName = "";
+        mProgrammeDate = "";
         mProgrammeId = "";
         mCurrentBlock = 0;
         mCurrentSegment = 0;
@@ -147,6 +151,9 @@ class leadout_datafieldView extends WatchUi.DataField {
     // ── Input ─────────────────────────────────────────────────────────────
 
     function onTimerLap() as Void {
+        if (mState == STATE_UPCOMING) {
+            return;
+        }
         if (mState == STATE_UNREGISTERED) {
             // LAP re-opens the site in case the user dismissed it.
             if (!isOldSdk() && (Communications has :openWebPage)) {
@@ -417,6 +424,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
         mBlocks = blocks;
         mProgrammeName = data["name"] as String;
+        mProgrammeDate = (data["scheduled_date"] instanceof String) ? data["scheduled_date"] as String : "";
         mProgrammeId = (data["id"] instanceof String) ? data["id"] as String : "";
         mCurrentBlock = 0;
         mCurrentSegment = 0;
@@ -425,7 +433,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mRepeatStartDistM = 0.0f;
         mCurrentRep = 0;
         if (blocks.size() > 0) {
-            mState = STATE_WAITING;
+            mState = mProgrammeDate.equals(todayDateString()) ? STATE_WAITING : STATE_UPCOMING;
         }
     }
 
@@ -479,7 +487,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mPolling = false;
         if (responseCode == 200 && data != null) {
             var programmes = data["programmes"] as Array<Dictionary>;
-            var prog = findTodaysProgramme(programmes);
+            var prog = findNextProgramme(programmes);
             if (prog != null) {
                 Application.Storage.setValue("programme", prog);
                 loadProgramme(prog);
@@ -574,6 +582,9 @@ class leadout_datafieldView extends WatchUi.DataField {
             case STATE_NO_PROGRAMME:
                 drawNoProgramme(dc, cx, cy, fgColor);
                 break;
+            case STATE_UPCOMING:
+                drawUpcoming(dc, cx, cy, fgColor);
+                break;
             case STATE_WAITING:
                 drawWaiting(dc, cx, cy, fgColor);
                 break;
@@ -622,6 +633,22 @@ class leadout_datafieldView extends WatchUi.DataField {
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, cy + 16, Graphics.FONT_XTINY,
             "Check your channel",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    hidden function drawUpcoming(dc as Dc, cx as Number, cy as Number, fgColor as ColorValue) as Void {
+        var h = dc.getHeight();
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h / 4, Graphics.FONT_XTINY,
+            "Next session",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h / 2 - 14, Graphics.FONT_MEDIUM,
+            mProgrammeName,
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h * 3 / 4, Graphics.FONT_XTINY,
+            mProgrammeDate,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 

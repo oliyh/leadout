@@ -150,16 +150,22 @@ function shouldExitRepeat(
     return false;
 }
 
-// Finds the first programme in an array whose scheduled_date is today.
-// Returns null if none is found. The array items are raw server Dictionaries.
+// Finds the next upcoming programme (earliest scheduled_date >= today).
+// Returns null if the array is empty. The array items are raw server Dictionaries.
 (:background)
-function findTodaysProgramme(programmes as Array<Dictionary>) as Dictionary? {
+function findNextProgramme(programmes as Array<Dictionary>) as Dictionary? {
     var t = todayDateString();
+    var best = null as Dictionary?;
+    var bestDate = "" as String;
     for (var i = 0; i < programmes.size(); i++) {
         var p = programmes[i] as Dictionary;
-        if ((p["scheduled_date"] as String).equals(t)) {
-            return p;
+        var d = p["scheduled_date"] as String;
+        if (d.compareTo(t) >= 0) {
+            if (best == null || d.compareTo(bestDate) < 0) {
+                best = p;
+                bestDate = d;
+            }
         }
     }
-    return null;
+    return best;
 }

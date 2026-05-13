@@ -361,7 +361,7 @@ export function createApp(store) {
             const channelProgs = await store.findProgrammesByChannel(sub.channel_id);
             for (const prog of channelProgs) {
                 if (prog.scheduled_date >= t) {
-                    programmes.push(prog);
+                    programmes.push({ id: prog.id, name: prog.name, scheduled_date: prog.scheduled_date, blocks: prog.blocks });
                     await store.upsertSyncRecord({
                         device_id:         device.id,
                         programme_id:      prog.id,
