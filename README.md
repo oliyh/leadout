@@ -48,6 +48,19 @@ Open VS Code settings (`Ctrl+,`) and set:
 | `monkeyC.javaPath` | `/usr/lib/jvm/java-21-openjdk-amd64` |
 | `monkeyC.developerKeyPath` | path to your developer key |
 
+### Connect IQ SDK vs API level
+
+The toolchain (SDK 9.1.0) and the minimum API level supported by the app (3.3.0) are different things. SDK version is the dev toolchain you install; API level is what the watch firmware exposes at runtime.
+
+The app detects the runtime API level and changes behaviour accordingly. The significant split is **CIQ < 5.0 vs ≥ 5.0**. This is primarily a **permission context** issue, not an API availability issue — the same functions exist in both, but the runtime enforces different rules about *when* (i.e. from which execution context) they may be called. Violations produce a `Permission Denied` crash at runtime, not a compile error.
+
+- **Foreground web requests**: `makeWebRequest()` is permission-denied from a DataField foreground context on CIQ < 5.0. On older devices, programme sync must happen entirely in the background service.
+- **`Communications.openWebPage()`**: permission-denied in a DataField on CIQ < 5.0. On older devices, the watch cannot open the registration URL in a browser.
+- **`Background.exit()` serialisation**: nested Array/Dictionary values are dropped silently on CIQ < 5.0 (a separate bug, not a permission issue). The background service therefore writes programme data to `Application.Storage` and sends only a `{:programme_ready => true}` sentinel via `Background.exit()` — the foreground app reads storage directly.
+- **`String.compareTo()`**: not available at API 3.3. Date comparisons use integer conversion (`dateToInt()` in `Utils.mc`) instead.
+
+Target devices span Fenix 5 Plus era onwards; most current watches are CIQ ≥ 5.0, but older watches in the target list are not.
+
 ---
 
 ## Building and running

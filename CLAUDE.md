@@ -164,7 +164,7 @@ Recommended strategy: treat background sync as a best-effort 'nice to have'. Pri
 
 | Layer | Technology |
 |---|---|
-| Watch app | Monkey C (Connect IQ SDK 8.x), VS Code with Monkey C extension |
+| Watch app | Monkey C (Connect IQ SDK 9.1.0 dev toolchain, API level 3.3.0 minimum), VS Code with Monkey C extension |
 | Backend API | Node.js |
 | Database | SQLite (local development), PostgreSQL (production) |
 | Hosting | Self-hosted Coolify |
@@ -176,6 +176,21 @@ Recommended strategy: treat background sync as a best-effort 'nice to have'. Pri
 ### Garmin Developer Programme
 
 Obtaining access to the Garmin Developer Programme seems impossible. This precludes using Garmin OAuth.
+
+### Connect IQ API Level Split (< 5.0 vs ≥ 5.0)
+
+The app supports devices from API 3.3.0 upwards. A runtime check (`isOldSdk()` in `Utils.mc`) branches on whether `System.getDeviceSettings().monkeyVersion[0] < 5`. This split is primarily about **permission context** — which execution contexts are allowed to call which functions. The same functions exist in both SDK generations, but on CIQ < 5.0 the runtime enforces stricter rules about when they may be called from a DataField. Violations cause a `Permission Denied` crash at runtime, not a compile error.
+
+| Capability | CIQ < 5.0 (old) | CIQ ≥ 5.0 (new) |
+|---|---|---|
+| `makeWebRequest()` from DataField foreground | Permission denied — sync must rely on background service | Permitted — app syncs immediately in `getInitialView()` |
+| `Communications.openWebPage()` from DataField | Permission denied — registration URL cannot be opened | Permitted — watch can open browser to registration page |
+| `Background.exit()` with nested Array/Dictionary | Does not round-trip reliably — data is silently dropped (separate bug, not a permission issue) | Works correctly |
+| `String.compareTo()` | Not available at API 3.3 | Available |
+
+**Consequence for background sync:** on old-SDK devices, `Background.exit()` sends only a lightweight sentinel `{:programme_ready => true}`; the actual programme data is written to `Application.Storage` by the background service and read by the foreground app. On new-SDK devices this indirection is not required but is retained for compatibility.
+
+**Consequence for date ordering:** `dateToInt()` in `Utils.mc` converts ISO date strings to integers for comparison, avoiding `String.compareTo()`.
 
 ### Data Field UI Constraints
 
