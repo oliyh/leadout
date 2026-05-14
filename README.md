@@ -150,11 +150,9 @@ loadProgramme: name=Sprintervals v2 blocks=1
 - sdk 3.3 support
 - i made "isOldSdk" background tagged - maybe we can put stuff back in onStart, and see if background service is happy again
 - still get  compile warning about the lap thing
-- when it has a programme - even a modest one - it runs out of memory :cry: can we compress it somehow, or load it one block at a time?
 
-is foreground sync loop really a loop? it seems to try once and then give up...
+- auto lap at end of segment / block doesnt seem to work, maybe that compile warning about the has :lap thing is always false
 
-- segments, blocks and programmes shold also show distance estimate alongside time estimate using conversion logic
 
 - geo gate that you have to go through to complete a segment, instead of completing a distance or a time
 
