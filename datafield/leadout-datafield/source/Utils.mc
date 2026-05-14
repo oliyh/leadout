@@ -150,20 +150,28 @@ function shouldExitRepeat(
     return false;
 }
 
+// Converts "YYYY-MM-DD" to an integer YYYYMMDD for ordering.
+// String.compareTo() is not available on CIQ 3.3, so numeric comparison is used instead.
+// Lexicographic order equals chronological order for this fixed format.
+(:background)
+function dateToInt(d as String) as Number {
+    return ((d.substring(0, 4) as String) + (d.substring(5, 7) as String) + (d.substring(8, 10) as String)).toNumber() as Number;
+}
+
 // Finds the next upcoming programme (earliest scheduled_date >= today).
 // Returns null if the array is empty. The array items are raw server Dictionaries.
 (:background)
 function findNextProgramme(programmes as Array<Dictionary>) as Dictionary? {
-    var t = todayDateString();
+    var tInt = dateToInt(todayDateString());
     var best = null;
-    var bestDate = "";
+    var bestInt = 0;
     for (var i = 0; i < programmes.size(); i++) {
         var p = programmes[i] as Dictionary;
-        var d = p["scheduled_date"] as String;
-        if (d.compareTo(t) >= 0) {
-            if (best == null || d.compareTo(bestDate) < 0) {
+        var dInt = dateToInt(p["scheduled_date"] as String);
+        if (dInt >= tInt) {
+            if (best == null || dInt < bestInt) {
                 best = p;
-                bestDate = d;
+                bestInt = dInt;
             }
         }
     }
