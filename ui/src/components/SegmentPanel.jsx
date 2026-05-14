@@ -2,14 +2,27 @@ import { useState } from 'preact/hooks';
 import { updateSegment, deleteSegment } from '../store/programmes.js';
 import { clearSelection } from '../store/editor.js';
 
-function fmtPace(sec) {
-    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
-}
-
 function parsePace(str) {
     const parts = str.split(':');
     if (parts.length === 2) return Number(parts[0]) * 60 + Number(parts[1]);
-    return Number(str) || null;
+    return null;
+}
+
+// Convert stored seconds-per-km to the raw digit string used as state.
+// e.g. 330 (5:30/km) → "530"
+function paceToDigits(sec) {
+    if (!sec) return '';
+    return `${Math.floor(sec / 60)}${String(sec % 60).padStart(2, '0')}`;
+}
+
+// Format a digit string as a pace display value.
+// "3" → "3:00", "34" → "3:40", "345" → "3:45", "3456" → "34:56"
+function fmtPaceDigits(digits) {
+    if (!digits) return '';
+    if (digits.length === 1) return `${digits}:00`;
+    if (digits.length === 2) return `${digits[0]}:${digits[1]}0`;
+    if (digits.length === 3) return `${digits[0]}:${digits.slice(1)}`;
+    return `${digits.slice(0, -2)}:${digits.slice(-2)}`;
 }
 
 function useDebounce(fn, delay) {
@@ -25,7 +38,7 @@ export function SegmentPanel({ progId, blockId, seg }) {
     const [name,        setName]        = useState(seg.name || '');
     const [duration,    setDuration]    = useState(String(seg.duration ?? 60));
     const [distance,    setDistance]    = useState(String(seg.distance ?? ''));
-    const [pace,        setPace]        = useState(seg.target_pace ? fmtPace(seg.target_pace) : '');
+    const [paceDigits,  setPaceDigits]  = useState(() => paceToDigits(seg.target_pace));
     const [exitType,    setExitType]    = useState(seg.exit_type || 'count');
     const [repeatCount, setRepeatCount] = useState(String(seg.repeat_count ?? 3));
     const [repeatMins,  setRepeatMins]  = useState(
@@ -35,7 +48,7 @@ export function SegmentPanel({ progId, blockId, seg }) {
     );
 
     function save(overrides = {}, description = 'update segment') {
-        const s = { kind, name, duration, distance, pace, exitType, repeatCount, repeatMins, ...overrides };
+        const s = { kind, name, duration, distance, paceDigits, exitType, repeatCount, repeatMins, ...overrides };
         if (s.kind === 'repeat') {
             updateSegment(progId, blockId, seg.id, {
                 kind:         'repeat',
@@ -47,12 +60,13 @@ export function SegmentPanel({ progId, blockId, seg }) {
                 target_pace:  null,
             }, description);
         } else {
+            const paceFmt = fmtPaceDigits(s.paceDigits);
             updateSegment(progId, blockId, seg.id, {
                 name:        s.name.trim(),
                 kind:        s.kind,
                 duration:    s.kind === 'time'     ? (Number(s.duration) || null) : null,
                 distance:    s.kind === 'distance' ? (Number(s.distance) || null) : null,
-                target_pace: s.pace ? parsePace(s.pace) : null,
+                target_pace: paceFmt ? parsePace(paceFmt) : null,
             }, description);
         }
     }
@@ -69,6 +83,29 @@ export function SegmentPanel({ progId, blockId, seg }) {
         setRepeatCount('3');
         setRepeatMins('10');
         save({ kind: k, name: newName, duration: '', distance: '', repeatCount: '3', repeatMins: '10' }, 'change type');
+    }
+
+    function onPaceKeyDown(e) {
+        if (e.key >= '0' && e.key <= '9') {
+            e.preventDefault();
+            if (paceDigits.length >= 4) return;
+            const newDigits = paceDigits + e.key;
+            setPaceDigits(newDigits);
+            debouncedSave({ paceDigits: newDigits }, 'update pace target');
+        } else if (e.key === 'Backspace' || e.key === 'Delete') {
+            e.preventDefault();
+            const newDigits = paceDigits.slice(0, -1);
+            setPaceDigits(newDigits);
+            debouncedSave({ paceDigits: newDigits }, 'update pace target');
+        }
+    }
+
+    function onPacePaste(e) {
+        e.preventDefault();
+        const digits = (e.clipboardData?.getData('text') ?? '').replace(/\D/g, '').slice(0, 4);
+        if (!digits) return;
+        setPaceDigits(digits);
+        debouncedSave({ paceDigits: digits }, 'update pace target');
     }
 
     function onExitType(e) {
@@ -115,7 +152,13 @@ export function SegmentPanel({ progId, blockId, seg }) {
                 {kind !== 'repeat' && (
                     <div class="seg-field">
                         <label>Target pace (m:ss/km)</label>
-                        <input placeholder="5:30" value={pace} onInput={e => { setPace(e.target.value); debouncedSave({ pace: e.target.value }, 'update pace target'); }} />
+                        <input
+                            placeholder="5:30"
+                            value={fmtPaceDigits(paceDigits)}
+                            onKeyDown={onPaceKeyDown}
+                            onPaste={onPacePaste}
+                            readOnly
+                        />
                     </div>
                 )}
 
