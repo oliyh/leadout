@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useState, useRef } from 'preact/hooks';
 import { updateSegment, deleteSegment } from '../store/programmes.js';
 import { clearSelection } from '../store/editor.js';
 import { parsePace, paceToDigits, fmtPaceDigits } from '../lib/pace.js';
@@ -17,6 +17,7 @@ export function SegmentPanel({ progId, blockId, seg }) {
     const [duration,    setDuration]    = useState(String(seg.duration ?? 60));
     const [distance,    setDistance]    = useState(String(seg.distance ?? ''));
     const [paceDigits,  setPaceDigits]  = useState(() => paceToDigits(seg.target_pace));
+    const preFocusPaceDigits = useRef(null);
     const [exitType,    setExitType]    = useState(seg.exit_type || 'count');
     const [repeatCount, setRepeatCount] = useState(String(seg.repeat_count ?? 3));
     const [repeatMins,  setRepeatMins]  = useState(
@@ -78,6 +79,24 @@ export function SegmentPanel({ progId, blockId, seg }) {
         }
     }
 
+    function onPaceFocus() {
+        preFocusPaceDigits.current = paceDigits;
+        setPaceDigits('');
+    }
+
+    function onPaceInput(e) {
+        const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+        setPaceDigits(digits);
+        debouncedSave({ paceDigits: digits }, 'update pace target');
+    }
+
+    function onPaceBlur() {
+        if (paceDigits === '' && preFocusPaceDigits.current) {
+            setPaceDigits(preFocusPaceDigits.current);
+        }
+        preFocusPaceDigits.current = null;
+    }
+
     function onPacePaste(e) {
         e.preventDefault();
         const digits = (e.clipboardData?.getData('text') ?? '').replace(/\D/g, '').slice(0, 4);
@@ -132,10 +151,13 @@ export function SegmentPanel({ progId, blockId, seg }) {
                         <label>Target pace (m:ss/km)</label>
                         <input
                             placeholder="5:30"
+                            inputMode="numeric"
                             value={fmtPaceDigits(paceDigits)}
+                            onFocus={onPaceFocus}
                             onKeyDown={onPaceKeyDown}
+                            onInput={onPaceInput}
+                            onBlur={onPaceBlur}
                             onPaste={onPacePaste}
-                            readOnly
                         />
                     </div>
                 )}
