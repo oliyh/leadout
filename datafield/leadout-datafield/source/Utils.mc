@@ -150,6 +150,68 @@ function shouldExitRepeat(
     return false;
 }
 
+// Converts a raw server programme Dictionary into a compact form for Storage.
+// Uses 1-2 char keys and encodes segments as Arrays to minimise heap cost
+// when the stored value is later deserialised.
+//
+// Compact segment array layout:
+//   time/distance:  [kind, name, duration, distance, target_pace]
+//   repeat:         [2,    exit_type_int, repeat_count, duration, distance]
+// kind:      0=time  1=distance  2=repeat
+// exit_type: 0=count 1=time      2=distance
+// target_pace: -1 means none (avoids null in arrays for old-SDK compatibility)
+(:background)
+function compressProgramme(data as Dictionary) as Dictionary {
+    var rawBlocks = data["blocks"];
+    var compBlocks = [] as Array<Dictionary>;
+    if (rawBlocks instanceof Array) {
+        var jsonBlocks = rawBlocks as Array<Dictionary>;
+        for (var i = 0; i < jsonBlocks.size(); i++) {
+            var jb = jsonBlocks[i] as Dictionary;
+            var compSegs = [] as Array<Array<Object>>;
+            var jsonSegs = jb["segments"];
+            if (jsonSegs instanceof Array) {
+                var segs = jsonSegs as Array<Dictionary>;
+                for (var j = 0; j < segs.size(); j++) {
+                    var js = segs[j] as Dictionary;
+                    var kindStr = (js["kind"] instanceof String) ? js["kind"] as String : "time";
+                    if (kindStr.equals("repeat")) {
+                        var exitStr = (js["exit_type"] instanceof String) ? js["exit_type"] as String : "count";
+                        var exitInt = exitStr.equals("time") ? 1 : exitStr.equals("distance") ? 2 : 0;
+                        var repDist = (js["distance"] instanceof Float)  ? js["distance"] as Float :
+                                      (js["distance"] instanceof Number) ? (js["distance"] as Number).toFloat() : 0.0f;
+                        compSegs.add([
+                            2, exitInt,
+                            (js["repeat_count"] instanceof Number) ? js["repeat_count"] as Number : 1,
+                            (js["duration"]     instanceof Number) ? js["duration"]     as Number : 0,
+                            repDist
+                        ] as Array<Object>);
+                    } else {
+                        var kindInt = kindStr.equals("distance") ? 1 : 0;
+                        var segDist = (js["distance"] instanceof Float)  ? js["distance"] as Float :
+                                      (js["distance"] instanceof Number) ? (js["distance"] as Number).toFloat() : 0.0f;
+                        var pace = (js["target_pace"] instanceof Number) ? (js["target_pace"] as Number) : -1;
+                        compSegs.add([
+                            kindInt,
+                            (js["name"] instanceof String) ? js["name"] as String : "",
+                            (js["duration"] instanceof Number) ? js["duration"] as Number : 0,
+                            segDist,
+                            pace
+                        ] as Array<Object>);
+                    }
+                }
+            }
+            compBlocks.add({"n" => (jb["name"] instanceof String) ? jb["name"] as String : "", "s" => compSegs} as Dictionary);
+        }
+    }
+    return {
+        "i" => (data["id"]             instanceof String) ? data["id"]             as String : "",
+        "n" => (data["name"]           instanceof String) ? data["name"]           as String : "",
+        "d" => (data["scheduled_date"] instanceof String) ? data["scheduled_date"] as String : "",
+        "b" => compBlocks
+    };
+}
+
 // Converts "YYYY-MM-DD" to an integer YYYYMMDD for ordering.
 // String.compareTo() is not available on CIQ 3.3, so numeric comparison is used instead.
 // Lexicographic order equals chronological order for this fixed format.

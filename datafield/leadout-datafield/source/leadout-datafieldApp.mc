@@ -20,8 +20,6 @@ class leadout_datafieldApp extends Application.AppBase {
         mDeviceCode = getOrCreateDeviceCode();
         var storedToken = Application.Storage.getValue("watch_token");
         mWatchToken = (storedToken instanceof String) ? storedToken as String : null;
-        System.println("[App.initialize] deviceCode=" + mDeviceCode
-            + " hasToken=" + (mWatchToken != null));
         Background.registerForTemporalEvent(new Time.Duration(syncPeriodSeconds()));
     }
 
@@ -29,7 +27,6 @@ class leadout_datafieldApp extends Application.AppBase {
         // Intentionally empty. onStart runs in both foreground and background contexts, so
         // it is unsafe to call isOldSdk() or make web requests here. All startup logic that
         // needs the view or SDK detection is in getInitialView(), which is foreground-only.
-        System.println("[App.onStart] hasToken=" + (mWatchToken != null));
     }
 
     function onStartTokenPoll(responseCode as Number, data as Dictionary?) as Void {
@@ -54,29 +51,23 @@ class leadout_datafieldApp extends Application.AppBase {
         // getInitialView is foreground-only — safe to call isOldSdk() and make web requests.
         var old = isOldSdk();
         Application.Storage.setValue("is_old_sdk", old);
-        System.println("[App.getInitialView] hasToken=" + (mWatchToken != null) + " oldSdk=" + old);
         mView = new leadout_datafieldView();
         mView.setDeviceCode(mDeviceCode);
         if (old) {
             // Old SDK: foreground web requests unavailable; background service handles sync.
             // Show the device code immediately if not yet registered.
             if (mWatchToken == null) {
-                System.println("[App.getInitialView] old SDK, no token — setting STATE_UNREGISTERED, forcing 5-min background sync");
                 mView.setRegistrationRequired(mDeviceCode);
                 // Force 5-min background cadence so registration is detected promptly.
                 // syncPeriodSeconds() will return 300 because is_old_sdk=true and no token.
                 Background.registerForTemporalEvent(new Time.Duration(syncPeriodSeconds()));
-            } else {
-                System.println("[App.getInitialView] old SDK, has token — background sync will load programme");
             }
         } else {
             // New SDK: kick off a foreground sync so the view is populated without waiting
             // for the user to open the widget or the background service to fire.
             if (mWatchToken != null) {
-                System.println("[App.getInitialView] new SDK, has token — making foreground sync request");
                 makeSyncRequest(mDeviceCode, mWatchToken, method(:onSyncResponse));
             } else {
-                System.println("[App.getInitialView] new SDK, no token — showing device code, polling token endpoint");
                 mView.setRegistrationRequired(mDeviceCode);
                 makeTokenRequest(mDeviceCode, method(:onStartTokenPoll));
             }
@@ -86,7 +77,6 @@ class leadout_datafieldApp extends Application.AppBase {
 
     // Called when the background temporal sync completes and passes back data.
     function onBackgroundData(data as Application.PersistableType) as Void {
-        System.println("[App.onBackgroundData] data=" + data + " viewReady=" + (mView != null));
         var view = mView;
         if (!(data instanceof Dictionary) || view == null) { return; }
         var dict = data as Dictionary;
@@ -128,16 +118,16 @@ class leadout_datafieldApp extends Application.AppBase {
     // 401 → token missing or invalid — wipe token and device code, re-register.
     // Other → network error, keep whatever is cached.
     function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
-        System.println("onSyncResponse: code=" + responseCode);
         var view = mView;
         if (responseCode == 200 && data != null) {
             var programmes = data["programmes"] as Array<Dictionary>;
             var prog = findNextProgramme(programmes);
             if (prog != null) {
-                Application.Storage.setValue("programme", prog);
+                var compact = compressProgramme(prog as Dictionary);
+                Application.Storage.setValue("programme", compact);
                 Application.Storage.setValue("lastSyncTime", System.getTimer());
                 if (view != null) {
-                    view.setProgramme(prog as Dictionary);
+                    view.setProgramme(compact);
                 }
             } else if (view != null) {
                 var subCount = data["subscription_count"];
@@ -202,7 +192,6 @@ class leadout_datafieldApp extends Application.AppBase {
     }
 
     function onParticipationRetryResponse(responseCode as Number, data as Dictionary?) as Void {
-        System.println("participation retry: " + responseCode);
     }
 
     hidden function syncPeriodSeconds() as Number {

@@ -1,6 +1,7 @@
 import Toybox.Activity;
 import Toybox.Application;
 import Toybox.Attention;
+import Toybox.Communications;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.System;
@@ -31,16 +32,18 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mProgrammeDate as String;
     hidden var mProgrammeId as String;
     hidden var mBlocks as Array<Dictionary>;
-    hidden var mCurrentPaceSec as Number;      // live pace in sec/km, 0 = no signal
-    hidden var mSegmentStartDistM as Float;    // distance at segment start, -1 = uncaptured
-    hidden var mElapsedDistM as Float;         // latest elapsed distance from Activity.Info
-    hidden var mPolling as Boolean;            // registration poll in flight
-    hidden var mLastPollMs as Number;          // last registration poll timestamp
-    hidden var mLastErrorCode as Number;       // HTTP code from last failed sync
-    hidden var mLastErrorMsg as String;        // server error string from last failed sync
-    hidden var mSessionStartMs as Number;      // timer when first block started
-    hidden var mSessionEndMs as Number;        // timer when STATE_COMPLETE reached
-    hidden var mSessionStartDistM as Float;    // distance at session start
+    hidden var mBlockNames as Array<String>;       // block names for pre-session display
+    hidden var mCurrentPaceSec as Number;          // live pace in sec/km, 0 = no signal
+    hidden var mSegmentStartDistM as Float;        // distance at segment start, -1 = uncaptured
+    hidden var mElapsedDistM as Float;             // latest elapsed distance from Activity.Info
+    hidden var mPolling as Boolean;                // registration poll in flight
+    hidden var mLastPollMs as Number;              // last registration poll timestamp
+    hidden var mLastErrorCode as Number;           // HTTP code from last failed sync
+    hidden var mLastErrorMsg as String;            // server error string from last failed sync
+    hidden var mSessionStartMs as Number;          // timer when first block started
+    hidden var mSessionEndMs as Number;            // timer when STATE_COMPLETE reached
+    hidden var mSessionStartDistM as Float;        // distance at session start
+    hidden var mIsOldSdk as Boolean;               // cached isOldSdk() result
 
     // Repeat-loop state. Set when a block with a repeat segment begins, cleared
     // on block end or when the repeat exits. mRepeatStartIndex = -1 means not in a group.
@@ -59,6 +62,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mCurrentSegment = 0;
         mSegmentStartMs = 0;
         mBlocks = [] as Array<Dictionary>;
+        mBlockNames = [] as Array<String>;
         mProgrammeName = "";
         mProgrammeDate = "";
         mProgrammeId = "";
@@ -72,17 +76,16 @@ class leadout_datafieldView extends WatchUi.DataField {
         mSessionStartMs = 0;
         mSessionEndMs = 0;
         mSessionStartDistM = 0.0f;
+        mIsOldSdk = isOldSdk();
         mRepeatStartIndex = -1;
         mRepeatStartMs = 0;
         mRepeatStartDistM = 0.0f;
         mCurrentRep = 0;
 
+        // Load programme header only — segments deferred until session start.
         var cached = Application.Storage.getValue("programme");
         if (cached instanceof Dictionary) {
-            System.println("[View.initialize] cached programme found — loading");
-            loadProgramme(cached as Dictionary);
-        } else {
-            System.println("[View.initialize] no cached programme — state=SYNCING");
+            loadProgrammeHeader(cached as Dictionary);
         }
     }
 
@@ -92,7 +95,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     // ── External API ──────────────────────────────────────────────────────
 
     function setProgramme(data as Dictionary) as Void {
-        loadProgramme(data);
+        loadProgrammeHeader(data);
         WatchUi.requestUpdate();
     }
 
@@ -107,13 +110,10 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     function setRegistrationRequired(deviceCode as String) as Void {
         var firstTime = mState != STATE_UNREGISTERED;
-        System.println("[View.setRegistrationRequired] deviceCode=" + deviceCode
-            + " firstTime=" + firstTime + " prevState=" + mState);
         mDeviceCode = deviceCode;
         mState = STATE_UNREGISTERED;
         mLastPollMs = 0;
-        if (firstTime && !isOldSdk() && (Communications has :openWebPage)) {
-            System.println("[View.setRegistrationRequired] opening web page");
+        if (firstTime && !mIsOldSdk && (Communications has :openWebPage)) {
             Communications.openWebPage(API_BASE + "/?device_code=" + deviceCode, null, null);
         }
         WatchUi.requestUpdate();
@@ -140,6 +140,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mLastErrorCode = 0;
         mLastErrorMsg = "";
         mBlocks = [] as Array<Dictionary>;
+        mBlockNames = [] as Array<String>;
         mProgrammeName = "";
         mProgrammeDate = "";
         mProgrammeId = "";
@@ -156,12 +157,20 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
         if (mState == STATE_UNREGISTERED) {
             // LAP re-opens the site in case the user dismissed it.
-            if (!isOldSdk() && (Communications has :openWebPage)) {
+            if (!mIsOldSdk && (Communications has :openWebPage)) {
                 Communications.openWebPage(API_BASE + "/?device_code=" + mDeviceCode, null, null);
             }
             return;
         }
         if (mState == STATE_WAITING) {
+            // Segments are loaded lazily on first LAP press to keep heap free during idle.
+            if (mBlocks.size() == 0) {
+                var cached = Application.Storage.getValue("programme");
+                if (cached instanceof Dictionary) {
+                    loadProgrammeSegments(cached as Dictionary);
+                }
+                if (mBlocks.size() == 0) { return; }
+            }
             mState = STATE_ACTIVE;
             mCurrentSegment = 0;
             mSegmentStartMs = System.getTimer();
@@ -173,7 +182,7 @@ class leadout_datafieldView extends WatchUi.DataField {
                 mSessionStartMs = System.getTimer();
                 mSessionStartDistM = mElapsedDistM;
                 Application.Storage.setValue("pending_participation_id", mProgrammeId);
-                if (!isOldSdk()) { recordParticipation(); }
+                if (!mIsOldSdk) { recordParticipation(); }
             }
         }
     }
@@ -195,10 +204,8 @@ class leadout_datafieldView extends WatchUi.DataField {
             }
         }
 
-        // While unregistered, poll the token endpoint every 10 s. When the web app
-        // registers the device, the server issues a one-time token which the watch
-        // claims here and stores; it then calls sync immediately with that token.
-        if (mState == STATE_UNREGISTERED && !mPolling && !isOldSdk()) {
+        // While unregistered, poll the token endpoint every 10 s.
+        if (mState == STATE_UNREGISTERED && !mPolling && !mIsOldSdk) {
             var now = System.getTimer();
             if (now - mLastPollMs > 10000) {
                 mLastPollMs = now;
@@ -374,67 +381,86 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
+    // ── Programme loading ─────────────────────────────────────────────────
 
-    hidden function loadProgramme(data as Dictionary) as Void {
-        System.println("loadProgramme: name=" + data["name"] + " blocks=" + (data["blocks"] != null ? (data["blocks"] as Array<Object>).size() : "null"));
-        var rawBlocks = data["blocks"];
-        if (!(rawBlocks instanceof Array)) {
-            System.println("[loadProgramme] blocks missing — ignoring");
-            return;
+    // Reads programme name, date, id, and block names from the compact Storage format.
+    // Clears mBlocks so segments are re-parsed fresh at session start.
+    // Called at init, on sync arrival, and after registration completes.
+    hidden function loadProgrammeHeader(data as Dictionary) as Void {
+        mProgrammeName = (data["n"] instanceof String) ? data["n"] as String : "";
+        mProgrammeDate = (data["d"] instanceof String) ? data["d"] as String : "";
+        mProgrammeId   = (data["i"] instanceof String) ? data["i"] as String : "";
+
+        mBlockNames = [] as Array<String>;
+        var rawBlocks = data["b"];
+        if (rawBlocks instanceof Array) {
+            var jsonBlocks = rawBlocks as Array<Dictionary>;
+            for (var i = 0; i < jsonBlocks.size(); i++) {
+                var bname = (jsonBlocks[i] as Dictionary)["n"];
+                mBlockNames.add((bname instanceof String) ? bname as String : "");
+            }
         }
+
+        // Clear any previously parsed segments — new programme supersedes old session.
+        mBlocks = [] as Array<Dictionary>;
+        mCurrentBlock = 0;
+        mCurrentSegment = 0;
+        clearRepeatState();
+
+        if (mProgrammeName.length() > 0) {
+            mState = mProgrammeDate.equals(todayDateString()) ? STATE_WAITING : STATE_UPCOMING;
+        }
+    }
+
+    // Builds mBlocks from the compact Storage format. Called just before session start.
+    // Does not change mState, mCurrentBlock, or mCurrentSegment.
+    // Compact segment array layout (from compressProgramme in Utils.mc):
+    //   time/distance: [kind_int, name, duration, distance, target_pace]  (target_pace=-1 if none)
+    //   repeat:        [2, exit_type_int, repeat_count, duration, distance]
+    hidden function loadProgrammeSegments(data as Dictionary) as Void {
+        var rawBlocks = data["b"];
+        if (!(rawBlocks instanceof Array)) { return; }
         var jsonBlocks = rawBlocks as Array<Dictionary>;
         var blocks = [] as Array<Dictionary>;
         for (var i = 0; i < jsonBlocks.size(); i++) {
             var jb = jsonBlocks[i] as Dictionary;
-            var jsonSegs = jb["segments"] as Array<Dictionary>;
+            var rawSegs = jb["s"];
+            if (!(rawSegs instanceof Array)) { continue; }
+            var compSegs = rawSegs as Array<Array<Object>>;
             var segs = [] as Array<Dictionary>;
-            for (var j = 0; j < jsonSegs.size(); j++) {
-                var js = jsonSegs[j] as Dictionary;
-                var segKind = (js["kind"] instanceof String) ? js["kind"] as String : "time";
-                if (segKind.equals("repeat")) {
-                    var exitType = (js["exit_type"] instanceof String) ? js["exit_type"] as String : "count";
-                    var repDist = (js["distance"] instanceof Float)  ? js["distance"] as Float :
-                                  (js["distance"] instanceof Number) ? (js["distance"] as Number).toFloat() : 0.0f;
+            for (var j = 0; j < compSegs.size(); j++) {
+                var cs = compSegs[j] as Array<Object>;
+                var kindInt = cs[0] as Number;
+                if (kindInt == 2) {
+                    var exitInt = cs[1] as Number;
+                    var exitStr = (exitInt == 1) ? "time" : (exitInt == 2) ? "distance" : "count";
                     segs.add({
                         :name         => "Repeat",
                         :kind         => "repeat",
-                        :exit_type    => exitType,
-                        :repeat_count => (js["repeat_count"] instanceof Number) ? js["repeat_count"] as Number : 1,
-                        :duration     => (js["duration"] instanceof Number) ? js["duration"] as Number : 0,
-                        :distance     => repDist,
+                        :exit_type    => exitStr,
+                        :repeat_count => cs[2] as Number,
+                        :duration     => cs[3] as Number,
+                        :distance     => cs[4] as Float,
                         :target_pace  => null
                     });
                 } else {
-                    var segDist = (js["distance"] instanceof Float)  ? js["distance"] as Float :
-                                  (js["distance"] instanceof Number) ? (js["distance"] as Number).toFloat() : 0.0f;
+                    var segKind = (kindInt == 1) ? "distance" : "time";
+                    var pace = cs[4] as Number;
                     segs.add({
-                        :name        => js["name"] as String,
+                        :name        => cs[1] as String,
                         :kind        => segKind,
-                        :duration    => (js["duration"] instanceof Number) ? js["duration"] as Number : 0,
-                        :distance    => segDist,
-                        :target_pace => (js["target_pace"] instanceof Number) ? js["target_pace"] as Number : null
+                        :duration    => cs[2] as Number,
+                        :distance    => cs[3] as Float,
+                        :target_pace => (pace == -1) ? null : pace
                     });
                 }
             }
             blocks.add({
-                :name => jb["name"] as String,
+                :name     => (jb["n"] instanceof String) ? jb["n"] as String : "",
                 :segments => segs
             });
         }
         mBlocks = blocks;
-        mProgrammeName = data["name"] as String;
-        mProgrammeDate = (data["scheduled_date"] instanceof String) ? data["scheduled_date"] as String : "";
-        mProgrammeId = (data["id"] instanceof String) ? data["id"] as String : "";
-        mCurrentBlock = 0;
-        mCurrentSegment = 0;
-        mRepeatStartIndex = -1;
-        mRepeatStartMs = 0;
-        mRepeatStartDistM = 0.0f;
-        mCurrentRep = 0;
-        if (blocks.size() > 0) {
-            mState = mProgrammeDate.equals(todayDateString()) ? STATE_WAITING : STATE_UPCOMING;
-        }
     }
 
     // Fire-and-forget POST to /api/sessions/start. No retry on failure.
@@ -457,7 +483,6 @@ class leadout_datafieldView extends WatchUi.DataField {
     }
 
     function onParticipationResponse(responseCode as Number, data as Dictionary?) as Void {
-        System.println("participation: " + responseCode);
     }
 
     // Callback for the token poll (fired from compute() every 10 s in STATE_UNREGISTERED).
@@ -465,7 +490,6 @@ class leadout_datafieldView extends WatchUi.DataField {
     // 202 → device not yet registered; compute() retries after 10 s.
     // Other (including 410 already-claimed) → leave mPolling=false so compute() retries.
     function onTokenPoll(responseCode as Number, data as Dictionary?) as Void {
-        System.println("onTokenPoll: code=" + responseCode);
         mPolling = false;
         if (responseCode == 200 && data != null) {
             var token = data["token"];
@@ -483,14 +507,14 @@ class leadout_datafieldView extends WatchUi.DataField {
     // 401 → token was rejected — delegate re-registration to the App.
     // Other → network issue; compute() will retry the token poll after 10 s.
     function onRegistrationPoll(responseCode as Number, data as Dictionary?) as Void {
-        System.println("onRegistrationPoll: code=" + responseCode);
         mPolling = false;
         if (responseCode == 200 && data != null) {
             var programmes = data["programmes"] as Array<Dictionary>;
             var prog = findNextProgramme(programmes);
             if (prog != null) {
-                Application.Storage.setValue("programme", prog);
-                loadProgramme(prog);
+                var compact = compressProgramme(prog as Dictionary);
+                Application.Storage.setValue("programme", compact);
+                loadProgrammeHeader(compact);
             } else {
                 var subCount = data["subscription_count"];
                 if (subCount instanceof Number && (subCount as Number) == 0) {
@@ -550,8 +574,16 @@ class leadout_datafieldView extends WatchUi.DataField {
         return mBlocks[mCurrentBlock][:segments] as Array<Dictionary>;
     }
 
+    // Uses mBlocks when the session is active (segments loaded), falls back to
+    // mBlockNames (populated from header) when waiting before session start.
     hidden function currentBlockName() as String {
-        return mBlocks[mCurrentBlock][:name] as String;
+        if (mBlocks.size() > mCurrentBlock) {
+            return mBlocks[mCurrentBlock][:name] as String;
+        }
+        if (mBlockNames.size() > mCurrentBlock) {
+            return mBlockNames[mCurrentBlock] as String;
+        }
+        return "";
     }
 
     // ── Display ───────────────────────────────────────────────────────────
@@ -569,31 +601,22 @@ class leadout_datafieldView extends WatchUi.DataField {
         var cx = dc.getWidth() / 2;
         var cy = dc.getHeight() / 2;
 
-        switch (mState) {
-            case STATE_SYNCING:
-                drawSyncing(dc, cx, cy, fgColor);
-                break;
-            case STATE_UNREGISTERED:
-                drawUnregistered(dc, cx, cy, fgColor);
-                break;
-            case STATE_NO_SUBSCRIPTIONS:
-                drawNoSubscriptions(dc, cx, cy, fgColor);
-                break;
-            case STATE_NO_PROGRAMME:
-                drawNoProgramme(dc, cx, cy, fgColor);
-                break;
-            case STATE_UPCOMING:
-                drawUpcoming(dc, cx, cy, fgColor);
-                break;
-            case STATE_WAITING:
-                drawWaiting(dc, cx, cy, fgColor);
-                break;
-            case STATE_ACTIVE:
-                drawActive(dc, cx, cy, fgColor);
-                break;
-            case STATE_COMPLETE:
-                drawComplete(dc, cx, cy, fgColor);
-                break;
+        if (mState == STATE_SYNCING) {
+            drawSyncing(dc, cx, cy, fgColor);
+        } else if (mState == STATE_UNREGISTERED) {
+            drawUnregistered(dc, cx, cy, fgColor);
+        } else if (mState == STATE_NO_SUBSCRIPTIONS) {
+            drawNoSubscriptions(dc, cx, cy, fgColor);
+        } else if (mState == STATE_NO_PROGRAMME) {
+            drawNoProgramme(dc, cx, cy, fgColor);
+        } else if (mState == STATE_UPCOMING) {
+            drawUpcoming(dc, cx, cy, fgColor);
+        } else if (mState == STATE_WAITING) {
+            drawWaiting(dc, cx, cy, fgColor);
+        } else if (mState == STATE_ACTIVE) {
+            drawActive(dc, cx, cy, fgColor);
+        } else if (mState == STATE_COMPLETE) {
+            drawComplete(dc, cx, cy, fgColor);
         }
     }
 
