@@ -15,6 +15,23 @@
 config {
     geofence_radius: Distance = 30.metres
     default_pace_assumption: Pace = default_pace
+
+    -- Cadence at which an unregistered device on the old SDK polls the server
+    -- in the background to detect that the user has completed registration on
+    -- the website. Old-SDK devices cannot poll from the foreground, so this
+    -- interval is the user-visible latency for registration take-up. Forced to
+    -- the platform minimum because there is no foreground polling fallback.
+    background_sync_interval_while_unregistered: Duration = 5.minutes
+
+    -- Default cadence at which a registered device polls the server in the
+    -- background. The user may override this via device settings; the override
+    -- is captured on Device.background_sync_interval.
+    default_background_sync_interval: Duration = 60.minutes
+
+    -- Cadence at which a visible DataField on a new-SDK unregistered device
+    -- polls the server to detect that the user has just completed registration.
+    -- This is a tight foreground loop; it does not run in the background.
+    registration_poll_interval: Duration = 10.seconds
 }
 
 -- ── Value types ────────────────────────────────────────────────────────────
@@ -45,6 +62,13 @@ entity Account {
     created_at: Timestamp
     subscriptions: Subscription with account = this
     devices: Device with account = this
+
+    -- Drives the pre-session DataField summary states. "Accessible" means a
+    -- non-expired programme on any of the account's subscribed channels.
+    has_programme_for_today:
+        subscriptions.any(s => s.channel.upcoming_programmes.any(p => p.is_for_today))
+    has_future_programme:
+        subscriptions.any(s => s.channel.upcoming_programmes.any(p => not p.is_for_today))
 }
 
 -- A watch installation of the Leadout data field. The device_code is a stable
@@ -56,6 +80,32 @@ entity Device {
     registered_at: Timestamp
     last_synced_at: Timestamp?
     sync_records: ProgrammeSyncRecord with device = this
+
+    -- True when the device's Connect IQ runtime is version 5.0 or later. The
+    -- new SDK permits foreground network calls from the DataField; the old SDK
+    -- does not. This drives the sync strategy (see the WatchDataFieldView
+    -- state machine and the BackgroundSync* rules).
+    is_new_sdk: Boolean
+
+    -- The user's configured background sync interval. When absent, the
+    -- system uses config.default_background_sync_interval. Valid range: 5–720 minutes.
+    background_sync_interval: Duration?
+
+    -- True once at least one successful sync has completed for this device.
+    -- Drives the BackgroundSyncFires cadence: an old-SDK device whose first
+    -- sync has not yet landed polls at the faster (registration take-up)
+    -- interval so the watch discovers its newly-claimed token sooner.
+    has_synced_once: last_synced_at != null
+
+    -- The interval at which background sync events fire for this Device.
+    -- A separately-modelled rule (BackgroundSyncWhileUnregistered) covers the
+    -- "no Device exists" case for old-SDK watches that have not yet been
+    -- claimed on the website.
+    effective_background_sync_interval:
+        if not has_synced_once and not is_new_sdk:
+            config.background_sync_interval_while_unregistered
+        else:
+            background_sync_interval ?? config.default_background_sync_interval
 }
 
 -- A named channel owned by an instructor, shared via a permanent link.
@@ -285,6 +335,69 @@ entity Session {
     -- a target_pace. Specific thresholds and colours are display concerns.
     has_pace_guidance: current_segment.target_pace != null
         when status = active
+}
+
+-- The pre-session display state of an open Leadout DataField on a watch.
+-- Exactly one WatchDataFieldView exists per visible DataField; it is created
+-- when the runner opens the DataField and removed when the DataField becomes
+-- hidden (or when a Session takes over).
+--
+-- The view is keyed by device_code rather than by Device because an
+-- unregistered watch has no Device record yet — the registration flow is
+-- exactly the transition from "no Device for this code" to "Device exists".
+-- When a Device exists for the view's device_code the watch is registered;
+-- otherwise it is unregistered.
+--
+-- The status enum drives what the watch shows before any block has started:
+--   unregistered     — show device_code and registration URL; await registration
+--   syncing          — a sync attempt is in flight
+--   sync_failed      — no cached programme and the sync attempt failed; retry
+--   no_subscriptions — registered, no subscribed channels
+--   no_programme     — subscribed, but no programme is scheduled for today or
+--                      any future date
+--   upcoming         — at least one programme is scheduled for a future date
+--                      (none for today)
+--   ready            — a programme is scheduled for today; prompt LAP to begin
+--
+-- The 'ready' state is the bridge to Session: when the runner picks a
+-- programme (ParticipantSelectsProgramme) a Session is created and the
+-- Session lifecycle (waiting | active | complete) takes over.
+--
+-- The cached_programme flag captures whether the watch has a locally-stored
+-- programme. When a sync fails but cached_programme is true, the view holds
+-- its current display rather than dropping to sync_failed — preserving the
+-- offline-first guarantee during mid-run loss of connectivity.
+entity WatchDataFieldView {
+    device_code: String
+    status: unregistered | syncing | sync_failed | no_subscriptions
+            | no_programme | upcoming | ready
+    last_error: String when status = sync_failed
+
+    -- True when the watch holds a locally-cached copy of at least one
+    -- programme from a previous successful sync. Drives the silent-fallback
+    -- behaviour on a failed sync: a view with a cached programme keeps its
+    -- current display state instead of dropping to sync_failed.
+    cached_programme: Boolean
+
+    -- The registration polling cadence applies only on new-SDK watches and
+    -- only while the view is unregistered. Old-SDK watches cannot poll from
+    -- the foreground and rely on the BackgroundSync* rules instead.
+    is_new_sdk: Boolean
+    last_registration_poll_at: Timestamp? when status = unregistered
+
+    transitions status {
+        unregistered -> syncing
+        syncing -> sync_failed
+        syncing -> no_subscriptions
+        syncing -> no_programme
+        syncing -> upcoming
+        syncing -> ready
+        sync_failed -> syncing
+        no_subscriptions -> syncing
+        no_programme -> syncing
+        upcoming -> syncing
+        ready -> syncing
+    }
 }
 
 -- ── Defaults ───────────────────────────────────────────────────────────────
@@ -564,6 +677,220 @@ rule UnregisteredDevicePoll {
     when: DevicePollsServer(device_code)
     requires: not exists Device{device_code}
     ensures: WatchRegistrationRequired(device_code)
+}
+
+-- Watch DataField pre-session sync state machine
+--
+-- These rules govern the WatchDataFieldView lifecycle from open to either
+-- (a) handing over to a Session when the runner picks a programme on a
+-- 'ready' view, or (b) closing when the DataField becomes hidden. The sync
+-- strategy differs between the two CIQ SDK generations:
+--
+--   New SDK (>= 5.0): the DataField may issue HTTP requests from the
+--     foreground, so registration polling and the initial sync attempt both
+--     run in the foreground.
+--   Old SDK (<  5.0): the DataField may not issue HTTP requests from the
+--     foreground; registration take-up and ongoing sync rely on the
+--     background sync rules below.
+--
+-- The triggers SyncSucceeded / SyncFailed / TokenReceived are platform-
+-- delivered: they fire when the watch's HTTP callback completes. The
+-- DataFieldOpened / DataFieldHidden triggers are platform UI events.
+
+-- Initial branch: token presence at startup. Create a view; a follow-up
+-- rule (ViewInitialisedRegistered / ViewInitialisedUnregistered) sets the
+-- initial status. The `has_cached_programme` parameter is supplied by the
+-- platform from local storage inspection.
+rule DataFieldOpenedRegistered {
+    when: DataFieldOpened(device_code, has_cached_programme, is_new_sdk)
+    requires: exists Device{device_code}
+    ensures: WatchDataFieldView.created(
+        device_code: device_code,
+        cached_programme: has_cached_programme,
+        is_new_sdk: is_new_sdk
+    )
+    ensures: DevicePollsServer(device_code)
+}
+
+rule DataFieldOpenedUnregistered {
+    when: DataFieldOpened(device_code, has_cached_programme, is_new_sdk)
+    requires: not exists Device{device_code}
+    ensures: WatchDataFieldView.created(
+        device_code: device_code,
+        cached_programme: has_cached_programme,
+        is_new_sdk: is_new_sdk
+    )
+}
+
+-- Initialise the view's status immediately on creation. Mirrors the
+-- Session.created -> SessionInitialised pattern.
+rule ViewInitialisedRegistered {
+    when: view: WatchDataFieldView.created
+    requires: exists Device{device_code: view.device_code}
+    ensures: view.status = syncing
+}
+
+rule ViewInitialisedUnregistered {
+    when: view: WatchDataFieldView.created
+    requires: not exists Device{device_code: view.device_code}
+    ensures: view.status = unregistered
+}
+
+-- Sync outcome rules. SyncSucceeded carries a flag for each possible target
+-- state derived from the response: whether the account has any subscriptions,
+-- whether any subscribed programme is for today, whether any is in the future.
+-- These flags are determined by the response payload, not by reading server
+-- state directly (the watch sees only what the server returned).
+
+rule SyncSucceededReady {
+    when: SyncSucceeded(view, has_today, has_future, has_subscriptions)
+    requires: view.status = syncing
+    requires: has_today
+    ensures: view.status = ready
+}
+
+rule SyncSucceededUpcoming {
+    when: SyncSucceeded(view, has_today, has_future, has_subscriptions)
+    requires: view.status = syncing
+    requires: not has_today
+    requires: has_future
+    ensures: view.status = upcoming
+}
+
+rule SyncSucceededNoProgramme {
+    when: SyncSucceeded(view, has_today, has_future, has_subscriptions)
+    requires: view.status = syncing
+    requires: not has_today
+    requires: not has_future
+    requires: has_subscriptions
+    ensures: view.status = no_programme
+}
+
+rule SyncSucceededNoSubscriptions {
+    when: SyncSucceeded(view, has_today, has_future, has_subscriptions)
+    requires: view.status = syncing
+    requires: not has_subscriptions
+    ensures: view.status = no_subscriptions
+}
+
+-- Failed sync with no cached programme: surface the error and retry.
+rule SyncFailedNoCache {
+    when: SyncFailed(view, error)
+    requires: view.status = syncing
+    requires: not view.cached_programme
+    ensures: view.status = sync_failed
+    ensures: view.last_error = error
+    @guidance
+        -- Retry relies on the background temporal event (BackgroundSyncFires). No
+        -- foreground retry loop is initiated. The next background sync will attempt
+        -- DevicePollsServer again; if it succeeds, the view transitions out of
+        -- sync_failed via SyncSucceeded*. If the user has stale cached data from a
+        -- previous session it is shown instead (SyncFailedWithCache), so sync_failed
+        -- is only ever visible on a brand-new or fully-reset device with no cache.
+}
+
+-- Failed sync with a cached programme: stay silent. The view retains its
+-- prior display state. The cached state is implementation-held; the spec
+-- captures only that the view's status does not advance to sync_failed.
+rule SyncFailedWithCache {
+    when: SyncFailed(view, error)
+    requires: view.status = syncing
+    requires: view.cached_programme
+    @guidance
+        -- The watch continues to show whatever cached programme state it
+        -- had displayed before this sync attempt. A user mid-run with
+        -- intermittent connectivity must not see an error overlay.
+}
+
+-- Registration polling (new SDK only). While the view is in 'unregistered'
+-- and visible, fire a token poll at the registration_poll_interval cadence.
+-- Old-SDK views do not satisfy is_new_sdk and rely on background sync to
+-- detect registration take-up.
+rule RegistrationPollTimerFired {
+    when: view: WatchDataFieldView.last_registration_poll_at
+        + config.registration_poll_interval <= now
+    requires: view.status = unregistered
+    requires: view.is_new_sdk
+    ensures: DevicePollsServer(view.device_code)
+    ensures: view.last_registration_poll_at = now
+}
+
+-- The very first registration poll on view creation: the timer-based rule
+-- requires a prior last_registration_poll_at, so seed it here.
+rule RegistrationPollSeed {
+    when: view: WatchDataFieldView.created
+    requires: view.status = unregistered
+    requires: view.is_new_sdk
+    ensures: view.last_registration_poll_at = now
+    ensures: DevicePollsServer(view.device_code)
+}
+
+-- Token received: the server now has a Device for this device_code. Move
+-- the view from unregistered to syncing and issue a sync request.
+rule TokenReceived {
+    when: TokenReceived(view)
+    requires: view.status = unregistered
+    ensures: view.status = syncing
+    ensures: view.last_registration_poll_at = null
+    ensures: DevicePollsServer(view.device_code)
+}
+
+-- Once UnregisteredDevicePoll signals that no Device exists for the
+-- device_code, an unregistered view simply stays in 'unregistered'; the
+-- registration poll loop will check again at the next interval.
+-- (No rule needed; absence of a transition is the behaviour.)
+
+-- Background sync — SDK-split interval strategy
+--
+-- Background temporal events fire independently of whether the DataField is
+-- open. Two registration states drive different cadence rules:
+--
+--   Registered (Device exists): BackgroundSyncFires uses
+--     Device.effective_background_sync_interval (user-configured, defaulting
+--     to config.default_background_sync_interval).
+--
+--   Unregistered (no Device): on the old SDK, the watch platform fires a
+--     5-minute background timer that the spec models as the external
+--     stimulus BackgroundSyncTimerFired(device_code). This is the only
+--     pathway by which an old-SDK unregistered device can detect that
+--     registration has completed on the website. On the new SDK, foreground
+--     registration polling covers this case (RegistrationPollTimerFired),
+--     so BackgroundSyncTimerFired is silently a no-op when device is new SDK
+--     -- the platform need not emit it.
+
+rule BackgroundSyncFires {
+    when: device: Device.last_synced_at
+        + device.effective_background_sync_interval <= now
+    ensures: DevicePollsServer(device.device_code)
+}
+
+-- The very first sync after registration (before last_synced_at is set).
+-- Temporal arithmetic with null produces null, so the BackgroundSyncFires
+-- trigger never fires until last_synced_at has a value; this rule covers
+-- the initial fire from registered_at.
+rule BackgroundSyncInitialFire {
+    when: device: Device.registered_at
+        + device.effective_background_sync_interval <= now
+    requires: device.last_synced_at = null
+    ensures: DevicePollsServer(device.device_code)
+}
+
+-- Old-SDK unregistered background sync. Platform-delivered timer at the
+-- registration take-up cadence (config.background_sync_interval_while_unregistered,
+-- platform-enforced 5 minutes). The platform decides whether to emit this
+-- trigger; it does so only on old-SDK watches that lack a stored token.
+rule BackgroundSyncWhileUnregistered {
+    when: BackgroundSyncTimerFired(device_code)
+    requires: not exists Device{device_code: device_code}
+    ensures: DevicePollsServer(device_code)
+}
+
+-- DataField hidden: close the pre-session view. If a Session has taken
+-- over (the runner picked a programme), the Session governs display and
+-- this rule does not fire while the DataField remains the active screen.
+rule DataFieldHidden {
+    when: DataFieldHidden(view)
+    ensures: not exists view
 }
 
 -- Session lifecycle
@@ -1094,6 +1421,70 @@ surface WatchDataField {
         -- specific thresholds and colours are display concerns.
 }
 
+-- Watch data field pre-session view. Active while the DataField is open
+-- but no Session has yet been created — i.e. before the runner picks a
+-- programme for today. Keyed by device_code (not Device) because the view
+-- exists on both registered and unregistered watches.
+--
+-- Once the runner selects a programme on a 'ready' view, a Session is
+-- created and the WatchDataField surface takes over. The pre-session view
+-- is removed when the DataField is hidden (DataFieldHidden).
+surface WatchDataFieldPreSession {
+    facing runner: Device
+    context view: WatchDataFieldView where device_code = runner.device_code
+
+    exposes:
+        view.device_code when view.status = unregistered
+        view.status
+        view.last_error when view.status = sync_failed
+
+    provides:
+        DataFieldHidden(view)
+        SyncSucceeded(view, has_today, has_future, has_subscriptions)
+        SyncFailed(view, error)
+        TokenReceived(view)
+
+    timeout:
+        RegistrationPollTimerFired
+            when view.last_registration_poll_at
+                + config.registration_poll_interval <= now
+
+    @guarantee RegistrationDisplay
+        -- When status is unregistered the watch must show the device_code
+        -- and the registration URL so the runner can enter the code on the
+        -- website. The exact layout is a display concern.
+
+    @guarantee SilentOfflineFallback
+        -- When a sync fails on a view whose cached_programme is true, no
+        -- error is shown to the runner. This is critical mid-run: a runner
+        -- losing GPS or cellular must not be disrupted by a sync error.
+
+    @guidance
+        -- Foreground registration polling runs only when view.is_new_sdk is
+        -- true. On old-SDK watches the only path from unregistered to
+        -- syncing is via BackgroundSyncFires (5-minute cadence while
+        -- unregistered) followed by TokenReceived.
+}
+
+-- Watch platform DataField lifecycle. DataFieldOpened fires when the
+-- runner navigates to the Leadout DataField; the platform supplies the
+-- device_code (from local storage), whether a cached programme exists and
+-- whether the runtime is the new SDK. The view is created in response;
+-- subsequent SyncSucceeded / SyncFailed / TokenReceived triggers are
+-- delivered against that view via WatchDataFieldPreSession.
+--
+-- BackgroundSyncTimerFired is the platform-emitted timer that drives
+-- background sync on old-SDK watches that have not yet been registered
+-- (BackgroundSyncWhileUnregistered). The platform schedules this timer at
+-- config.background_sync_interval_while_unregistered (5 minutes); it is
+-- not emitted on new-SDK watches because foreground polling covers the
+-- registration-take-up case.
+surface WatchDataFieldLifecycle {
+    provides:
+        DataFieldOpened(device_code, has_cached_programme, is_new_sdk)
+        BackgroundSyncTimerFired(device_code)
+}
+
 -- Watch run sensors: hardware platform triggers during an active session.
 -- These are emitted by the watch's GPS, accelerometer and pace algorithms,
 -- not by any user interaction. They are implementation-delivered domain events.
@@ -1111,13 +1502,24 @@ surface WatchRunSensors {
 
 -- Watch-facing sync API. A data field sends its device_code; the server either
 -- returns all non-expired programmes (registered device) or signals that
--- registration is required (unregistered device).
--- Two sync modes on the watch:
---   Aggressive (60s foreground loop): while device has never successfully synced.
---   Passive (best-effort on open): after first sync; a failed sync never wipes
---     local storage.
--- A background temporal event (target: every 30 minutes) runs independently
--- of whether the data field is open.
+-- registration is required (unregistered device). The watch translates each
+-- response into a SyncSucceeded or SyncFailed trigger against an open
+-- WatchDataFieldView, or a TokenReceived trigger when a previously
+-- unregistered device discovers it has been claimed.
+--
+-- DevicePollsServer is the single boundary entry-point for all three sync
+-- pathways:
+--   1. Initial sync triggered by DataFieldOpenedRegistered.
+--   2. Foreground registration polling on new SDK
+--      (RegistrationPollTimerFired, RegistrationPollSeed).
+--   3. Background sync (BackgroundSyncFires, BackgroundSyncInitialFire),
+--      with cadence governed by Device.effective_background_sync_interval:
+--      5 minutes for old-SDK devices that have never synced, otherwise
+--      the user-configured interval (config.default_background_sync_interval).
+--
+-- Sync responses never wipe local storage: a SyncFailed on a view with a
+-- cached programme is silent (SyncFailedWithCache); only when there is no
+-- cache does sync_failed surface to the runner.
 surface WatchSyncAPI {
     provides:
         DevicePollsServer(device_code)
@@ -1188,7 +1590,7 @@ open question "Preferred programme — when a participant is subscribed to multi
 
 open question "Watch programme selection UI — if multiple programmes are available for today, the watch might allow the runner to choose via swipe gestures on the data field. Depends on the Connect IQ data field interaction model. Deferred."
 
-open question "Background sync interval — the target polling interval for the background temporal event is 30 minutes. This should be a config value; the platform minimum is 5 minutes."
+open question "Background sync interval validation — config.default_background_sync_interval is 60 minutes. The user can override via Device.background_sync_interval in the range 5–720 minutes. The 60-minute default and the 720-minute upper bound still need validation on real watches under typical battery and connectivity conditions."
 
 open question "Instructor authentication — the original design used Garmin Connect OAuth for instructor sign-in. If Garmin Developer Programme access cannot be obtained, instructors also need an alternative auth provider (e.g. Google OAuth). Not yet resolved."
 

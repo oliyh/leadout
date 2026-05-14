@@ -53,6 +53,7 @@ class leadout_datafieldApp extends Application.AppBase {
     function getInitialView() as [Views] or [Views, InputDelegates] {
         // getInitialView is foreground-only — safe to call isOldSdk() and make web requests.
         var old = isOldSdk();
+        Application.Storage.setValue("is_old_sdk", old);
         System.println("[App.getInitialView] hasToken=" + (mWatchToken != null) + " oldSdk=" + old);
         mView = new leadout_datafieldView();
         mView.setDeviceCode(mDeviceCode);
@@ -60,8 +61,11 @@ class leadout_datafieldApp extends Application.AppBase {
             // Old SDK: foreground web requests unavailable; background service handles sync.
             // Show the device code immediately if not yet registered.
             if (mWatchToken == null) {
-                System.println("[App.getInitialView] old SDK, no token — setting STATE_UNREGISTERED");
+                System.println("[App.getInitialView] old SDK, no token — setting STATE_UNREGISTERED, forcing 5-min background sync");
                 mView.setRegistrationRequired(mDeviceCode);
+                // Force 5-min background cadence so registration is detected promptly.
+                // syncPeriodSeconds() will return 300 because is_old_sdk=true and no token.
+                Background.registerForTemporalEvent(new Time.Duration(syncPeriodSeconds()));
             } else {
                 System.println("[App.getInitialView] old SDK, has token — background sync will load programme");
             }
@@ -72,7 +76,8 @@ class leadout_datafieldApp extends Application.AppBase {
                 System.println("[App.getInitialView] new SDK, has token — making foreground sync request");
                 makeSyncRequest(mDeviceCode, mWatchToken, method(:onSyncResponse));
             } else {
-                System.println("[App.getInitialView] new SDK, no token — polling token endpoint");
+                System.println("[App.getInitialView] new SDK, no token — showing device code, polling token endpoint");
+                mView.setRegistrationRequired(mDeviceCode);
                 makeTokenRequest(mDeviceCode, method(:onStartTokenPoll));
             }
         }
@@ -85,6 +90,15 @@ class leadout_datafieldApp extends Application.AppBase {
         var view = mView;
         if (!(data instanceof Dictionary) || view == null) { return; }
         var dict = data as Dictionary;
+
+        // The background service may have stored a token during the just-completed
+        // registration+sync chain. Refresh mWatchToken and re-register the temporal
+        // event so old-SDK devices switch off the 5-min registration-detection cadence.
+        var newToken = Application.Storage.getValue("watch_token");
+        if (newToken instanceof String && mWatchToken == null) {
+            mWatchToken = newToken as String;
+            Background.registerForTemporalEvent(new Time.Duration(syncPeriodSeconds()));
+        }
         if (dict.hasKey("auth_failed")) {
             handleAuthFailure();
         } else if (dict.hasKey("sync_failed")) {
@@ -146,6 +160,12 @@ class leadout_datafieldApp extends Application.AppBase {
             }
         }
 
+        // Successful sync: re-register temporal event so old-SDK devices switch from
+        // the 5-min registration-detection cadence to the user-configured interval.
+        if (responseCode == 200) {
+            Background.registerForTemporalEvent(new Time.Duration(syncPeriodSeconds()));
+        }
+
         // Retry any participation record that the immediate LAP-press POST may have missed.
         if (responseCode == 200) {
             var pendingId = Application.Storage.getValue("pending_participation_id");
@@ -186,9 +206,18 @@ class leadout_datafieldApp extends Application.AppBase {
     }
 
     hidden function syncPeriodSeconds() as Number {
+        // Old-SDK devices without a token use a 5-minute interval so background
+        // temporal events detect registration promptly (foreground polling unavailable).
+        var storedOldSdk = Application.Storage.getValue("is_old_sdk");
+        var storedToken = Application.Storage.getValue("watch_token");
+        if ((storedOldSdk instanceof Boolean) && (storedOldSdk as Boolean)
+                && !(storedToken instanceof String)) {
+            return 5 * 60;
+        }
         var freq = Application.Properties.getValue("SyncFrequency");
         var minutes = (freq instanceof Number) ? (freq as Number) : 60;
         if (minutes < 5) { minutes = 5; }
+        if (minutes > 720) { minutes = 720; }
         return minutes * 60;
     }
 

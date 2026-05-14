@@ -3,7 +3,7 @@
         <settingConfig type="boolean"/>
     </setting>
     <setting propertyKey="@Properties.SyncFrequency" title="@Strings.SyncFrequencyTitle">
-        <settingConfig type="numeric" min="5" max="120"/>
+        <settingConfig type="numeric" min="5" max="720"/>
     </setting>
     <setting propertyKey="@Properties.TriggerLap" title="@Strings.TriggerLapTitle">
         <settingConfig type="list">
