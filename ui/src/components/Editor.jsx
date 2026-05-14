@@ -2,25 +2,8 @@ import { useEffect } from 'preact/hooks';
 import { saving, lastSaved, updateProgramme, deleteProgramme, undoLabel, redoLabel, undo, redo } from '../store/programmes.js';
 import { openConfirmDelete } from '../store/modal.js';
 import { Timeline } from './Timeline.jsx';
-
-// pace_assumption may be a plain number (330) or {seconds_per_km:330} from older API responses
-function normPace(val) {
-    if (val && typeof val === 'object') return val.seconds_per_km ?? 330;
-    return Number(val) || 330;
-}
-
-function fmtPace(sec) {
-    const n = normPace(sec);
-    const m = Math.floor(n / 60);
-    const s = String(n % 60).padStart(2, '0');
-    return `${m}:${s}`;
-}
-
-function parsePace(str) {
-    const parts = str.split(':');
-    if (parts.length === 2) return Number(parts[0]) * 60 + Number(parts[1]);
-    return Number(str);
-}
+import { fmtPace, parsePace } from '../lib/format.js';
+import { normPace } from '../lib/estimates.js';
 
 function SaveIndicator() {
     if (saving.value) return <span class="save-indicator">Saving…</span>;

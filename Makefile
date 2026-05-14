@@ -120,6 +120,9 @@ ui-dev: ui-install
 ui-build: ui-install
 	cd ui && npm run build && cd .. && rm -rf server/public && cp -r ui/dist server/public
 
+ui-test: ui-install
+	cd ui && npm test
+
 # ======== Server ==========
 
 server-install:

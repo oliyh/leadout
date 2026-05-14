@@ -3,89 +3,8 @@ import { activeSegment, selectSegment } from '../store/editor.js';
 import { addBlock, updateBlock, deleteBlock, moveBlock, addSegment, moveSegment } from '../store/programmes.js';
 import { SegmentPanel } from './SegmentPanel.jsx';
 import { openTemplateModal } from '../store/modal.js';
-
-function fmtDuration(sec) {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    if (m === 0) return `${s}s`;
-    return s === 0 ? `${m}m` : `${m}m${s}s`;
-}
-
-function normPace(val) {
-    if (!val) return 0;
-    if (typeof val === 'object') return val.seconds_per_km ?? 0;
-    return Number(val) || 0;
-}
-
-function segDuration(seg, progPace) {
-    if (seg.kind === 'time') return seg.duration ?? 0;
-    if (seg.kind === 'distance') {
-        const pace = normPace(seg.target_pace) || normPace(progPace);
-        if (pace > 0 && seg.distance) return Math.round(seg.distance / 1000 * pace);
-        return 0;
-    }
-    if (seg.kind === 'repeat') {
-        if (seg.exit_type === 'time') return seg.duration ?? 0;
-        if (seg.exit_type === 'distance') {
-            const pace = normPace(progPace);
-            if (pace > 0 && seg.distance) return Math.round(seg.distance / 1000 * pace);
-        }
-        return 0;
-    }
-    return 0;
-}
-
-function segDistanceM(seg, progPace) {
-    if (seg.kind === 'distance') return seg.distance ?? 0;
-    if (seg.kind === 'time') {
-        const pace = normPace(seg.target_pace) || normPace(progPace);
-        if (pace > 0 && seg.duration) return Math.round(seg.duration / pace * 1000);
-    }
-    return 0;
-}
-
-function blockTotal(block, progPace) {
-    let total = 0;
-    let enclosedSecs = 0;
-    let enclosedDist = 0;
-
-    for (const seg of block.segments) {
-        if (seg.kind !== 'repeat') {
-            const dur = segDuration(seg, progPace);
-            total += dur;
-            enclosedSecs += dur;
-            enclosedDist += segDistanceM(seg, progPace);
-        } else {
-            total -= enclosedSecs; // undo enclosed segments already added
-            if (seg.exit_type === 'count') {
-                total += enclosedSecs * (seg.repeat_count || 1);
-            } else if (seg.exit_type === 'time') {
-                total += seg.duration ?? 0;
-            } else if (seg.exit_type === 'distance') {
-                if (enclosedDist > 0) {
-                    total += Math.round(enclosedSecs * ((seg.distance || 0) / enclosedDist));
-                } else {
-                    const pace = normPace(progPace);
-                    if (pace > 0 && seg.distance) total += Math.round(seg.distance / 1000 * pace);
-                }
-            }
-            enclosedSecs = 0;
-            enclosedDist = 0;
-        }
-    }
-
-    return total;
-}
-
-function segLabel(seg) {
-    if (seg.kind === 'repeat') {
-        if (seg.exit_type === 'count')    return `×${seg.repeat_count ?? '?'}`;
-        if (seg.exit_type === 'time')     return fmtDuration(seg.duration ?? 0);
-        if (seg.exit_type === 'distance') return `${seg.distance ?? '?'}m`;
-    }
-    if (seg.kind === 'distance') return `${seg.distance ?? '?'}m`;
-    return fmtDuration(seg.duration ?? 0);
-}
+import { normPace, segDuration, segDistanceM, blockStats, progStats } from '../lib/estimates.js';
+import { fmtDuration, fmtDistance, segLabel } from '../lib/format.js';
 
 function segEstimate(seg, progPace) {
     if (seg.kind === 'repeat') return null;
@@ -188,7 +107,7 @@ function SegmentStrip({ prog, block, act, readonly }) {
 
 function BlockRow({ prog, block, index, total, readonly }) {
     const act = activeSegment.value;
-    const total_ = blockTotal(block, prog.pace_assumption);
+    const { durationSecs, distanceM } = blockStats(block, prog.pace_assumption);
     const activeSeg = !readonly && act?.blockId === block.id
         ? block.segments.find(s => s.id === act.segId)
         : null;
@@ -205,7 +124,10 @@ function BlockRow({ prog, block, index, total, readonly }) {
                     ? <span class="timeline-block-name" style="padding:3px 6px">{block.name}</span>
                     : <input class="timeline-block-name" defaultValue={block.name} key={block.id + '-name'} onBlur={onNameBlur} />
                 }
-                <span class="block-total-dur">{fmtDuration(total_)}</span>
+                <span class="block-total-dur">
+                    {fmtDuration(durationSecs)}
+                    {fmtDistance(distanceM) && <span class="block-total-dist"> · {fmtDistance(distanceM)}</span>}
+                </span>
                 {!readonly && (
                     <div class="timeline-row-actions">
                         <button class="btn-icon" disabled={index === 0}
@@ -226,7 +148,7 @@ function BlockRow({ prog, block, index, total, readonly }) {
 }
 
 export function Timeline({ prog, readonly }) {
-    const grand = prog.blocks.reduce((sum, b) => sum + blockTotal(b, prog.pace_assumption), 0);
+    const { durationSecs: grand, distanceM: grandDist } = progStats(prog.blocks, prog.pace_assumption);
 
     function fmtTotal(sec) {
         const m = Math.floor(sec / 60);
@@ -238,7 +160,11 @@ export function Timeline({ prog, readonly }) {
         <div class="timeline-section">
             <div class="timeline-header">
                 <span class="section-title">Programme</span>
-                {grand > 0 && <span class="timeline-total">{fmtTotal(grand)} total</span>}
+                {grand > 0 && (
+                    <span class="timeline-total">
+                        {fmtTotal(grand)}{fmtDistance(grandDist) && ` · ${fmtDistance(grandDist)}`} total
+                    </span>
+                )}
             </div>
 
             {prog.blocks.length === 0 && (

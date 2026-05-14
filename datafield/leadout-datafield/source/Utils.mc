@@ -155,8 +155,8 @@ function shouldExitRepeat(
 (:background)
 function findNextProgramme(programmes as Array<Dictionary>) as Dictionary? {
     var t = todayDateString();
-    var best = null as Dictionary?;
-    var bestDate = "" as String;
+    var best = null;
+    var bestDate = "";
     for (var i = 0; i < programmes.size(); i++) {
         var p = programmes[i] as Dictionary;
         var d = p["scheduled_date"] as String;
