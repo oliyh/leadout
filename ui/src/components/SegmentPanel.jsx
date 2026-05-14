@@ -61,13 +61,14 @@ export function SegmentPanel({ progId, blockId, seg }) {
 
     function onKind(e) {
         const k = e.target.value;
+        const newName = k === 'repeat' ? '' : name;
         setKind(k);
-        setName('');
+        setName(newName);
         setDuration('');
         setDistance('');
         setRepeatCount('3');
         setRepeatMins('10');
-        save({ kind: k, name: '', duration: '', distance: '', repeatCount: '3', repeatMins: '10' }, 'change type');
+        save({ kind: k, name: newName, duration: '', distance: '', repeatCount: '3', repeatMins: '10' }, 'change type');
     }
 
     function onExitType(e) {
