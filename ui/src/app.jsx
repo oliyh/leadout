@@ -8,6 +8,7 @@ import { SubscriptionView } from './pages/SubscriptionView.jsx';
 import { HomePage } from './pages/HomePage.jsx';
 import { SetupPage } from './pages/SetupPage.jsx';
 import { AdminPage } from './pages/AdminPage.jsx';
+import { HowItWorksPage } from './pages/HowItWorksPage.jsx';
 import { isSignedIn, accountId, restoreSession } from './store/auth.js';
 import { currentView, loadParticipantData, showChannel, showHome, showSetup } from './store/dashboard.js';
 import { checkAdminAccess } from './store/admin.js';
@@ -44,6 +45,10 @@ function MainArea() {
 
     if (view?.type === 'setup') {
         return <SetupPage />;
+    }
+
+    if (view?.type === 'how-it-works') {
+        return <HowItWorksPage />;
     }
 
     if (view?.type === 'admin') {
