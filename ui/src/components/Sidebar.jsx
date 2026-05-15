@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { signOut } from '../store/auth.js';
 import { openExternalProgramme } from '../store/programmes.js';
-import { currentView, showChannel, showSubscription, showSubscriptionProgramme, showHome, showProgrammeEditor, showSetup, showAdmin, showHowItWorks } from '../store/dashboard.js';
+import { currentView, showChannel, showSubscription, showSubscriptionProgramme, showHome, showProgrammeEditor, showSetup, showAdmin, showHowItWorks, showMakingProgrammes } from '../store/dashboard.js';
 import { channels } from '../store/channels.js';
 import { subscriptions } from '../store/subscriptions.js';
 import { devices } from '../store/devices.js';
@@ -144,11 +144,14 @@ export function Sidebar() {
             {/* ── Help ─────────────────────────────────────────────────── */}
             <div class="sidebar-section">
                 <div class="sidebar-section-title">Help</div>
+                <button class="btn-ghost sidebar-help" onClick={() => { showSetup(); close(); }}>
+                    Getting started
+                </button>
                 <button class="btn-ghost sidebar-help" onClick={() => { showHowItWorks(); close(); }}>
                     How does it work?
                 </button>
-                <button class="btn-ghost sidebar-help" onClick={() => { showSetup(); close(); }}>
-                    Getting started
+                <button class="btn-ghost sidebar-help" onClick={() => { showMakingProgrammes(); close(); }}>
+                    Making programmes
                 </button>
             </div>
 

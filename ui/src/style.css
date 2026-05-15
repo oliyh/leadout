@@ -1545,6 +1545,137 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     .hiw-col-headers { grid-template-columns: 1fr 36px 1fr; }
 }
 
+/* ── Making programmes page ───────────────────────────────────────────────── */
+
+.mp-prose {
+    font-size: 14px;
+    color: #555;
+    line-height: 1.7;
+    margin: 16px 0 24px;
+    max-width: 580px;
+}
+
+.mp-seg-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0 32px;
+}
+
+.mp-seg-card {
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e8e8e8;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.mp-seg-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+}
+
+.mp-seg-icon { font-size: 16px; }
+
+.mp-seg-time     { background: #6aabf0; }
+.mp-seg-distance { background: #a6c983; }
+.mp-seg-location { background: #cba6f7; }
+.mp-seg-pace     { background: #f0a06a; }
+
+.mp-seg-card-body {
+    padding: 14px 16px;
+}
+
+.mp-exit-clause {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.mp-exit-label {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #aaa;
+    white-space: nowrap;
+}
+
+.mp-exit-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: #333;
+}
+
+.mp-seg-card-body p {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.6;
+    margin: 0 0 12px;
+}
+
+.mp-screenshot-placeholder {
+    background: #f5f5f5;
+    border: 1.5px dashed #ccc;
+    border-radius: 6px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #bbb;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.mp-screenshot-wide {
+    height: 180px;
+    margin: 20px 0 0;
+}
+
+.mp-share-block {
+    background: #1e1e2e;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0 16px;
+}
+
+.mp-share-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #585b70;
+    margin-bottom: 8px;
+}
+
+.mp-share-url {
+    font-size: 16px;
+    font-weight: 600;
+    color: #cdd6f4;
+    font-family: monospace;
+    margin-bottom: 10px;
+}
+
+.mp-share-code { color: #cba6f7; }
+
+.mp-share-hint {
+    font-size: 12px;
+    color: #a6adc8;
+    line-height: 1.6;
+}
+
+@media (max-width: 520px) {
+    .mp-seg-grid { grid-template-columns: 1fr; }
+}
+
 /* ── Admin page ───────────────────────────────────────────────────────────── */
 
 .admin-page { max-width: 860px; }

@@ -14,6 +14,7 @@ export async function loadParticipantData() {
 //   { type: 'programme',    id, channel_id} → programme editor
 //   { type: 'subscription', channel_id }    → subscription view
 //   { type: 'how-it-works' }                → how it works help page
+//   { type: 'making-programmes' }           → making programmes guide
 
 function viewFromURL() {
     const p = window.location.pathname;
@@ -21,6 +22,7 @@ function viewFromURL() {
     if (p === '/setup')                                                   return { type: 'setup' };
     if (p === '/admin')                                                   return { type: 'admin' };
     if (p === '/how-it-works')                                           return { type: 'how-it-works' };
+    if (p === '/making-programmes')                                       return { type: 'making-programmes' };
     if ((m = p.match(/^\/channels\/([^/]+)$/)))                         return { type: 'channel', id: m[1] };
     if ((m = p.match(/^\/subscriptions\/([^/]+)$/)))                    return { type: 'subscription', channel_id: m[1] };
     if ((m = p.match(/^\/subscriptions\/([^/]+)\/programme\/([^/]+)/))) return { type: 'subscription', channel_id: m[1], programme_id: m[2] };
@@ -39,7 +41,8 @@ effect(() => {
     let url = '/';
     if (view?.type === 'setup')             url = '/setup';
     else if (view?.type === 'admin')        url = '/admin';
-    else if (view?.type === 'how-it-works') url = '/how-it-works';
+    else if (view?.type === 'how-it-works')       url = '/how-it-works';
+    else if (view?.type === 'making-programmes')  url = '/making-programmes';
     else if (view?.type === 'channel')      url = `/channels/${view.id}`;
     else if (view?.type === 'subscription' && view.programme_id)
                                             url = `/subscriptions/${view.channel_id}/programme/${view.programme_id}`;
@@ -58,6 +61,7 @@ export function showProgrammeEditor(id, channel_id) { currentView.value = { type
 export function showSetup()                  { currentView.value = { type: 'setup' }; }
 export function showAdmin()                  { currentView.value = { type: 'admin' }; }
 export function showHowItWorks()             { currentView.value = { type: 'how-it-works' }; }
+export function showMakingProgrammes()       { currentView.value = { type: 'making-programmes' }; }
 export function showHome()                   { currentView.value = null; }
 
 // Poll participant data every minute so upcoming programmes stay fresh.
