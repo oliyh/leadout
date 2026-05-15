@@ -10,6 +10,9 @@ SDK_NAME="connectiq-sdk-lin-${SDK_VERSION}"
 SDK_DIR="$HOME/.Garmin/ConnectIQ/Sdks/${SDK_NAME}"
 SDK_URL="https://developer.garmin.com/downloads/connect-iq/sdks/connectiq-sdk-lin-${SDK_VERSION}-${SDK_DATE}-${SDK_HASH}.zip"
 
+SDK_MANAGER_URL="https://developer.garmin.com/downloads/connect-iq/sdk-manager/connectiq-sdk-manager-linux.zip"
+SDK_MANAGER_DIR="$HOME/.local/ciq-sdk-manager"
+
 LIBXML_URL="http://launchpadlibrarian.net/714702232/libxml2_2.9.13+dfsg-1ubuntu0.4_amd64.deb"
 LIBXML_SO="libxml2.so.2.9.13"
 
@@ -45,6 +48,26 @@ else
 fi
 ln -sf "$HOME/.local/lib/$LIBXML_SO" "$HOME/.local/lib/libxml2.so.2"
 
+echo "==> Downloading Connect IQ SDK Manager"
+if [ ! -f "$SDK_MANAGER_DIR/bin/sdkmanager" ]; then
+    curl -L --progress-bar -o "/tmp/connectiq-sdk-manager.zip" "$SDK_MANAGER_URL"
+    mkdir -p "$SDK_MANAGER_DIR"
+    unzip -q "/tmp/connectiq-sdk-manager.zip" -d "$SDK_MANAGER_DIR"
+    chmod +x "$SDK_MANAGER_DIR/bin/sdkmanager"
+    echo "    Extracted to $SDK_MANAGER_DIR"
+else
+    echo "    Already present, skipping"
+fi
+
+echo "==> Configuring SDK Manager paths"
+CIQ_DIR="$HOME/.Garmin/ConnectIQ"
+# Tell the VS Code extension where the SDK Manager binary lives
+echo "$SDK_MANAGER_DIR/bin/sdkmanager" > "$CIQ_DIR/sdkmanager-location.cfg"
+# Placeholder config — SDK Manager overwrites this on first run, but extension requires it to exist
+if [ ! -f "$CIQ_DIR/sdkmanager-config.ini" ]; then
+    touch "$CIQ_DIR/sdkmanager-config.ini"
+fi
+
 echo "==> Installing simulator and monkeydo wrapper scripts"
 mkdir -p "$HOME/.local/bin"
 cat > "$HOME/.local/bin/ciq-simulator" << 'EOF'
@@ -57,7 +80,12 @@ cat > "$HOME/.local/bin/ciq-run" << 'EOF'
 exec env LD_LIBRARY_PATH="$HOME/.local/lib:$LD_LIBRARY_PATH" \
     "$HOME/.Garmin/ConnectIQ/Sdks/current/bin/monkeydo" "$@"
 EOF
-chmod +x "$HOME/.local/bin/ciq-simulator" "$HOME/.local/bin/ciq-run"
+cat > "$HOME/.local/bin/ciq-sdk-manager" << 'EOF'
+#!/bin/bash
+exec env LD_LIBRARY_PATH="$HOME/.local/lib:$LD_LIBRARY_PATH" \
+    "$HOME/.local/ciq-sdk-manager/bin/sdkmanager" "$@"
+EOF
+chmod +x "$HOME/.local/bin/ciq-simulator" "$HOME/.local/bin/ciq-run" "$HOME/.local/bin/ciq-sdk-manager"
 
 echo "==> Configuring ydotool (evdev-based input for simulator automation)"
 if ! groups | grep -q '\binput\b'; then
@@ -80,7 +108,7 @@ else
 fi
 
 echo ""
-echo "Done. Two manual steps remain:"
+echo "Done. Manual steps required before building:"
 echo ""
 echo "  1. Generate a developer key (required to build):"
 echo "     VS Code → Ctrl+Shift+P → 'Monkey C: Generate Developer Key'"
@@ -89,3 +117,8 @@ echo ""
 echo "  2. Set VS Code settings (Ctrl+,):"
 echo "     monkeyC.javaPath        = /usr/lib/jvm/java-21-openjdk-amd64"
 echo "     monkeyC.developerKeyPath = <path to developer key>"
+echo ""
+echo "  3. Download device definitions (requires Garmin login + agreement):"
+echo "     Run: ciq-sdk-manager"
+echo "     Sign in, accept the agreement, then select and install the devices you need."
+echo "     Devices are stored in \$HOME/.Garmin/ConnectIQ/Devices/ and are needed to build."
