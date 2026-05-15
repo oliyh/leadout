@@ -23,6 +23,7 @@ WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
 datafield-build:
 	$(JAVA) -Xms1g \
+		-Djava.awt.headless=true \
 		-Dfile.encoding=UTF-8 \
 		-Dapple.awt.UIElement=true \
 		-jar $(SDK_JAR) \
@@ -33,6 +34,7 @@ datafield-build:
 
 datafield-sim:
 	$(JAVA) -Xms1g \
+		-Djava.awt.headless=true \
 		-Dfile.encoding=UTF-8 \
 		-Dapple.awt.UIElement=true \
 		-jar $(SDK_JAR) \
@@ -43,6 +45,7 @@ datafield-sim:
 
 datafield-build-test:
 	$(JAVA) -Xms1g \
+		-Djava.awt.headless=true \
 		-Dfile.encoding=UTF-8 \
 		-Dapple.awt.UIElement=true \
 		-jar $(SDK_JAR) \
@@ -54,6 +57,7 @@ datafield-build-test:
 
 datafield-release:
 	$(JAVA) -Xms1g \
+		-Djava.awt.headless=true \
 		-Dfile.encoding=UTF-8 \
 		-Dapple.awt.UIElement=true \
 		-jar $(SDK_JAR) \
