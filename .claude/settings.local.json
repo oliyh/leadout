@@ -16,7 +16,13 @@
       "Bash(curl -s -I \"https://developer.garmin.com/downloads/connect-iq/devices/fr265s.zip\")",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d.get\\('description',''\\)\\); [print\\(k,':',v\\) for k,v in d.get\\('contributes',{}\\).get\\('configuration',{}\\).get\\('properties',{}\\).items\\(\\)]\")",
       "Bash(~/.Garmin/ConnectIQ/Sdks/current/bin/monkeyc --help)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(npm test *)",
+      "Bash(git -C /workspaces/leadout ls-files server/.env ui/.env)",
+      "Bash(node -e \"const v = require\\('/workspaces/leadout/ui/node_modules/vite/package.json'\\); console.log\\(v.version\\)\")",
+      "Bash(curl -s -I http://localhost:5173)",
+      "Bash(npm install *)",
+      "Bash(npm run *)"
     ],
     "additionalDirectories": [
       "/home/oliy/dev/leadout"

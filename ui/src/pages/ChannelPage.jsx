@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { instructorApi } from '../store/api.js';
 import { showProgrammeEditor } from '../store/dashboard.js';
 import { createProgramme, loadChannels } from '../store/channels.js';
-import { openExternalProgramme } from '../store/programmes.js';
+import { openExternalProgramme, addBlock } from '../store/programmes.js';
 import { openCloneProgramme } from '../store/modal.js';
 
 function today() { return new Date().toISOString().slice(0, 10); }

@@ -18,12 +18,13 @@
  *   Programme:     id (String), name (String), scheduled_date (String YYYY-MM-DD),
  *                  blocks (Array), pace_assumption (Number, seconds/km)
  *   Block:         name (String), segments (Array)
- *   Segment:       name (String), kind ("time"|"distance"|"repeat"),
+ *   Segment:       name (String), kind ("time"|"distance"|"repeat"|"line"),
  *                  duration (Number, seconds — time segments and time-exit repeats),
  *                  distance (Number, metres — distance segments and distance-exit repeats),
  *                  target_pace (Number seconds/km | null — absent on repeat segments),
  *                  exit_type ("count"|"time"|"distance" — repeat segments only),
- *                  repeat_count (Number — count-exit repeats only)
+ *                  repeat_count (Number — count-exit repeats only),
+ *                  p1_lat, p1_lng, p2_lat, p2_lng (Number degrees — line segments only)
  *   ParticipationRequest:  device_code (String), programme_id (String)
  */
 
@@ -110,8 +111,8 @@ export function assertBlockShape(b) {
 export function assertSegmentShape(s) {
     if (typeof s.name !== 'string')
         throw new Error(`segment.name must be string (got ${typeof s.name})`);
-    if (s.kind !== 'time' && s.kind !== 'distance' && s.kind !== 'repeat')
-        throw new Error(`segment.kind must be 'time', 'distance', or 'repeat' (got '${s.kind}')`);
+    if (s.kind !== 'time' && s.kind !== 'distance' && s.kind !== 'repeat' && s.kind !== 'line')
+        throw new Error(`segment.kind must be 'time', 'distance', 'repeat', or 'line' (got '${s.kind}')`);
     if (s.kind === 'time' && typeof s.duration !== 'number')
         throw new Error(`time segment.duration must be number (got ${typeof s.duration})`);
     if (s.kind === 'distance' && typeof s.distance !== 'number')
@@ -125,6 +126,12 @@ export function assertSegmentShape(s) {
             throw new Error(`time-exit repeat segment.duration must be number (got ${typeof s.duration})`);
         if (s.exit_type === 'distance' && typeof s.distance !== 'number')
             throw new Error(`distance-exit repeat segment.distance must be number (got ${typeof s.distance})`);
+    }
+    if (s.kind === 'line') {
+        for (const f of ['p1_lat', 'p1_lng', 'p2_lat', 'p2_lng']) {
+            if (typeof s[f] !== 'number')
+                throw new Error(`line segment.${f} must be number (got ${typeof s[f]})`);
+        }
     }
 }
 

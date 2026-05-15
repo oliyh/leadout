@@ -165,6 +165,19 @@ function makeSegment(data, position) {
             position,
         };
     }
+    if (kind === 'line') {
+        return {
+            id:          data.id || newId(),
+            name:        data.name || 'Finish line',
+            kind:        'line',
+            p1_lat:      data.p1_lat != null ? Number(data.p1_lat) : null,
+            p1_lng:      data.p1_lng != null ? Number(data.p1_lng) : null,
+            p2_lat:      data.p2_lat != null ? Number(data.p2_lat) : null,
+            p2_lng:      data.p2_lng != null ? Number(data.p2_lng) : null,
+            target_pace: data.target_pace ? Number(data.target_pace) : null,
+            position,
+        };
+    }
     return {
         id:          data.id || newId(),
         name:        data.name || 'Segment',

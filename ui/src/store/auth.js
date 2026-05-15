@@ -66,6 +66,28 @@ export function signOut() {
     window.location.href = '/';
 }
 
+export async function devSignIn() {
+    signingIn.value   = true;
+    signInError.value = null;
+    try {
+        const res = await fetch('/api/auth/dev', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({}),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const account = await res.json();
+        localStorage.setItem(LS_ACCOUNT_ID, account.id);
+        localStorage.setItem(LS_TOKEN,      account.token);
+        accountId.value = account.id;
+    } catch (err) {
+        signInError.value = 'Dev sign-in failed. Is DEV_AUTH=true set on the server?';
+        console.error('Dev sign-in error:', err);
+    } finally {
+        signingIn.value = false;
+    }
+}
+
 // Called on every app startup. accountId and the bearer token are already
 // restored from localStorage synchronously above. This is a no-op — the
 // stored token is validated on the first authenticated API call, which will

@@ -131,6 +131,10 @@ describe('segLabel', () => {
         expect(segLabel({ kind: 'repeat', exit_type: 'distance', distance: 800 })).toBe('800m');
     });
 
+    it('formats line segment as "Line"', () => {
+        expect(segLabel({ kind: 'line', p1_lat: 51.5074, p1_lng: -0.1278, p2_lat: 51.5075, p2_lng: -0.1280 })).toBe('Line');
+    });
+
     it('shows ? for missing values', () => {
         expect(segLabel({ kind: 'repeat', exit_type: 'count' })).toBe('×?');
         expect(segLabel({ kind: 'distance' })).toBe('?m');

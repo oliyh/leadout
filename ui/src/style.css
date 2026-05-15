@@ -368,6 +368,31 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 
 .segment-panel-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 
+/* Line segment map */
+.segment-panel:has(.line-map-wrap) { align-items: flex-start; }
+.line-map-wrap { flex: 0 0 100%; display: flex; flex-direction: column; gap: 4px; }
+.line-map-container { position: relative; }
+.line-map { height: 260px; border-radius: 6px; overflow: hidden; border: 1px solid #ccc; }
+.line-map-hint { font-size: 11px; color: #888; margin: 0; }
+.line-map-marker {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #cba6f7; border: 2px solid #7c3aed;
+    color: #1e1e2e; font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.line-map-marker-ghost { opacity: 0.45; background: #a6adc8; border-color: #585b70; }
+.sat-toggle {
+    position: absolute; top: 8px; right: 8px; z-index: 1000;
+    background: white; border: 1px solid #ccc; border-radius: 4px;
+    padding: 3px 8px; font-size: 11px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.sat-toggle:hover { background: #f5f5f5; }
+.seg-field-coords { flex-direction: row; align-items: center; gap: 6px; }
+.seg-field-coords label { align-self: center; margin-bottom: 0; }
+.seg-field-coords input { width: 100px; }
+
 /* Timeline footer */
 .timeline-footer {
     padding: 10px 12px;
@@ -551,6 +576,9 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
 .signin-error { color: #f38ba8; font-size: 12px; }
 .signin-hint  { color: #6c7086; font-size: 12px; }
 .google-signin-container { min-height: 44px; }
+.btn-dev-signin { background: #313244; color: #a6adc8; border: 1px dashed #585b70; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.btn-dev-signin:hover { background: #45475a; color: #cdd6f4; }
+.btn-dev-signin:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .channel-item { border-left: 3px solid transparent; }
 .channel-item.active { border-left-color: #cba6f7; }

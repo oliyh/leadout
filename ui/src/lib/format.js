@@ -41,5 +41,6 @@ export function segLabel(seg) {
         if (seg.exit_type === 'distance') return `${seg.distance ?? '?'}m`;
     }
     if (seg.kind === 'distance') return `${seg.distance ?? '?'}m`;
+    if (seg.kind === 'line')     return 'Line';
     return fmtDuration(seg.duration ?? 0);
 }

@@ -96,6 +96,18 @@ export function createApp(store) {
         });
     }
 
+    // ── Dev auth bypass (DEV_AUTH=true) ──────────────────────────────────────
+    // Allows sign-in without Google in environments where the Google OAuth
+    // origin isn't registered (devcontainers, Codespaces). Never set in prod.
+
+    if (process.env.DEV_AUTH === 'true') {
+        app.post('/api/auth/dev', async (req, res) => {
+            const google_id = req.body.google_id || 'dev-user';
+            const account = await store.findOrCreateAccount(google_id);
+            res.json({ ...account, token: signToken(account.id) });
+        });
+    }
+
     // ── Auth: verify Google id_token ──────────────────────────────────────────
     // Accepts a real Google id_token JWT from Google Identity Services.
     // Verifies via Google's tokeninfo endpoint, extracts the stable `sub` claim.

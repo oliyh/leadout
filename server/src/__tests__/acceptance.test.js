@@ -347,6 +347,83 @@ describe('Subscription and sync flow', () => {
     });
 });
 
+// ── Line segment sync flow ────────────────────────────────────────────────────
+
+describe('Line segment sync flow', () => {
+    let app, instructor;
+
+    beforeEach(async () => {
+        ({ app } = makeApp());
+        instructor = await httpCreateAccount(app, 'g-line-instructor');
+    });
+
+    it('line segment survives publish → sync round-trip with coordinates intact', async () => {
+        const channel = await httpCreateChannel(app, 'Line Test Channel', instructor);
+        await httpCreateProgramme(app, channel.id, instructor, {
+            name: 'Line Session',
+            blocks: [
+                {
+                    name: 'Main',
+                    segments: [
+                        {
+                            name:    'Start/Finish',
+                            kind:    'line',
+                            p1_lat:  51.5074,
+                            p1_lng:  -0.1278,
+                            p2_lat:  51.5075,
+                            p2_lng:  -0.1280,
+                            target_pace: null,
+                        },
+                    ],
+                },
+            ],
+        });
+
+        const account = await httpCreateAccount(app, 'g-line-01');
+        const { watch_token } = await httpRegisterDevice(app, account, 'WATCH-LINE-01');
+        await httpSubscribe(app, channel.id, account);
+
+        const res = await httpSync(app, 'WATCH-LINE-01', watch_token);
+        expect(res.status).toBe(200);
+
+        const seg = res.body.programmes[0].blocks[0].segments[0];
+        expect(seg.kind).toBe('line');
+        expect(seg.p1_lat).toBeCloseTo(51.5074, 4);
+        expect(seg.p1_lng).toBeCloseTo(-0.1278, 4);
+        expect(seg.p2_lat).toBeCloseTo(51.5075, 4);
+        expect(seg.p2_lng).toBeCloseTo(-0.1280, 4);
+    });
+
+    it('line segment passes assertSegmentShape validation', async () => {
+        const channel = await httpCreateChannel(app, 'Line Shape Channel', instructor);
+        await httpCreateProgramme(app, channel.id, instructor, {
+            name: 'Line Shape Session',
+            blocks: [
+                {
+                    name: 'Block',
+                    segments: [
+                        { name: 'Crossing', kind: 'line', p1_lat: 51.0, p1_lng: -0.1, p2_lat: 51.001, p2_lng: -0.1, target_pace: null },
+                    ],
+                },
+            ],
+        });
+
+        const account = await httpCreateAccount(app, 'g-line-02');
+        const { watch_token } = await httpRegisterDevice(app, account, 'WATCH-LINE-02');
+        await httpSubscribe(app, channel.id, account);
+
+        const res = await httpSync(app, 'WATCH-LINE-02', watch_token);
+        expect(res.status).toBe(200);
+
+        for (const block of res.body.programmes[0].blocks) {
+            assertBlockShape(block);
+            for (const seg of block.segments) {
+                expect(() => assertSegmentShape(seg)).not.toThrow();
+            }
+        }
+    });
+});
+
 // ── Participation flow ────────────────────────────────────────────────────────
 
 describe('Participation flow', () => {
