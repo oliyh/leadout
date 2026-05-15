@@ -672,6 +672,27 @@ function testContract_participationRequest_fields(logger as Test.Logger) as Bool
 }
 
 (:test)
+function testContract_segment_lineKind(logger as Test.Logger) as Boolean {
+    // Mirrors assertSegmentShape() for kind='line' in spec/contract.js.
+    // The watch reads p1_lat, p1_lng, p2_lat, p2_lng from a line segment.
+    var seg = {
+        "name"        => "Start/Finish",
+        "kind"        => "line",
+        "p1_lat"      => 51.5074f,
+        "p1_lng"      => -0.1278f,
+        "p2_lat"      => 51.5075f,
+        "p2_lng"      => -0.1280f,
+        "target_pace" => null
+    };
+    Test.assertEqualMessage(seg["kind"] as String, "line",         "line segment kind field is 'kind'");
+    Test.assertMessage(seg["p1_lat"] instanceof Float,             "p1_lat is Float");
+    Test.assertMessage(seg["p1_lng"] instanceof Float,             "p1_lng is Float");
+    Test.assertMessage(seg["p2_lat"] instanceof Float,             "p2_lat is Float");
+    Test.assertMessage(seg["p2_lng"] instanceof Float,             "p2_lng is Float");
+    return true;
+}
+
+(:test)
 function testContract_segment_repeatKind(logger as Test.Logger) as Boolean {
     // Mirrors assertSegmentShape() for kind='repeat' in spec/contract.js.
     // The watch reads exit_type, repeat_count (count-exit), duration (time-exit),
@@ -800,5 +821,67 @@ function testShouldExitRepeat_distance_exactlyReached(logger as Test.Logger) as 
 function testShouldExitRepeat_distance_exceeded(logger as Test.Logger) as Boolean {
     var seg = { :exit_type => "distance", :repeat_count => 0, :duration => 0, :distance => 400.0f };
     Test.assertMessage(shouldExitRepeat(seg, 1, 0, 500.0f), "500 m of 400 m — done");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// lineCrossingCheck
+// Returns true when the GPS movement path (p1→p2) intersects the finish line
+// segment (q1→q2). Uses 2D parametric segment intersection after equirectangular
+// projection centred on q1. Both t (position along movement) and u (position along
+// finish line) must be in [0,1] for a crossing to register.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testLineCrossing_clear(logger as Test.Logger) as Boolean {
+    // East-west movement clearly crosses a north-south finish line at the origin.
+    // Paths intersect at (0.0, 0.0) with t=0.5, u=0.5.
+    var result = lineCrossingCheck(
+         0.0d, -0.001d,    // p1: west of line
+         0.0d,  0.001d,    // p2: east of line
+        -0.001d, 0.0d,     // q1: south endpoint
+         0.001d, 0.0d      // q2: north endpoint
+    );
+    Test.assertMessage(result, "movement crossing the line should return true");
+    return true;
+}
+
+(:test)
+function testLineCrossing_movement_stops_short(logger as Test.Logger) as Boolean {
+    // Movement heads towards the line but stops before reaching it (t=2.0 at intersection).
+    var result = lineCrossingCheck(
+         0.0d, -0.002d,
+         0.0d, -0.001d,
+        -0.001d, 0.0d,
+         0.001d, 0.0d
+    );
+    Test.assertMessage(!result, "movement stopping short should return false");
+    return true;
+}
+
+(:test)
+function testLineCrossing_parallel(logger as Test.Logger) as Boolean {
+    // Movement runs parallel to the finish line — denom is 0, no crossing.
+    var result = lineCrossingCheck(
+        -0.001d, -0.001d,
+         0.001d, -0.001d,
+        -0.001d,  0.0d,
+         0.001d,  0.0d
+    );
+    Test.assertMessage(!result, "parallel movement should return false");
+    return true;
+}
+
+(:test)
+function testLineCrossing_crosses_extension_not_segment(logger as Test.Logger) as Boolean {
+    // Movement crosses the infinite extension of the line but passes east of
+    // the actual segment endpoint — u=2.0 at crossing, outside [0,1].
+    var result = lineCrossingCheck(
+        -0.001d, 0.002d,   // p1: south, beyond east end of line
+         0.001d, 0.002d,   // p2: north, beyond east end of line
+         0.0d,   0.0d,     // q1: west end of short east-west line
+         0.0d,   0.001d    // q2: east end (line goes from lng=0 to lng=0.001)
+    );
+    Test.assertMessage(!result, "crossing beyond line endpoint should return false");
     return true;
 }

@@ -72,7 +72,11 @@ datafield-test: datafield-build-test
 	    sleep 6; \
 	fi
 	@$(MONKEYDO) $(PRG_TEST) $(DEVICE) -t 2>&1 | tee /tmp/datafield-test-results.txt; \
-	grep -q "^PASSED" /tmp/datafield-test-results.txt
+	grep -q "^PASSED" /tmp/datafield-test-results.txt; \
+	status=$$?; \
+	pkill -f WebKitWebProcess 2>/dev/null || true; \
+	pkill -x simulator 2>/dev/null || true; \
+	exit $$status
 
 datafield-test-all:
 	$(MAKE) datafield-test DEVICE=fr265s

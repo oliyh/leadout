@@ -4,6 +4,7 @@ import Toybox.Attention;
 import Toybox.Communications;
 import Toybox.Graphics;
 import Toybox.Lang;
+import Toybox.Position;
 import Toybox.System;
 import Toybox.WatchUi;
 
@@ -52,6 +53,13 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mRepeatStartDistM as Float;     // elapsedDistance when the group began
     hidden var mCurrentRep as Number;          // 1-based rep counter (which rep is running)
 
+    // GPS position tracking for line-crossing detection.
+    // mPrevLat = -999.0 signals "no prior fix available".
+    // Reset to -999.0 on each block start (LAP press) to prevent a stale position
+    // from forming an erroneous movement vector into the first crossing check.
+    hidden var mPrevLat as Double;
+    hidden var mPrevLng as Double;
+
     function initialize() {
         DataField.initialize();
 
@@ -81,6 +89,8 @@ class leadout_datafieldView extends WatchUi.DataField {
         mRepeatStartMs = 0;
         mRepeatStartDistM = 0.0f;
         mCurrentRep = 0;
+        mPrevLat = -999.0d;
+        mPrevLng = 0.0d;
 
         // Load programme header only — segments deferred until session start.
         var cached = Application.Storage.getValue("programme");
@@ -175,6 +185,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             mCurrentSegment = 0;
             mSegmentStartMs = System.getTimer();
             mSegmentStartDistM = -1.0f;  // will be captured on first compute()
+            mPrevLat = -999.0d;          // invalidate so first GPS tick after LAP press sets a fresh prev
             // Eagerly init repeat state if this block contains a repeat segment,
             // so the progress header is visible from the very first rep.
             initRepeatForBlock(currentSegments());
@@ -202,6 +213,17 @@ class leadout_datafieldView extends WatchUi.DataField {
             if (mSegmentStartDistM < 0.0f) {
                 mSegmentStartDistM = mElapsedDistM;
             }
+        }
+
+        // Capture GPS position for line-crossing detection.
+        // Save previous position as locals first, then advance the stored pointer.
+        // This way the crossing check always sees (last tick → this tick) as the movement vector.
+        var prevLat = mPrevLat;
+        var prevLng = mPrevLng;
+        if ((info has :currentLocation) && info.currentLocation != null) {
+            var deg = (info.currentLocation as Position.Location).toDegrees();
+            mPrevLat = deg[0] as Double;
+            mPrevLng = deg[1] as Double;
         }
 
         // While unregistered, poll the token endpoint every 10 s.
@@ -247,6 +269,21 @@ class leadout_datafieldView extends WatchUi.DataField {
             var distTarget = seg[:distance] as Float;
             if (mSegmentStartDistM >= 0.0f) {
                 advance = (mElapsedDistM - mSegmentStartDistM) >= distTarget;
+            }
+        } else if (kind.equals("line")) {
+            // Require a valid movement vector and > 5 s since segment/block start.
+            // The debounce prevents false triggers when standing on the line at LAP press
+            // or from GPS jitter immediately after a crossing fires.
+            if (prevLat > -998.0d && mPrevLat > -998.0d) {
+                if (System.getTimer() - mSegmentStartMs > 5000) {
+                    advance = lineCrossingCheck(
+                        prevLat, prevLng, mPrevLat, mPrevLng,
+                        (seg[:p1_lat] as Float).toDouble(),
+                        (seg[:p1_lng] as Float).toDouble(),
+                        (seg[:p2_lat] as Float).toDouble(),
+                        (seg[:p2_lng] as Float).toDouble()
+                    );
+                }
             }
         } else {
             var duration = seg[:duration] as Number;
@@ -437,6 +474,17 @@ class leadout_datafieldView extends WatchUi.DataField {
                         :duration     => cs[3] as Number,
                         :distance     => cs[4] as Float,
                         :target_pace  => null
+                    });
+                } else if (kindInt == 3) {
+                    var pace = cs[6] as Number;
+                    segs.add({
+                        :name        => cs[1] as String,
+                        :kind        => "line",
+                        :p1_lat      => cs[2] as Float,
+                        :p1_lng      => cs[3] as Float,
+                        :p2_lat      => cs[4] as Float,
+                        :p2_lng      => cs[5] as Float,
+                        :target_pace => (pace == -1) ? null : pace
                     });
                 } else {
                     var segKind = (kindInt == 1) ? "distance" : "time";
@@ -769,6 +817,10 @@ class leadout_datafieldView extends WatchUi.DataField {
             dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
                 distRemaining.format("%d") + "m",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else if (segKind.equals("line")) {
+            dc.drawText(cx, h / 2, Graphics.FONT_SMALL,
+                "Cross line",
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else {
             var duration = seg[:duration] as Number;
             var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
@@ -815,7 +867,9 @@ class leadout_datafieldView extends WatchUi.DataField {
                 var nextKind = next[:kind] as String;
                 var nextLabel = nextKind.equals("distance")
                     ? (next[:name] as String) + " " + (next[:distance] as Float).format("%d") + "m"
-                    : (next[:name] as String) + " " + formatDuration(next[:duration] as Number);
+                    : nextKind.equals("line")
+                        ? next[:name] as String
+                        : (next[:name] as String) + " " + formatDuration(next[:duration] as Number);
                 dc.drawText(cx, h * 3 / 4 - 14, Graphics.FONT_XTINY,
                     "Next",
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);

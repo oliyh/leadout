@@ -139,6 +139,36 @@ function shouldExitRepeat(
     return false;
 }
 
+// Returns true if the GPS movement path from (p1Lat,p1Lng) to (p2Lat,p2Lng) crosses the
+// finish line defined by endpoints (q1Lat,q1Lng) and (q2Lat,q2Lng). All coordinates in
+// decimal degrees. Uses equirectangular projection centred on q1 — accurate within ~10 km.
+function lineCrossingCheck(
+    p1Lat as Double, p1Lng as Double,
+    p2Lat as Double, p2Lng as Double,
+    q1Lat as Double, q1Lng as Double,
+    q2Lat as Double, q2Lng as Double
+) as Boolean {
+    var cosLat = Math.cos(q1Lat * Math.PI / 180.0d);
+    var kLat = 111320.0d;
+    var kLng = 111320.0d * cosLat;
+
+    var ax = (p1Lng - q1Lng) * kLng;
+    var ay = (p1Lat - q1Lat) * kLat;
+    var bx = (p2Lng - q1Lng) * kLng;
+    var by = (p2Lat - q1Lat) * kLat;
+    var cx = (q2Lng - q1Lng) * kLng;
+    var cy = (q2Lat - q1Lat) * kLat;
+
+    var dMx = bx - ax;
+    var dMy = by - ay;
+    var denom = dMx * cy - dMy * cx;
+    if (denom == 0.0d) { return false; }
+
+    var t = (-ax * cy + ay * cx) / denom;
+    var u = (-ax * dMy + ay * dMx) / denom;
+    return t >= 0.0d && t <= 1.0d && u >= 0.0d && u <= 1.0d;
+}
+
 // Converts a raw server programme Dictionary into a compact form for Storage.
 // Uses 1-2 char keys and encodes segments as Arrays to minimise heap cost
 // when the stored value is later deserialised.
@@ -174,6 +204,26 @@ function compressProgramme(data as Dictionary) as Dictionary {
                             (js["repeat_count"] instanceof Number) ? js["repeat_count"] as Number : 1,
                             (js["duration"]     instanceof Number) ? js["duration"]     as Number : 0,
                             repDist
+                        ] as Array<Object>);
+                    } else if (kindStr.equals("line")) {
+                        var p1LatRaw = js["p1_lat"];
+                        var p1LngRaw = js["p1_lng"];
+                        var p2LatRaw = js["p2_lat"];
+                        var p2LngRaw = js["p2_lng"];
+                        var p1Lat = (p1LatRaw instanceof Float)  ? p1LatRaw as Float :
+                                    (p1LatRaw instanceof Number) ? (p1LatRaw as Number).toFloat() : 0.0f;
+                        var p1Lng = (p1LngRaw instanceof Float)  ? p1LngRaw as Float :
+                                    (p1LngRaw instanceof Number) ? (p1LngRaw as Number).toFloat() : 0.0f;
+                        var p2Lat = (p2LatRaw instanceof Float)  ? p2LatRaw as Float :
+                                    (p2LatRaw instanceof Number) ? (p2LatRaw as Number).toFloat() : 0.0f;
+                        var p2Lng = (p2LngRaw instanceof Float)  ? p2LngRaw as Float :
+                                    (p2LngRaw instanceof Number) ? (p2LngRaw as Number).toFloat() : 0.0f;
+                        var pace = (js["target_pace"] instanceof Number) ? (js["target_pace"] as Number) : -1;
+                        compSegs.add([
+                            3,
+                            (js["name"] instanceof String) ? js["name"] as String : "",
+                            p1Lat, p1Lng, p2Lat, p2Lng,
+                            pace
                         ] as Array<Object>);
                     } else {
                         var kindInt = kindStr.equals("distance") ? 1 : 0;
