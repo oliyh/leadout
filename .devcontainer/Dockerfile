@@ -29,7 +29,13 @@ RUN SDK_FILE=$(curl -s https://developer.garmin.com/downloads/connect-iq/sdks/sd
     && ln -s "$SDK_HOME/connectiq-sdk-lin-${SDK_VERSION}" "$SDK_HOME/current" \
     && echo "$SDK_HOME/connectiq-sdk-lin-${SDK_VERSION}" > /root/.Garmin/ConnectIQ/current-sdk.cfg
 
-# Simulator and runner wrappers (mirrors setup-env.sh)
+# Device definitions (community package — avoids SDK Manager + Garmin login)
+RUN mkdir -p /root/.Garmin/ConnectIQ/Devices \
+    && wget -q "https://raw.githubusercontent.com/matco/connectiq-tester/master/devices.zip" -O /tmp/devices.zip \
+    && unzip -q /tmp/devices.zip -d /root/.Garmin/ConnectIQ/Devices \
+    && rm /tmp/devices.zip
+
+# Simulator and runner wrappers
 RUN mkdir -p /root/.local/bin \
     && printf '#!/bin/bash\nexec "%s/current/bin/simulator" "$@"\n' "$SDK_HOME" \
        > /root/.local/bin/ciq-simulator \

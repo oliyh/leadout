@@ -14,13 +14,10 @@ DEVICE_SIM  := $(DEVICE)_sim
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
-.PHONY: env datafield datafield-sim datafield-test datafield-test-all datafield-release datafield-run-tests datafield-docker-build datafield-run-tests-docker install-datafield uninstall-datafield \
+.PHONY: datafield datafield-sim datafield-test datafield-test-all datafield-release datafield-run-tests datafield-docker-build datafield-run-tests-docker install-datafield uninstall-datafield \
         sim sim-lap sim-screenshot \
         ui-install ui-dev ui-build server-install server-start server-dev server-test dev \
         e2e e2e-debug
-
-env:
-	scripts/setup-env.sh
 
 # ======== Datafield ==========
 

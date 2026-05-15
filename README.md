@@ -6,32 +6,22 @@ See `CLAUDE.md` for the full project brief.
 
 ---
 
-## Development environment setup (Ubuntu 24.04)
+## Development environment setup
+
+The project ships a devcontainer ([`.devcontainer/`](.devcontainer/)). Java, the Connect IQ SDK 9.1.0, device definitions, and Playwright are all pre-installed in the image — no manual toolchain setup required.
 
 ### Prerequisites
 
-- VS Code
-- `sudo` access (for apt packages)
+- VS Code with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
+- Docker
 
-### Automated setup
+### Getting started
 
-```bash
-make env
-```
+1. Open the repo in VS Code
+2. When prompted, click **Reopen in Container** — or `Ctrl+Shift+P` → `Dev Containers: Reopen in Container`
+3. Wait for the image to build on first open (subsequent opens are fast)
 
-This installs all dependencies and configures the toolchain. It is safe to re-run.
-
-What it does:
-- Installs `openjdk-21-jdk`, `libmanette-0.2-0`, `imagemagick`, `xdotool`, `ydotool` via apt
-- Installs the Monkey C VS Code extension
-- Downloads and extracts the Connect IQ SDK 9.1.0
-- Writes `~/.Garmin/ConnectIQ/current-sdk.cfg` and `Sdks/current` symlink
-- Downloads libxml2 2.9.x from the Ubuntu 22.04 archive into `~/.local/lib` (Ubuntu 24.04 ships libxml2.so.16 which the Garmin toolchain cannot use)
-- Writes `~/.local/bin/ciq-simulator` and `~/.local/bin/ciq-run` wrapper scripts with the correct `LD_LIBRARY_PATH`
-- Adds `~/.local/bin` to `PATH` in `~/.bashrc` if not already present
-- Adds your user to the `input` group and sets `/dev/uinput` permissions for ydotool (log out/in required once for the group change)
-
-### Manual steps (one-time, after `make env`)
+### One-time steps (after first container build)
 
 **1. Generate a developer key**
 
@@ -100,8 +90,6 @@ make sim-screenshot   # capture simulator window to ./tmp/sim.png
 leadout/
 ├── CLAUDE.md                   # Project brief and architecture
 ├── Makefile                    # Build, install, simulator targets
-├── scripts/
-│   └── setup-env.sh            # Environment setup (run via make env)
 ├── datafield/
 │   └── leadout-datafield/      # Connect IQ Data Field app (Monkey C)
 │       ├── manifest.xml
