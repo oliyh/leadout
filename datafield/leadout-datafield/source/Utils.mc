@@ -103,17 +103,6 @@ function isOldSdk() as Boolean {
     return ver[0] < 5;
 }
 
-// Returns true if a lap should be triggered given the TriggerLap setting and transition type.
-// TriggerLap values: 0 = every segment, 1 = every block (default), 2 = never.
-// isBlockEnd is true when the last segment in a block finishes; false for mid-block segments.
-function shouldTriggerLap(isBlockEnd as Boolean) as Boolean {
-    var setting = Application.Properties.getValue("TriggerLap");
-    var mode = (setting instanceof Number) ? (setting as Number) : 1;
-    if (mode == 2) { return false; }
-    if (mode == 1 && !isBlockEnd) { return false; }
-    return true;
-}
-
 // Returns the index of the first segment in the repeat group whose marker is
 // at repeatIdx. Scans backwards for a previous repeat marker; the group starts
 // at (previous marker index + 1), or 0 if none exists.

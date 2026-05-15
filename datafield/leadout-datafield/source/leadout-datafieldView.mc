@@ -321,14 +321,12 @@ class leadout_datafieldView extends WatchUi.DataField {
                 mSegmentStartMs = System.getTimer();
                 mSegmentStartDistM = mElapsedDistM;
                 alertSegment();
-                triggerLapIfConfigured(false);
             }
         } else {
             mCurrentSegment    = nextIdx;
             mSegmentStartMs    = System.getTimer();
             mSegmentStartDistM = mElapsedDistM;
             alertSegment();
-            triggerLapIfConfigured(false);
         }
     }
 
@@ -359,7 +357,6 @@ class leadout_datafieldView extends WatchUi.DataField {
             mSegmentStartMs    = System.getTimer();
             mSegmentStartDistM = mElapsedDistM;
             alertSegment();
-            triggerLapIfConfigured(false);
         } else {
             doBlockOrSessionEnd();
         }
@@ -372,12 +369,10 @@ class leadout_datafieldView extends WatchUi.DataField {
             mCurrentSegment = 0;
             mState          = STATE_WAITING;
             alertBlockComplete();
-            triggerLapIfConfigured(true);
         } else {
             mSessionEndMs = System.getTimer();
             mState        = STATE_COMPLETE;
             alertSessionComplete();
-            triggerLapIfConfigured(true);
         }
     }
 
@@ -560,13 +555,6 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
         if (Attention has :vibrate) {
             Attention.vibrate([new Attention.VibeProfile(100, 1000)] as Array<Attention.VibeProfile>);
-        }
-    }
-
-    (:typecheck(disableBackwardCompatibilityCheck))
-    hidden function triggerLapIfConfigured(isBlockEnd as Boolean) as Void {
-        if (shouldTriggerLap(isBlockEnd) && (Activity has :lap)) {
-            Activity.lap();
         }
     }
 

@@ -657,46 +657,6 @@ function testContract_segment_distanceKind(logger as Test.Logger) as Boolean {
     return true;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// shouldTriggerLap
-// TriggerLap property: 0 = every segment, 1 = every block (default), 2 = never.
-// isBlockEnd is true when the final segment in a block completes (including the
-// final block, i.e. session end). false means a mid-block segment transition.
-// ─────────────────────────────────────────────────────────────────────────────
-
-(:test)
-function testTriggerLap_never_suppressesAll(logger as Test.Logger) as Boolean {
-    Application.Properties.setValue("TriggerLap", 2);
-    Test.assertMessage(!shouldTriggerLap(false), "never: mid-block segment → no lap");
-    Test.assertMessage(!shouldTriggerLap(true),  "never: block end → no lap");
-    return true;
-}
-
-(:test)
-function testTriggerLap_block_onlyAtBlockEnd(logger as Test.Logger) as Boolean {
-    Application.Properties.setValue("TriggerLap", 1);
-    Test.assertMessage(!shouldTriggerLap(false), "block: mid-block segment → no lap");
-    Test.assertMessage(shouldTriggerLap(true),   "block: block end → lap");
-    return true;
-}
-
-(:test)
-function testTriggerLap_segment_alwaysTriggers(logger as Test.Logger) as Boolean {
-    Application.Properties.setValue("TriggerLap", 0);
-    Test.assertMessage(shouldTriggerLap(false), "segment: mid-block segment → lap");
-    Test.assertMessage(shouldTriggerLap(true),  "segment: block end → lap");
-    return true;
-}
-
-(:test)
-function testTriggerLap_defaultsToBlock(logger as Test.Logger) as Boolean {
-    // If TriggerLap property is absent/unset the default must be 1 (every block).
-    Application.Properties.setValue("TriggerLap", 1);
-    Test.assertMessage(!shouldTriggerLap(false), "default: mid-block segment → no lap");
-    Test.assertMessage(shouldTriggerLap(true),   "default: block end → lap");
-    return true;
-}
-
 (:test)
 function testContract_participationRequest_fields(logger as Test.Logger) as Boolean {
     // Documents the exact request body the watch POSTs to /api/sessions/start.
