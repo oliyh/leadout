@@ -7,7 +7,7 @@ ENV SDK_HOME=/root/.Garmin/ConnectIQ/Sdks
 # System packages: Java 21, X11/GUI libs for simulator, tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-21-jdk \
-    ca-certificates curl wget unzip jq git make python3 \
+    ca-certificates curl wget unzip jq git make python3 openssh-client \
     libxml2 libsm6 libice6 \
     libsecret-1-0 libusb-1.0-0 libxkbcommon0 libmanette-0.2-0 \
     libgtk-3-0 libwebkit2gtk-4.0-37 libsoup2.4-1 libjavascriptcoregtk-4.0-18 \

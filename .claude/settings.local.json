@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /home/oliy/dev/leadout/.devcontainer)",
+      "Bash(ls ~/.Garmin/ConnectIQ/Sdks/current/bin/ 2>/dev/null | head -30)",
+      "Read(//root/.Garmin/ConnectIQ/Sdks/connectiq-sdk-lin-9.1.0/bin/**)",
+      "Bash(ls ~/.Garmin/ConnectIQ/Devices/ 2>/dev/null | head -20 || echo \"No Devices directory\")",
+      "Read(//root/.Garmin/ConnectIQ/**)",
+      "Bash(~/.Garmin/ConnectIQ/Sdks/current/bin/connectiq --help)",
+      "Bash(~/.Garmin/ConnectIQ/Sdks/current/bin/connectiq)",
+      "Bash(xargs cat)",
+      "Bash(code --list-extensions)",
+      "Read(//root/.vscode-server/extensions/**)",
+      "Read(//root/.vscode/**)",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s -I \"https://developer.garmin.com/downloads/connect-iq/devices/fr265s.zip\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d.get\\('description',''\\)\\); [print\\(k,':',v\\) for k,v in d.get\\('contributes',{}\\).get\\('configuration',{}\\).get\\('properties',{}\\).items\\(\\)]\")",
+      "Bash(~/.Garmin/ConnectIQ/Sdks/current/bin/monkeyc --help)",
+      "Bash(git push *)"
+    ],
+    "additionalDirectories": [
+      "/home/oliy/dev/leadout"
+    ]
+  }
+}
