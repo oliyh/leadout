@@ -118,6 +118,57 @@ function AdminChannel({ channel }) {
     );
 }
 
+function AdminSummary() {
+    const accounts = adminAccounts.value;
+    const channels = adminChannels.value;
+
+    const totalDevices = accounts.reduce((n, a) => n + a.devices.length, 0);
+    const totalProgrammes = channels.reduce((n, ch) => n + ch.programmes.length, 0);
+
+    const versionCounts = {};
+    for (const account of accounts) {
+        for (const device of account.devices) {
+            const v = device.app_version ?? '(unknown)';
+            versionCounts[v] = (versionCounts[v] ?? 0) + 1;
+        }
+    }
+    const versions = Object.entries(versionCounts).sort(([a], [b]) => b.localeCompare(a));
+
+    return (
+        <div class="admin-summary">
+            <div class="admin-stat">
+                <span class="admin-stat-value">{accounts.length}</span>
+                <span class="admin-stat-label">Accounts</span>
+            </div>
+            <div class="admin-stat">
+                <span class="admin-stat-value">{totalDevices}</span>
+                <span class="admin-stat-label">Devices</span>
+            </div>
+            <div class="admin-stat">
+                <span class="admin-stat-value">{channels.length}</span>
+                <span class="admin-stat-label">Channels</span>
+            </div>
+            <div class="admin-stat">
+                <span class="admin-stat-value">{totalProgrammes}</span>
+                <span class="admin-stat-label">Programmes</span>
+            </div>
+            {versions.length > 0 && (
+                <div class="admin-stat admin-stat-versions">
+                    <span class="admin-stat-label">App versions</span>
+                    <div class="admin-version-list">
+                        {versions.map(([v, count]) => (
+                            <div key={v} class="admin-version-row">
+                                <span class="admin-version-name">{v}</span>
+                                <span class="admin-version-count">{count}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function AdminPage() {
     const [error, setError] = useState(null);
 
@@ -142,6 +193,8 @@ export function AdminPage() {
     return (
         <div class="main-content admin-page">
             <h1 class="admin-heading">Admin</h1>
+
+            <AdminSummary />
 
             <section class="admin-section">
                 <h2 class="admin-section-title">
