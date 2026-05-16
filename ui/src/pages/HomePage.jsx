@@ -4,6 +4,7 @@ import { channels } from '../store/channels.js';
 import { subscriptions } from '../store/subscriptions.js';
 import { devices, registerDevice } from '../store/devices.js';
 import { openConfirmUnsubscribe, openConfirmRemoveDevice, openNewChannel, openRegisterDevice } from '../store/modal.js';
+import { HowItWorksContent } from './HowItWorksPage.jsx';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -265,6 +266,13 @@ export function HomePage() {
                     ? <p class="empty-hint">No channels yet. Create one to start publishing programmes.</p>
                     : chs.map(ch => <ChannelRow key={ch.id} ch={ch} />)
                 }
+            </section>
+
+            <section class="home-section">
+                <h2 class="home-section-title">How it works</h2>
+                <div class="hiw-content">
+                    <HowItWorksContent />
+                </div>
             </section>
 
         </div>
