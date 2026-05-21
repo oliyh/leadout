@@ -19,6 +19,7 @@ import { devices } from './store/devices.js';
 import { selected } from './store/programmes.js';
 import { participantApi } from './store/api.js';
 import { takePendingDeviceCode } from './store/pendingDevice.js';
+import { HowItWorksContent } from './pages/HowItWorksPage.jsx';
 
 function MainArea() {
     const view = currentView.value;
@@ -119,6 +120,12 @@ export function App() {
                         <li>Free to use · Works with any Connect IQ Garmin</li>
                     </ul>
                 </div>
+                <section style="margin: 0 auto 4em auto; padding: 2em; border-radius: 4px; background-color: #f5f5f5;">
+                    <h2 class="home-section-title">How it works</h2>
+                    <div class="hiw-content">
+                        <HowItWorksContent />
+                    </div>
+                </section>
                 <Modal />
             </div>
         );
