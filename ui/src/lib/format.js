@@ -5,7 +5,7 @@ export function fmtDuration(sec) {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     if (m === 0) return `${s}s`;
-    return s === 0 ? `${m}m` : `${m}m${s}s`;
+    return s === 0 ? `${m} min` : `${m}m${s}s`;
 }
 
 // Formats a distance in metres. Under 1 km returns "400m"; 1 km+ returns "5km" or "5.2km".

@@ -4,17 +4,17 @@ import { addBlock, updateBlock, deleteBlock, moveBlock, addSegment, moveSegment 
 import { SegmentPanel } from './SegmentPanel.jsx';
 import { openTemplateModal } from '../store/modal.js';
 import { normPace, segDuration, segDistanceM, blockStats, progStats } from '../lib/estimates.js';
-import { fmtDuration, fmtDistance, segLabel } from '../lib/format.js';
+import { fmtDuration, fmtDistance, segLabel, fmtPace } from '../lib/format.js';
 
 function segEstimate(seg, progPace) {
     if (seg.kind === 'repeat') return null;
     const pace = normPace(seg.target_pace) || normPace(progPace);
     if (!pace || pace <= 0) return null;
     if (seg.kind === 'distance' && seg.distance) {
-        return `~${fmtDuration(Math.round(seg.distance / 1000 * pace))}`;
+        return `~${fmtDuration(Math.round(seg.distance / 1000 * pace))} @ ${fmtPace(pace)}/km`;
     }
     if (seg.kind === 'time' && seg.duration) {
-        return `~${Math.round(seg.duration / pace * 1000)}m`;
+        return `~${Math.round(seg.duration / pace * 1000)}m @ ${fmtPace(pace)}/km`;
     }
     return null;
 }

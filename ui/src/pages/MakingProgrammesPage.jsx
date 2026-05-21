@@ -58,7 +58,9 @@ export function MakingProgrammesPage() {
                                 down and alerts when time is up. Good for warm-ups, recovery
                                 intervals, and any session where distance doesn't matter.
                             </p>
-                            <div class="mp-screenshot-placeholder">screenshot</div>
+                            <div class="mp-screenshot-placeholder">
+                                <img src="images/time-segment.png" alt="Time segment"/>
+                            </div>
                         </div>
                     </div>
 
@@ -70,14 +72,16 @@ export function MakingProgrammesPage() {
                         <div class="mp-seg-card-body">
                             <div class="mp-exit-clause">
                                 <span class="mp-exit-label">Exit clause</span>
-                                <span class="mp-exit-text">GPS distance reached</span>
+                                <span class="mp-exit-text">Distance countdown reaches zero</span>
                             </div>
                             <p>
                                 The segment ends once each participant has covered the set distance
                                 from where they were when it started. Works well for track sessions
                                 and routes where everyone takes the same path.
                             </p>
-                            <div class="mp-screenshot-placeholder">screenshot</div>
+                            <div class="mp-screenshot-placeholder">
+                                <img src="images/distance-segment.png" alt="Finish line segment"/>
+                            </div>
                         </div>
                     </div>
 
@@ -96,7 +100,9 @@ export function MakingProgrammesPage() {
                                 participant's watch alerts the moment they cross it —
                                 useful for "fast to the park gate" or "to the end of the road".
                             </p>
-                            <div class="mp-screenshot-placeholder">screenshot</div>
+                            <div class="mp-screenshot-placeholder">
+                                <img src="images/finish-line-segment.png" alt="Finish line segment"/>
+                            </div>
                         </div>
                     </div>
 
@@ -111,7 +117,7 @@ export function MakingProgrammesPage() {
                                 <span class="mp-exit-text">Repetitions / duration / distance</span>
                             </div>
                             <p>
-                                Segments can be repeated, allowing you to build the programme more easily.
+                                Segments can be repeated, allowing you to build the programme quickly and easily.
                                 There are three kinds:
                                 <div style="padding-left: 2em;">
                                     <div>Repetitions - repeat <em>n</em> times</div>
@@ -119,7 +125,9 @@ export function MakingProgrammesPage() {
                                     <div>Distance - repeat until <em>n</em> metres have been covered</div>
                                 </div>
                             </p>
-                            <div class="mp-screenshot-placeholder">screenshot</div>
+                            <div class="mp-screenshot-placeholder">
+                                <img src="images/repeat-segment.png" alt="Finish line segment"/>
+                            </div>
                         </div>
                     </div>
 
@@ -128,7 +136,8 @@ export function MakingProgrammesPage() {
                 <div class="hiw-phase-label">Sharing with participants</div>
 
                 <p class="mp-prose">
-                    Every channel has a permanent link. Share it once — in your club WhatsApp group,
+                    Every channel has a <button class="btn-secondary btn-sm share-btn">Share link</button> button to give you a permanent link.
+                    Share it once — in your club WhatsApp group,
                     by email, wherever — and participants subscribe by tapping it on their phone.
                     Their watches sync automatically from then on; you never need to send the link again.
                 </p>
@@ -141,9 +150,6 @@ export function MakingProgrammesPage() {
                         Anyone who taps it can subscribe.
                     </div>
                 </div>
-
-                <div class="mp-screenshot-placeholder mp-screenshot-wide">screenshot — channel page showing the share link</div>
-
             </div>
         </div>
     );
