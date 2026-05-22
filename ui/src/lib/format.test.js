@@ -11,9 +11,9 @@ describe('fmtDuration', () => {
     });
 
     it('formats whole minutes', () => {
-        expect(fmtDuration(60)).toBe('1m');
-        expect(fmtDuration(120)).toBe('2m');
-        expect(fmtDuration(3600)).toBe('60m');
+        expect(fmtDuration(60)).toBe('1 min');
+        expect(fmtDuration(120)).toBe('2 min');
+        expect(fmtDuration(3600)).toBe('60 min');
     });
 
     it('formats minutes and seconds', () => {
@@ -109,7 +109,7 @@ describe('parsePace', () => {
 describe('segLabel', () => {
     it('formats time segment as duration', () => {
         expect(segLabel({ kind: 'time', duration: 90 })).toBe('1m30s');
-        expect(segLabel({ kind: 'time', duration: 60 })).toBe('1m');
+        expect(segLabel({ kind: 'time', duration: 60 })).toBe('1 min');
         expect(segLabel({ kind: 'time', duration: 30 })).toBe('30s');
     });
 
@@ -124,7 +124,7 @@ describe('segLabel', () => {
     });
 
     it('formats time repeat as duration', () => {
-        expect(segLabel({ kind: 'repeat', exit_type: 'time', duration: 300 })).toBe('5m');
+        expect(segLabel({ kind: 'repeat', exit_type: 'time', duration: 300 })).toBe('5 min');
     });
 
     it('formats distance repeat as metres', () => {
