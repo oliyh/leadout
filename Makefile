@@ -70,7 +70,7 @@ datafield-release:
 # Uses a private Xvfb virtual display (:99) so no host X11 display is required.
 # monkeydo exits non-zero even on success, so we detect pass/fail from output.
 datafield-test: datafield-build-test
-	@if ! pgrep -x Xvfb > /dev/null; then \
+	@if ! xdpyinfo -display :99 >/dev/null 2>&1; then \
 	    Xvfb :99 -screen 0 1280x1024x24 &>/dev/null & \
 	    sleep 1; \
 	fi

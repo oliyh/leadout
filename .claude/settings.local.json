@@ -31,7 +31,14 @@
       "Bash(make datafield-build-test *)",
       "Bash(echo \"---BUILD EXIT: $?\")",
       "Bash(make datafield-test *)",
-      "Bash(echo \"---EXIT: $?\")"
+      "Bash(echo \"---EXIT: $?\")",
+      "Bash(ldd ~/.Garmin/ConnectIQ/Sdks/current/bin/simulator)",
+      "Bash(glxinfo)",
+      "Bash(DISPLAY=:0 glxinfo)",
+      "Bash(LIBGL_ALWAYS_SOFTWARE=1 glxinfo)",
+      "Bash(DISPLAY=:0 GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 timeout 8 ~/.Garmin/ConnectIQ/Sdks/current/bin/simulator)",
+      "Bash(DISPLAY=:0 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 timeout 8 ~/.Garmin/ConnectIQ/Sdks/current/bin/simulator)",
+      "Bash(make sim *)"
     ],
     "additionalDirectories": [
       "/home/oliy/dev/leadout"

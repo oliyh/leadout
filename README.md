@@ -100,7 +100,8 @@ Development has been done on a native Ubuntu laptop, where this works without ex
   ```bash
   xhost +local:
   ```
-- *Simulator segfaults when the watch skin loads* — the virtual GPU (VMware SVGA) doesn't support the OpenGL calls the simulator makes. `sim-start.sh` already sets `LIBGL_ALWAYS_SOFTWARE=1` to force Mesa software rendering, which fixes this.
+- *`BadAccess (MIT-SHM)` / simulator crashes when the watch loads* — the container has a separate IPC namespace from the host, so X11 shared memory segments can't be attached. The fix is `--ipc=host` in `.devcontainer/devcontainer.json` (already present). If you're seeing this it means the container was built before that line was added — **rebuild the container** (`Ctrl+Shift+P` → `Dev Containers: Rebuild Container`).
+- *Segfault after app push — `SetLayout` appears but simulator crashes immediately after* — the simulator null-derefs if `Roboto-Regular.ttf` is absent from `~/.Garmin/ConnectIQ/Fonts/`. The Dockerfile installs `fonts-roboto` and copies it there. If running outside the devcontainer, install `fonts-roboto` and copy `/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Regular.ttf` to `~/.Garmin/ConnectIQ/Fonts/`.
 
 If you only need test results and not the visible simulator UI, `make datafield-test` works without any host display setup.
 

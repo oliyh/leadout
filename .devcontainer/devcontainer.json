@@ -4,7 +4,8 @@
     "dockerfile": "Dockerfile"
   },
   "runArgs": [
-    "--device=/dev/uinput"
+    "--device=/dev/uinput",
+    "--ipc=host"
   ],
   "mounts": [
     "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
@@ -18,7 +19,8 @@
       "extensions": [
         "garmin.monkey-c",
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode"
+        "esbenp.prettier-vscode",
+        "anthropic.claude-code"
       ],
       "settings": {
         "monkeyC.javaPath": "/usr/lib/jvm/java-21-openjdk-amd64",
