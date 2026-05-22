@@ -3,6 +3,9 @@
 # Usage: sim-start.sh [prg_path] [device]
 #   prg_path: path to .prg file (default: datafield/leadout-datafield/bin/leadoutdatafield-sim.prg)
 #   device:   device ID for ciq-run (default: fr265s)
+#
+# WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1: suppress WebKit's subprocess sandbox
+# which needs clone(CLONE_NEWUSER) — restricted inside Docker.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,12 +15,13 @@ PRG="${1:-$REPO_ROOT/datafield/leadout-datafield/bin/leadoutdatafield-sim.prg}"
 DEVICE="${2:-fr265s}"
 
 # Start simulator if not already running
-# LIBGL_ALWAYS_SOFTWARE=1 forces Mesa software rendering (avoids segfault on
-# VMware / other virtual GPU setups that lack full OpenGL support).
 if ! pgrep -x simulator > /dev/null; then
-    env DISPLAY=:0 GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 ciq-simulator &
+    DISPLAY=:0 GDK_BACKEND=x11 \
+        LIBGL_ALWAYS_SOFTWARE=1 \
+        WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 \
+        ciq-simulator &
     echo "Waiting for simulator to start..."
-    sleep 6
+    sleep 8
 fi
 
 # Push the app

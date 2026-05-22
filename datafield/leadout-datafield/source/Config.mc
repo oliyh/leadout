@@ -2,4 +2,4 @@
 // depending on the jungle file used. See monkey-device.jungle and monkey-sim.jungle.
 
 // Keep in sync with the version in manifest.xml when releasing.
-const APP_VERSION = "0.8.0";
+const APP_VERSION = "0.9.0";

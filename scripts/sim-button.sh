@@ -53,6 +53,10 @@ ABS_Y=$(python3 -c "print($WIN_Y + $MENU_BAR + int($BY * $SCALE_NUM / $SCALE_DEN
 
 echo "Clicking '$BUTTON' at screen ($ABS_X, $ABS_Y)"
 
-# ydotool uses evdev — real kernel events, bypasses GTK synthetic-event filter.
-# sg ensures the input group is active even before a re-login.
-sg input -c "ydotool mousemove $ABS_X $ABS_Y; sleep 0.2; ydotool click 1"
+# xdotool uses the XTEST extension to inject events directly into the X server
+# that the simulator is running on (SIM_DISPLAY). XTEST events are not marked
+# as synthetic by GTK so they are not filtered. ydotool (evdev) cannot reach
+# a virtual Xvfb display, so we use xdotool here instead.
+DISPLAY=:0 xdotool mousemove "$ABS_X" "$ABS_Y"
+sleep 0.2
+DISPLAY=:0 xdotool click 1

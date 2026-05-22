@@ -1,0 +1,98 @@
+{
+                "id": "363054fb-1c9a-40bb-a894-7629d11b1ab7",
+                "channel_id": "94f38942-a84c-4486-9494-6bff36f32389",
+                "name": "School",
+                "scheduled_date": "2026-05-22",
+                "pace_assumption": 330,
+                "blocks": [
+                    {
+                        "id": "3b1eecfc-2b24-40a5-9e5f-d199b1e1c6a7",
+                        "name": "Block",
+                        "segments": [
+                            {
+                                "id": "b94c1ba6-b631-45ee-9774-c3533bb6a06c",
+                                "name": "End of WG",
+                                "kind": "line",
+                                "duration": 60,
+                                "distance": null,
+                                "target_pace": null,
+                                "position": 0,
+                                "p1_lat": 51.359388760370436,
+                                "p1_lng": 0.09712447176752903,
+                                "p2_lat": 51.359324163689905,
+                                "p2_lng": 0.09761712344698026
+                            },
+                            {
+                                "id": "40a019fb-e066-42d5-a0df-f8d844f8557c",
+                                "name": "200 fast",
+                                "kind": "distance",
+                                "duration": null,
+                                "distance": 200,
+                                "target_pace": null,
+                                "position": 1
+                            },
+                            {
+                                "id": "ffd198f1-bbc0-4bcd-bf7c-3757358a5695",
+                                "name": "Walk",
+                                "kind": "time",
+                                "duration": 60,
+                                "distance": null,
+                                "target_pace": null,
+                                "position": 2
+                            },
+                            {
+                                "id": "d177762e-2c00-4077-9026-9592d1275364",
+                                "name": "WRPS",
+                                "kind": "line",
+                                "duration": 60,
+                                "distance": null,
+                                "target_pace": null,
+                                "position": 3,
+                                "p1_lat": 51.36027412952359,
+                                "p1_lng": 0.090593252666622,
+                                "p2_lat": 51.360233320894935,
+                                "p2_lng": 0.09108781814575197
+                            }
+                        ],
+                        "position": 0
+                    },
+                    {
+                        "id": "bc48bb8b-c5e5-45d5-a1db-c0d8c211b192",
+                        "name": "Block",
+                        "segments": [
+                            {
+                                "id": "2a3a03dd-a3a0-42c4-812f-26035af3c407",
+                                "name": "Fast",
+                                "kind": "time",
+                                "duration": 60,
+                                "distance": null,
+                                "target_pace": null,
+                                "position": 0
+                            },
+                            {
+                                "id": "b6d9f262-8ff4-4aaa-bf5e-6cfea5e98df1",
+                                "name": "Slow",
+                                "kind": "time",
+                                "duration": 60,
+                                "distance": null,
+                                "target_pace": null,
+                                "position": 1
+                            },
+                            {
+                                "id": "ddc8de4b-08d7-4976-82e9-68f252e9f9a2",
+                                "name": "Repeat",
+                                "kind": "repeat",
+                                "duration": null,
+                                "distance": null,
+                                "target_pace": null,
+                                "position": 2,
+                                "exit_type": "count",
+                                "repeat_count": 3
+                            }
+                        ],
+                        "position": 1
+                    }
+                ],
+                "published_at": "2026-05-22T06:41:13.663Z",
+                "updated_at": "2026-05-22T06:43:22.896Z"
+            }
