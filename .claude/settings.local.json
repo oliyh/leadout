@@ -22,7 +22,16 @@
       "Bash(node -e \"const v = require\\('/workspaces/leadout/ui/node_modules/vite/package.json'\\); console.log\\(v.version\\)\")",
       "Bash(curl -s -I http://localhost:5173)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "WebSearch",
+      "Bash(make datafield *)",
+      "Bash(make datafield-build *)",
+      "Read(//usr/bin/**)",
+      "Read(//var/run/**)",
+      "Bash(make datafield-build-test *)",
+      "Bash(echo \"---BUILD EXIT: $?\")",
+      "Bash(make datafield-test *)",
+      "Bash(echo \"---EXIT: $?\")"
     ],
     "additionalDirectories": [
       "/home/oliy/dev/leadout"

@@ -12,8 +12,10 @@ PRG="${1:-$REPO_ROOT/datafield/leadout-datafield/bin/leadoutdatafield-sim.prg}"
 DEVICE="${2:-fr265s}"
 
 # Start simulator if not already running
+# LIBGL_ALWAYS_SOFTWARE=1 forces Mesa software rendering (avoids segfault on
+# VMware / other virtual GPU setups that lack full OpenGL support).
 if ! pgrep -x simulator > /dev/null; then
-    DISPLAY=:0 GDK_BACKEND=x11 ciq-simulator &
+    env DISPLAY=:0 GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 ciq-simulator &
     echo "Waiting for simulator to start..."
     sleep 6
 fi

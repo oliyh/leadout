@@ -23,45 +23,52 @@ class leadout_datafieldView extends WatchUi.DataField {
         STATE_COMPLETE           // all blocks done
     }
 
-    hidden var mState as SessionState;
-    hidden var mFetchFailed as Boolean;
-    hidden var mDeviceCode as String;
-    hidden var mCurrentBlock as Number;
-    hidden var mCurrentSegment as Number;
-    hidden var mSegmentStartMs as Number;
-    hidden var mProgrammeName as String;
-    hidden var mProgrammeDate as String;
-    hidden var mProgrammeId as String;
-    hidden var mBlocks as Array<Dictionary>;
-    hidden var mBlockNames as Array<String>;       // block names for pre-session display
-    hidden var mCurrentPaceSec as Number;          // live pace in sec/km, 0 = no signal
-    hidden var mSegmentStartDistM as Float;        // distance at segment start, -1 = uncaptured
-    hidden var mElapsedDistM as Float;             // latest elapsed distance from Activity.Info
-    hidden var mPolling as Boolean;                // registration poll in flight
-    hidden var mLastPollMs as Number;              // last registration poll timestamp
-    hidden var mLastErrorCode as Number;           // HTTP code from last failed sync
-    hidden var mLastErrorMsg as String;            // server error string from last failed sync
-    hidden var mSessionStartMs as Number;          // timer when first block started
-    hidden var mSessionEndMs as Number;            // timer when STATE_COMPLETE reached
-    hidden var mSessionStartDistM as Float;        // distance at session start
-    hidden var mIsOldSdk as Boolean;               // cached isOldSdk() result
+    // mState is null on a brand-new object (no inline initialiser) and is used as
+    // the first-init sentinel in initialize(). SessionState? allows the null check.
+    hidden var mState as SessionState?;
+    hidden var mFetchFailed as Boolean = false;
+    hidden var mDeviceCode as String = "";
+    hidden var mCurrentBlock as Number = 0;
+    hidden var mCurrentSegment as Number = 0;
+    hidden var mSegmentStartMs as Number = 0;
+    hidden var mProgrammeName as String = "";
+    hidden var mProgrammeDate as String = "";
+    hidden var mProgrammeId as String = "";
+    hidden var mBlocks as Array<Dictionary> = [] as Array<Dictionary>;
+    hidden var mBlockNames as Array<String> = [] as Array<String>;  // block names for pre-session display
+    hidden var mCurrentPaceSec as Number = 0;          // live pace in sec/km, 0 = no signal
+    hidden var mSegmentStartDistM as Float = -1.0f;    // distance at segment start, -1 = uncaptured
+    hidden var mElapsedDistM as Float = 0.0f;          // latest elapsed distance from Activity.Info
+    hidden var mPolling as Boolean = false;             // registration poll in flight
+    hidden var mLastPollMs as Number = 0;              // last registration poll timestamp
+    hidden var mLastErrorCode as Number = 0;           // HTTP code from last failed sync
+    hidden var mLastErrorMsg as String = "";           // server error string from last failed sync
+    hidden var mSessionStartMs as Number = 0;          // timer when first block started
+    hidden var mSessionEndMs as Number = 0;            // timer when STATE_COMPLETE reached
+    hidden var mSessionStartDistM as Float = 0.0f;    // distance at session start
+    hidden var mIsOldSdk as Boolean = false;           // cached isOldSdk() result
 
     // Repeat-loop state. Set when a block with a repeat segment begins, cleared
     // on block end or when the repeat exits. mRepeatStartIndex = -1 means not in a group.
-    hidden var mRepeatStartIndex as Number;    // first segment index of the current group
-    hidden var mRepeatStartMs as Number;       // getTimer() when the group began
-    hidden var mRepeatStartDistM as Float;     // elapsedDistance when the group began
-    hidden var mCurrentRep as Number;          // 1-based rep counter (which rep is running)
+    hidden var mRepeatStartIndex as Number = -1;   // first segment index of the current group
+    hidden var mRepeatStartMs as Number = 0;       // getTimer() when the group began
+    hidden var mRepeatStartDistM as Float = 0.0f;  // elapsedDistance when the group began
+    hidden var mCurrentRep as Number = 0;          // 1-based rep counter (which rep is running)
 
     // GPS position tracking for line-crossing detection.
     // mPrevLat = -999.0 signals "no prior fix available".
     // Reset to -999.0 on each block start (LAP press) to prevent a stale position
     // from forming an erroneous movement vector into the first crossing check.
-    hidden var mPrevLat as Double;
-    hidden var mPrevLng as Double;
+    hidden var mPrevLat as Double = -999.0d;
+    hidden var mPrevLng as Double = 0.0d;
 
     function initialize() {
         DataField.initialize();
+
+        // mState is null only on a brand-new object (no default value in the declaration).
+        // If it already has a value, initialize() has already run and all fields are valid
+        // — bail out to preserve any live session state.
+        if (mState != null) { return; }
 
         mState = STATE_SYNCING;
         mFetchFailed = false;
@@ -134,11 +141,13 @@ class leadout_datafieldView extends WatchUi.DataField {
     }
 
     function setNoSubscriptions() as Void {
+        if (sessionInProgress()) { return; }
         mState = STATE_NO_SUBSCRIPTIONS;
         WatchUi.requestUpdate();
     }
 
     function setNoProgramme() as Void {
+        if (sessionInProgress()) { return; }
         mState = STATE_NO_PROGRAMME;
         WatchUi.requestUpdate();
     }
@@ -413,12 +422,27 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
     }
 
+    // ── Session guard ─────────────────────────────────────────────────────
+
+    // True while a Leadout session is in progress: either actively running a
+    // segment (STATE_ACTIVE) or waiting between blocks (STATE_WAITING at block > 0).
+    // Used by loadProgrammeHeader and the sync state setters to prevent a background
+    // sync result from silently resetting an in-progress session.
+    hidden function sessionInProgress() as Boolean {
+        return mState == STATE_ACTIVE ||
+               (mState == STATE_WAITING && mCurrentBlock > 0);
+    }
+
     // ── Programme loading ─────────────────────────────────────────────────
 
     // Reads programme name, date, id, and block names from the compact Storage format.
     // Clears mBlocks so segments are re-parsed fresh at session start.
     // Called at init, on sync arrival, and after registration completes.
     hidden function loadProgrammeHeader(data as Dictionary) as Void {
+        // Don't disrupt a session in progress. Background sync can fire any time,
+        // but the instructor won't change the programme while the session is running.
+        if (sessionInProgress()) { return; }
+
         mProgrammeName = (data["n"] instanceof String) ? data["n"] as String : "";
         mProgrammeDate = (data["d"] instanceof String) ? data["d"] as String : "";
         mProgrammeId   = (data["i"] instanceof String) ? data["i"] as String : "";

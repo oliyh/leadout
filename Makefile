@@ -67,19 +67,24 @@ datafield-release:
 		--package-app
 
 # Build test binary then run it via monkeydo against the simulator.
-# Starts the simulator automatically if not already running.
+# Uses a private Xvfb virtual display (:99) so no host X11 display is required.
 # monkeydo exits non-zero even on success, so we detect pass/fail from output.
 datafield-test: datafield-build-test
+	@if ! pgrep -x Xvfb > /dev/null; then \
+	    Xvfb :99 -screen 0 1280x1024x24 &>/dev/null & \
+	    sleep 1; \
+	fi
 	@if ! pgrep -x simulator > /dev/null; then \
 	    echo "Starting simulator..."; \
-	    DISPLAY=:0 GDK_BACKEND=x11 ciq-simulator & \
+	    DISPLAY=:99 GDK_BACKEND=x11 ciq-simulator &>/dev/null & \
 	    sleep 6; \
 	fi
-	@$(MONKEYDO) $(PRG_TEST) $(DEVICE) -t 2>&1 | tee /tmp/datafield-test-results.txt; \
+	@DISPLAY=:99 $(MONKEYDO) $(PRG_TEST) $(DEVICE) -t 2>&1 | tee /tmp/datafield-test-results.txt; \
 	grep -q "^PASSED" /tmp/datafield-test-results.txt; \
 	status=$$?; \
 	pkill -f WebKitWebProcess 2>/dev/null || true; \
 	pkill -x simulator 2>/dev/null || true; \
+	pkill -x Xvfb 2>/dev/null || true; \
 	exit $$status
 
 datafield-test-all:

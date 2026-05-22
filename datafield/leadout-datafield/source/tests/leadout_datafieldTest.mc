@@ -497,12 +497,15 @@ function testBackgroundSentinel_keyName(logger as Test.Logger) as Boolean {
 // ── onBackgroundData — programme_ready sentinel (old SDK background sync) ─────
 //   onBackgroundData({"programme_ready" => true}):
 //     → Application.Storage.getValue("programme") read (service saved it before exit)
-//     → if Dictionary: view.setProgramme(cached) called → STATE_WAITING
+//     → if Dictionary: view.setProgramme(cached) called → loadProgrammeHeader()
+//       - if sessionInProgress(): early return, no state change
+//         (background sync never disrupts an in-progress session)
+//       - otherwise: STATE_WAITING (or STATE_UPCOMING if future date)
 //     → if not Dictionary: no state change (storage miss — next background tick retries)
 //   onBackgroundData({"no_programme" => true}):
-//     → view.setNoProgramme() → STATE_NO_PROGRAMME
+//     → view.setNoProgramme() → STATE_NO_PROGRAMME if !sessionInProgress(); no-op otherwise
 //   onBackgroundData({"no_subscriptions" => true}):
-//     → view.setNoSubscriptions() → STATE_NO_SUBSCRIPTIONS
+//     → view.setNoSubscriptions() → STATE_NO_SUBSCRIPTIONS if !sessionInProgress(); no-op otherwise
 //   onBackgroundData({"auth_failed" => true}):
 //     → handleAuthFailure() → token wiped, new device code, STATE_UNREGISTERED
 //   onBackgroundData(null) or non-Dictionary:
@@ -512,12 +515,21 @@ function testBackgroundSentinel_keyName(logger as Test.Logger) as Boolean {
 //       View.initialize() on the next foreground start
 //
 // ── loadProgramme — null/missing blocks guard ─────────────────────────────────
+//   loadProgramme(data) when sessionInProgress():
+//     → early return, mState unchanged (background sync never disrupts a session)
 //   loadProgramme({"name" => "x"}) with no "blocks" key (rawBlocks not instanceof Array):
 //     → early return, mState unchanged (defensive guard against malformed data)
 //   loadProgramme(data) with data["blocks"].size() > 0:
 //     → mState = STATE_WAITING, mCurrentBlock = 0, mCurrentSegment = 0
 //   loadProgramme(data) with data["blocks"].size() = 0:
 //     → mState remains unchanged (no blocks to wait for)
+//
+// ── Mid-activity reinit guard (DataField crash recovery) ──────────────────────
+//   initialize() checks mState != null before resetting any instance variables.
+//   If mState is non-null the object has already been initialised — bail out to
+//   preserve all live session state.  mState is null only on a brand-new object
+//   (Monkey C does not default instance variables), so a genuine first-init always
+//   proceeds regardless of the activity timer state.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────

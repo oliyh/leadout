@@ -69,6 +69,14 @@ Plug in the FR265s via USB, then:
 make install-datafield
 ```
 
+### Run unit tests
+
+```bash
+make datafield-test
+```
+
+Compiles the test binary, starts the Garmin simulator on a private **Xvfb** virtual framebuffer (display `:99`), runs all unit tests via `monkeydo`, then tears down the simulator and Xvfb. No host display required — runs headlessly inside the devcontainer.
+
 ### Run in simulator
 
 ```bash
@@ -81,6 +89,20 @@ Starts the simulator if not already running, builds for the simulator device pro
 make sim-lap      # press the back/LAP button to start the interval session
 make sim-screenshot   # capture simulator window to ./tmp/sim.png
 ```
+
+**Display forwarding** — `make sim` launches the simulator as a visible GUI window. The devcontainer is configured to forward the host's X11 socket (it mounts `/tmp/.X11-unix` and inherits `$DISPLAY`).
+
+Development has been done on a native Ubuntu laptop, where this works without extra steps. The devcontainer is also used inside a VMware Workstation Ubuntu VM on Windows — since the devcontainer runs inside the Ubuntu VM (not directly on Windows), the VM's own X11 display is the host display and forwarding works the same way as on native Ubuntu.
+
+**Troubleshooting:**
+
+- *`Authorization required` / `Unable to connect to simulator`* — the xauth cookie isn't being shared into the container. Run this on the Ubuntu host (outside the container) to allow local connections:
+  ```bash
+  xhost +local:
+  ```
+- *Simulator segfaults when the watch skin loads* — the virtual GPU (VMware SVGA) doesn't support the OpenGL calls the simulator makes. `sim-start.sh` already sets `LIBGL_ALWAYS_SOFTWARE=1` to force Mesa software rendering, which fixes this.
+
+If you only need test results and not the visible simulator UI, `make datafield-test` works without any host display setup.
 
 ---
 
