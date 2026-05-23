@@ -842,9 +842,26 @@ class leadout_datafieldView extends WatchUi.DataField {
                 distRemaining.format("%d") + "m",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else if (segKind.equals("line")) {
-            dc.drawText(cx, h / 2, Graphics.FONT_SMALL,
-                "Cross line",
-                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            // Show metres to the finish-line midpoint when a GPS fix is available.
+            // Falls back to "Cross line" when mPrevLat is still the sentinel -999.
+            if (mPrevLat > -998.0d) {
+                var midLat = ((seg[:p1_lat] as Float).toDouble() + (seg[:p2_lat] as Float).toDouble()) / 2.0d;
+                var midLng = ((seg[:p1_lng] as Float).toDouble() + (seg[:p2_lng] as Float).toDouble()) / 2.0d;
+                var cosLat = Math.cos(midLat * Math.PI / 180.0d);
+                var kLat   = 111320.0d;
+                var kLng   = 111320.0d * cosLat;
+                var dx = (mPrevLng - midLng) * kLng;
+                var dy = (mPrevLat - midLat) * kLat;
+                var distToLineM = Math.sqrt(dx * dx + dy * dy).toFloat();
+                if (distToLineM < 0.0f) { distToLineM = 0.0f; }
+                dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
+                    distToLineM.format("%d") + "m",
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            } else {
+                dc.drawText(cx, h / 2, Graphics.FONT_SMALL,
+                    "Cross line",
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
         } else {
             var duration = seg[:duration] as Number;
             var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
