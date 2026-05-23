@@ -161,6 +161,8 @@ loadProgramme: name=Sprintervals v2 blocks=1
 - sdk 3.3 support
 - i made "isOldSdk" background tagged - maybe we can put stuff back in onStart, and see if background service is happy again
 
+- during the last segment, it could show next: session complete
+
 - for watches with a compass, could it also indicate direction? but how does it know which way your watch is pointing when you look at it... could it use the last couple of gps points to work out your direction and make it relative to that?
 
 - add a compressed server representation, so we don't have to do work on the watch - reduces watch code and reduces watch memory
