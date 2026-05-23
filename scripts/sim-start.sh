@@ -21,7 +21,7 @@ if ! pgrep -x simulator > /dev/null; then
         WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 \
         ciq-simulator &
     echo "Waiting for simulator to start..."
-    sleep 8
+    sleep 14
 fi
 
 # Push the app

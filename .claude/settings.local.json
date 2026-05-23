@@ -38,10 +38,23 @@
       "Bash(LIBGL_ALWAYS_SOFTWARE=1 glxinfo)",
       "Bash(DISPLAY=:0 GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 timeout 8 ~/.Garmin/ConnectIQ/Sdks/current/bin/simulator)",
       "Bash(DISPLAY=:0 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 timeout 8 ~/.Garmin/ConnectIQ/Sdks/current/bin/simulator)",
-      "Bash(make sim *)"
+      "Bash(make sim *)",
+      "Bash(find /root/.Garmin -name \"*.cft\" 2>/dev/null | head -20 || echo \"No .cft files found\")",
+      "Read(//root/.Garmin/**)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\([f['filename'] for fs in d['fonts'] for f in fs['fonts']][:5]\\)\")",
+      "Bash(wget -q \"https://raw.githubusercontent.com/matco/connectiq-tester/master/devices.zip\" -O /tmp/check_devices.zip)",
+      "Bash(unzip -l /tmp/check_devices.zip)",
+      "Bash(/root/.Garmin/ConnectIQ/Sdks/connectiq-sdk-lin-9.1.0/bin/connectiq --help)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/matco/connectiq-tester/master/downloader.sh\")",
+      "Bash(python3 -)",
+      "Bash(python3 /workspaces/leadout/scripts/patch-device-fonts.py fr245 fr245m)",
+      "Bash(DEVICE=fr245 make datafield-sim)",
+      "Bash(DISPLAY=:0 GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 ciq-simulator --help)"
     ],
     "additionalDirectories": [
-      "/home/oliy/dev/leadout"
+      "/home/oliy/dev/leadout",
+      "/tmp"
     ]
   }
 }

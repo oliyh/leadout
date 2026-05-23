@@ -18,6 +18,7 @@ ui/dist/
 # SQLite WAL journal files (ephemeral, alongside leadout.db)
 server/leadout.db-shm
 server/leadout.db-wal
+server/leadout.db
 
 # Lock files — committed but excluded from wildcards
 !ui/package-lock.json

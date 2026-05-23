@@ -160,11 +160,6 @@ loadProgramme: name=Sprintervals v2 blocks=1
 
 - sdk 3.3 support
 - i made "isOldSdk" background tagged - maybe we can put stuff back in onStart, and see if background service is happy again
-- still get  compile warning about the lap thing
 
-- auto lap at end of segment / block doesnt seem to work, maybe that compile warning about the has :lap thing is always false
-
-
-- geo gate that you have to go through to complete a segment, instead of completing a distance or a time
-
-- diagram on home page explaining instructor -> channel -> subscription -> participant watch
+- when in a finish line segment, it should display metres away from finish line
+- for watches with a compass, could it also indicate direction? but how does it know which way your watch is pointing when you look at it... could it use the last couple of gps points to work out your direction and make it relative to that?

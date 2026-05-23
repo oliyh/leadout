@@ -41,6 +41,14 @@ RUN mkdir -p /root/.Garmin/ConnectIQ/Devices \
     && unzip -q /tmp/devices.zip -d /root/.Garmin/ConnectIQ/Devices \
     && rm /tmp/devices.zip
 
+# Patch older device simulator.json files that reference proprietary .cft font
+# files (e.g. FNT_FR945_*.cft) which are only distributed by the official
+# Garmin SDK Manager and not included in the community devices.zip.
+# Newer devices (FR265S, etc.) already use Roboto-Regular natively; older ones
+# (FR245, FR935, etc.) need every missing font reference swapped to Roboto-Regular.
+COPY scripts/patch-device-fonts.py /tmp/patch-device-fonts.py
+RUN python3 /tmp/patch-device-fonts.py && rm /tmp/patch-device-fonts.py
+
 # Simulator and runner wrappers
 RUN mkdir -p /root/.local/bin \
     && printf '#!/bin/bash\nexec "%s/current/bin/simulator" "$@"\n' "$SDK_HOME" \
