@@ -270,18 +270,18 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
 
         var segments = currentSegments();
-        var seg = segments[mCurrentSegment];
-        var kind = seg[:kind] as String;
+        var seg = segments[mCurrentSegment] as Array;
+        var kind = seg[SEG_KIND] as Number;
 
         // Guard: repeat markers should never be the current segment, but skip if they are.
-        if (kind.equals("repeat")) { return; }
+        if (kind == KIND_REPEAT) { return; }
 
         // ── Continuous time/distance exit check (can fire mid-segment) ────────
         if (mRepeatStartIndex >= 0) {
             var repSeg = currentRepeatMarkerSeg(segments);
             if (repSeg != null) {
-                var repExitType = repSeg[:exit_type] as String;
-                if (!repExitType.equals("count")) {
+                var repExitType = repSeg[REP_EXIT] as Number;
+                if (repExitType != EXIT_COUNT) {
                     var elapsedMs = System.getTimer() - mRepeatStartMs;
                     var coveredM  = mElapsedDistM - mRepeatStartDistM;
                     if (shouldExitRepeat(repSeg, mCurrentRep, elapsedMs, coveredM)) {
@@ -294,12 +294,12 @@ class leadout_datafieldView extends WatchUi.DataField {
 
         // ── Normal segment completion check ───────────────────────────────────
         var advance = false;
-        if (kind.equals("distance")) {
-            var distTarget = seg[:distance] as Float;
+        if (kind == KIND_DISTANCE) {
+            var distTarget = seg[SEG_DISTANCE] as Float;
             if (mSegmentStartDistM >= 0.0f) {
                 advance = (mElapsedDistM - mSegmentStartDistM) >= distTarget;
             }
-        } else if (kind.equals("line")) {
+        } else if (kind == KIND_LINE) {
             // Require a valid movement vector and > 5 s since segment/block start.
             // The debounce prevents false triggers when standing on the line at LAP press
             // or from GPS jitter immediately after a crossing fires.
@@ -307,15 +307,15 @@ class leadout_datafieldView extends WatchUi.DataField {
                 if (System.getTimer() - mSegmentStartMs > 5000) {
                     advance = lineCrossingCheck(
                         prevLat, prevLng, mPrevLat, mPrevLng,
-                        (seg[:p1_lat] as Float).toDouble(),
-                        (seg[:p1_lng] as Float).toDouble(),
-                        (seg[:p2_lat] as Float).toDouble(),
-                        (seg[:p2_lng] as Float).toDouble()
+                        (seg[LINE_P1LAT] as Float).toDouble(),
+                        (seg[LINE_P1LNG] as Float).toDouble(),
+                        (seg[LINE_P2LAT] as Float).toDouble(),
+                        (seg[LINE_P2LNG] as Float).toDouble()
                     );
                 }
             }
         } else {
-            var duration = seg[:duration] as Number;
+            var duration = seg[SEG_DURATION] as Number;
             var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
             advance = elapsedSecs >= duration;
             if (!advance && !mWarningFired && (duration - elapsedSecs) <= 3) {
@@ -333,9 +333,9 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     // Called when a block starts. Scans for the first repeat segment; if found,
     // sets up group state so the header is visible from rep 1.
-    hidden function initRepeatForBlock(segments as Array<Dictionary>) as Void {
+    hidden function initRepeatForBlock(segments as Array) as Void {
         for (var i = 0; i < segments.size(); i++) {
-            if (((segments[i] as Dictionary)[:kind] as String).equals("repeat")) {
+            if ((segments[i] as Array)[SEG_KIND] as Number == KIND_REPEAT) {
                 mRepeatStartIndex = 0;
                 mRepeatStartMs    = System.getTimer();
                 mRepeatStartDistM = mElapsedDistM;
@@ -356,22 +356,22 @@ class leadout_datafieldView extends WatchUi.DataField {
         mCurrentRep       = 0;
     }
 
-    hidden function currentRepeatMarkerSeg(segments as Array<Dictionary>) as Dictionary? {
+    hidden function currentRepeatMarkerSeg(segments as Array) as Array? {
         for (var i = mRepeatStartIndex; i < segments.size(); i++) {
-            var s = segments[i] as Dictionary;
-            if ((s[:kind] as String).equals("repeat")) { return s; }
+            var s = segments[i] as Array;
+            if (s[SEG_KIND] as Number == KIND_REPEAT) { return s; }
         }
         return null;
     }
 
-    hidden function currentRepeatMarkerIdx(segments as Array<Dictionary>) as Number {
+    hidden function currentRepeatMarkerIdx(segments as Array) as Number {
         for (var i = mRepeatStartIndex; i < segments.size(); i++) {
-            if (((segments[i] as Dictionary)[:kind] as String).equals("repeat")) { return i; }
+            if ((segments[i] as Array)[SEG_KIND] as Number == KIND_REPEAT) { return i; }
         }
         return -1;
     }
 
-    hidden function doAdvance(segments as Array<Dictionary>) as Void {
+    hidden function doAdvance(segments as Array) as Void {
         var nextIdx = mCurrentSegment + 1;
 
         if (nextIdx >= segments.size()) {
@@ -379,8 +379,8 @@ class leadout_datafieldView extends WatchUi.DataField {
             return;
         }
 
-        var nextSeg = segments[nextIdx] as Dictionary;
-        if ((nextSeg[:kind] as String).equals("repeat")) {
+        var nextSeg = segments[nextIdx] as Array;
+        if (nextSeg[SEG_KIND] as Number == KIND_REPEAT) {
             var elapsedMs = System.getTimer() - mRepeatStartMs;
             var coveredM  = mElapsedDistM - mRepeatStartDistM;
             if (shouldExitRepeat(nextSeg, mCurrentRep, elapsedMs, coveredM)) {
@@ -404,13 +404,13 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     // Called when the repeat exit condition is met. Advances past the repeat
     // marker and initialises the next group if another repeat follows.
-    hidden function doRepeatExit(segments as Array<Dictionary>, repeatIdx as Number) as Void {
+    hidden function doRepeatExit(segments as Array, repeatIdx as Number) as Void {
         var afterRepeat = repeatIdx + 1;
 
         // Look for a subsequent repeat group in this block.
         var nextRepeatIdx = -1;
         for (var i = afterRepeat; i < segments.size(); i++) {
-            if (((segments[i] as Dictionary)[:kind] as String).equals("repeat")) {
+            if ((segments[i] as Array)[SEG_KIND] as Number == KIND_REPEAT) {
                 nextRepeatIdx = i;
                 break;
             }
@@ -495,66 +495,18 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
     }
 
-    // Builds mBlocks from the compact Storage format. Called just before session start.
-    // Does not change mState, mCurrentBlock, or mCurrentSegment.
-    // Compact segment array layout (from compressProgramme in Utils.mc):
-    //   time/distance: [kind_int, name, duration, distance, target_pace]  (target_pace=-1 if none)
-    //   repeat:        [2, exit_type_int, repeat_count, duration, distance]
+    // Points mBlocks at the compact block array straight from Storage — no expansion
+    // to Dictionaries. Each block is {"n" => name, "s" => Array of compact segment
+    // arrays}; segments are read positionally (see the layout constants in Config.mc).
+    // Aliasing rather than copying is the key heap saving on FR245: the verbose
+    // Dictionary-per-segment tree this used to build no longer exists, so the
+    // double-allocation peak at LAP press is gone and the resident session footprint
+    // is just the compact arrays. Does not change mState/mCurrentBlock/mCurrentSegment.
     hidden function loadProgrammeSegments(data as Dictionary) as Void {
         var rawBlocks = data["b"];
-        if (!(rawBlocks instanceof Array)) { return; }
-        var jsonBlocks = rawBlocks as Array<Dictionary>;
-        var blocks = [] as Array<Dictionary>;
-        for (var i = 0; i < jsonBlocks.size(); i++) {
-            var jb = jsonBlocks[i] as Dictionary;
-            var rawSegs = jb["s"];
-            if (!(rawSegs instanceof Array)) { continue; }
-            var compSegs = rawSegs as Array<Array<Object>>;
-            var segs = [] as Array<Dictionary>;
-            for (var j = 0; j < compSegs.size(); j++) {
-                var cs = compSegs[j] as Array<Object>;
-                var kindInt = cs[0] as Number;
-                if (kindInt == 2) {
-                    var exitInt = cs[1] as Number;
-                    var exitStr = (exitInt == 1) ? "time" : (exitInt == 2) ? "distance" : "count";
-                    segs.add({
-                        :name         => "Repeat",
-                        :kind         => "repeat",
-                        :exit_type    => exitStr,
-                        :repeat_count => cs[2] as Number,
-                        :duration     => cs[3] as Number,
-                        :distance     => cs[4] as Float,
-                        :target_pace  => null
-                    });
-                } else if (kindInt == 3) {
-                    var pace = cs[6] as Number;
-                    segs.add({
-                        :name        => cs[1] as String,
-                        :kind        => "line",
-                        :p1_lat      => cs[2] as Float,
-                        :p1_lng      => cs[3] as Float,
-                        :p2_lat      => cs[4] as Float,
-                        :p2_lng      => cs[5] as Float,
-                        :target_pace => (pace == -1) ? null : pace
-                    });
-                } else {
-                    var segKind = (kindInt == 1) ? "distance" : "time";
-                    var pace = cs[4] as Number;
-                    segs.add({
-                        :name        => cs[1] as String,
-                        :kind        => segKind,
-                        :duration    => cs[2] as Number,
-                        :distance    => cs[3] as Float,
-                        :target_pace => (pace == -1) ? null : pace
-                    });
-                }
-            }
-            blocks.add({
-                :name     => (jb["n"] instanceof String) ? jb["n"] as String : "",
-                :segments => segs
-            });
+        if (rawBlocks instanceof Array) {
+            mBlocks = rawBlocks as Array<Dictionary>;
         }
-        mBlocks = blocks;
     }
 
     // Fire-and-forget POST to /api/sessions/start. No retry on failure.
@@ -664,15 +616,17 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
     }
 
-    hidden function currentSegments() as Array<Dictionary> {
-        return mBlocks[mCurrentBlock][:segments] as Array<Dictionary>;
+    // Returns the compact segment array for the current block: an Array of
+    // positional segment Arrays (see the layout constants in Config.mc).
+    hidden function currentSegments() as Array {
+        return (mBlocks[mCurrentBlock] as Dictionary)["s"] as Array;
     }
 
     // Uses mBlocks when the session is active (segments loaded), falls back to
     // mBlockNames (populated from header) when waiting before session start.
     hidden function currentBlockName() as String {
         if (mBlocks.size() > mCurrentBlock) {
-            return mBlocks[mCurrentBlock][:name] as String;
+            return (mBlocks[mCurrentBlock] as Dictionary)["n"] as String;
         }
         if (mBlockNames.size() > mCurrentBlock) {
             return mBlockNames[mCurrentBlock] as String;
@@ -824,30 +778,31 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden function drawActive(dc as Dc, cx as Number, cy as Number, fgColor as ColorValue) as Void {
         var h = dc.getHeight();
         var segments = currentSegments();
-        var seg = segments[mCurrentSegment];
-        var segName = seg[:name] as String;
-        var segKind = seg[:kind] as String;
-        var targetPace = seg[:target_pace];  // Number sec/km or null
+        var seg = segments[mCurrentSegment] as Array;
+        var segKind = seg[SEG_KIND] as Number;
+        var segName = seg[SEG_NAME] as String;
+        // pace lives at index 6 on line segments, index 4 otherwise; -1 = no target.
+        var targetPace = (segKind == KIND_LINE) ? (seg[LINE_PACE] as Number) : (seg[SEG_PACE] as Number);
 
         // ── Repeat progress header (above segment name) ───────────────────
         if (mRepeatStartIndex >= 0) {
             var repSeg = currentRepeatMarkerSeg(segments);
             if (repSeg != null) {
-                var exitType = repSeg[:exit_type] as String;
+                var exitType = repSeg[REP_EXIT] as Number;
                 var headerText = "";
-                if (exitType.equals("count")) {
-                    var total = repSeg[:repeat_count] as Number;
+                if (exitType == EXIT_COUNT) {
+                    var total = repSeg[REP_COUNT] as Number;
                     var current = mCurrentRep;
                     if (current > total) { current = total; }
                     headerText = current.format("%d") + "/" + total.format("%d");
-                } else if (exitType.equals("time")) {
-                    var target = repSeg[:duration] as Number;
+                } else if (exitType == EXIT_TIME) {
+                    var target = repSeg[REP_DURATION] as Number;
                     var elapsedSecs = (System.getTimer() - mRepeatStartMs) / 1000;
                     var remaining = target - elapsedSecs;
                     if (remaining < 0) { remaining = 0; }
                     headerText = formatDuration(remaining);
                 } else {
-                    var target = repSeg[:distance] as Float;
+                    var target = repSeg[REP_DISTANCE] as Float;
                     var covered = mElapsedDistM - mRepeatStartDistM;
                     var remaining = target - covered;
                     if (remaining < 0.0f) { remaining = 0.0f; }
@@ -867,20 +822,20 @@ class leadout_datafieldView extends WatchUi.DataField {
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // ── Main counter (time remaining or distance remaining) ────────────
-        if (segKind.equals("distance")) {
-            var distTarget = seg[:distance] as Float;
+        if (segKind == KIND_DISTANCE) {
+            var distTarget = seg[SEG_DISTANCE] as Float;
             var distDone = (mSegmentStartDistM >= 0.0f) ? (mElapsedDistM - mSegmentStartDistM) : 0.0f;
             var distRemaining = distTarget - distDone;
             if (distRemaining < 0.0f) { distRemaining = 0.0f; }
             dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
                 distRemaining.format("%d") + "m",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-        } else if (segKind.equals("line")) {
+        } else if (segKind == KIND_LINE) {
             // Show metres to the finish-line midpoint when a GPS fix is available.
             // Falls back to "Cross line" when mPrevLat is still the sentinel -999.
             if (mPrevLat > -998.0d) {
-                var midLat = ((seg[:p1_lat] as Float).toDouble() + (seg[:p2_lat] as Float).toDouble()) / 2.0d;
-                var midLng = ((seg[:p1_lng] as Float).toDouble() + (seg[:p2_lng] as Float).toDouble()) / 2.0d;
+                var midLat = ((seg[LINE_P1LAT] as Float).toDouble() + (seg[LINE_P2LAT] as Float).toDouble()) / 2.0d;
+                var midLng = ((seg[LINE_P1LNG] as Float).toDouble() + (seg[LINE_P2LNG] as Float).toDouble()) / 2.0d;
                 var cosLat = Math.cos(midLat * Math.PI / 180.0d);
                 var kLat   = 111320.0d;
                 var kLng   = 111320.0d * cosLat;
@@ -897,7 +852,7 @@ class leadout_datafieldView extends WatchUi.DataField {
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             }
         } else {
-            var duration = seg[:duration] as Number;
+            var duration = seg[SEG_DURATION] as Number;
             var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
             var remaining = duration - elapsedSecs;
             if (remaining < 0) { remaining = 0; }
@@ -908,7 +863,7 @@ class leadout_datafieldView extends WatchUi.DataField {
 
         // ── Bottom area: pace (when target set) or next segment ───────────
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        if (targetPace != null) {
+        if (targetPace >= 0) {
             // Two-column pace display: Target | Actual
             var leftX  = cx / 2;
             var rightX = cx + cx / 2;
@@ -934,17 +889,17 @@ class leadout_datafieldView extends WatchUi.DataField {
         } else {
             // Find next display segment — skip repeat markers
             var nextIdx = mCurrentSegment + 1;
-            while (nextIdx < segments.size() && ((segments[nextIdx] as Dictionary)[:kind] as String).equals("repeat")) {
+            while (nextIdx < segments.size() && ((segments[nextIdx] as Array)[SEG_KIND] as Number == KIND_REPEAT)) {
                 nextIdx++;
             }
             if (nextIdx < segments.size()) {
-                var next = segments[nextIdx] as Dictionary;
-                var nextKind = next[:kind] as String;
-                var nextLabel = nextKind.equals("distance")
-                    ? (next[:name] as String) + " " + (next[:distance] as Float).format("%d") + "m"
-                    : nextKind.equals("line")
-                        ? next[:name] as String
-                        : (next[:name] as String) + " " + formatDuration(next[:duration] as Number);
+                var next = segments[nextIdx] as Array;
+                var nextKind = next[SEG_KIND] as Number;
+                var nextLabel = (nextKind == KIND_DISTANCE)
+                    ? (next[SEG_NAME] as String) + " " + (next[SEG_DISTANCE] as Float).format("%d") + "m"
+                    : (nextKind == KIND_LINE)
+                        ? next[SEG_NAME] as String
+                        : (next[SEG_NAME] as String) + " " + formatDuration(next[SEG_DURATION] as Number);
                 dc.drawText(cx, h * 3 / 4 - 14, Graphics.FONT_XTINY,
                     "Next",
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
@@ -956,7 +911,7 @@ class leadout_datafieldView extends WatchUi.DataField {
                     "Next",
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
                 dc.drawText(cx, h * 3 / 4 + 10, Graphics.FONT_TINY,
-                    (mBlocks[mCurrentBlock + 1][:name] as String),
+                    ((mBlocks[mCurrentBlock + 1] as Dictionary)["n"] as String),
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             }
         }

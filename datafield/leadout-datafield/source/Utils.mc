@@ -106,9 +106,10 @@ function isOldSdk() as Boolean {
 // Returns the index of the first segment in the repeat group whose marker is
 // at repeatIdx. Scans backwards for a previous repeat marker; the group starts
 // at (previous marker index + 1), or 0 if none exists.
-function repeatGroupStart(segments as Array<Dictionary>, repeatIdx as Number) as Number {
+// segments is the compact form: an Array of positional segment Arrays.
+function repeatGroupStart(segments as Array, repeatIdx as Number) as Number {
     for (var i = repeatIdx - 1; i >= 0; i--) {
-        if (((segments[i] as Dictionary)[:kind] as String).equals("repeat")) {
+        if ((segments[i] as Array)[SEG_KIND] as Number == KIND_REPEAT) {
             return i + 1;
         }
     }
@@ -116,25 +117,25 @@ function repeatGroupStart(segments as Array<Dictionary>, repeatIdx as Number) as
 }
 
 // Returns true when the repeat exit condition encoded in seg is satisfied.
-// seg:          a repeat segment Dictionary with :exit_type, :repeat_count, :duration, :distance.
+// seg:          a compact repeat segment array [KIND_REPEAT, exit_type, repeat_count, duration, distance].
 // currentRep:   1-based index of the rep just completed.
 // elapsedMs:    milliseconds elapsed since the group began.
 // coveredDistM: metres covered since the group began.
 function shouldExitRepeat(
-    seg          as Dictionary,
+    seg          as Array,
     currentRep   as Number,
     elapsedMs    as Number,
     coveredDistM as Float
 ) as Boolean {
-    var exitType = seg[:exit_type] as String;
-    if (exitType.equals("count")) {
-        return currentRep >= (seg[:repeat_count] as Number);
+    var exitType = seg[REP_EXIT] as Number;
+    if (exitType == EXIT_COUNT) {
+        return currentRep >= (seg[REP_COUNT] as Number);
     }
-    if (exitType.equals("time")) {
-        return elapsedMs / 1000 >= (seg[:duration] as Number);
+    if (exitType == EXIT_TIME) {
+        return elapsedMs / 1000 >= (seg[REP_DURATION] as Number);
     }
-    if (exitType.equals("distance")) {
-        return coveredDistM >= (seg[:distance] as Float);
+    if (exitType == EXIT_DISTANCE) {
+        return coveredDistM >= (seg[REP_DISTANCE] as Float);
     }
     return false;
 }
@@ -196,11 +197,11 @@ function compressProgramme(data as Dictionary) as Dictionary {
                     var kindStr = (js["kind"] instanceof String) ? js["kind"] as String : "time";
                     if (kindStr.equals("repeat")) {
                         var exitStr = (js["exit_type"] instanceof String) ? js["exit_type"] as String : "count";
-                        var exitInt = exitStr.equals("time") ? 1 : exitStr.equals("distance") ? 2 : 0;
+                        var exitInt = exitStr.equals("time") ? EXIT_TIME : exitStr.equals("distance") ? EXIT_DISTANCE : EXIT_COUNT;
                         var repDist = (js["distance"] instanceof Float)  ? js["distance"] as Float :
                                       (js["distance"] instanceof Number) ? (js["distance"] as Number).toFloat() : 0.0f;
                         compSegs.add([
-                            2, exitInt,
+                            KIND_REPEAT, exitInt,
                             (js["repeat_count"] instanceof Number) ? js["repeat_count"] as Number : 1,
                             (js["duration"]     instanceof Number) ? js["duration"]     as Number : 0,
                             repDist
@@ -220,13 +221,13 @@ function compressProgramme(data as Dictionary) as Dictionary {
                                     (p2LngRaw instanceof Number) ? (p2LngRaw as Number).toFloat() : 0.0f;
                         var pace = (js["target_pace"] instanceof Number) ? (js["target_pace"] as Number) : -1;
                         compSegs.add([
-                            3,
+                            KIND_LINE,
                             (js["name"] instanceof String) ? js["name"] as String : "",
                             p1Lat, p1Lng, p2Lat, p2Lng,
                             pace
                         ] as Array<Object>);
                     } else {
-                        var kindInt = kindStr.equals("distance") ? 1 : 0;
+                        var kindInt = kindStr.equals("distance") ? KIND_DISTANCE : KIND_TIME;
                         var segDist = (js["distance"] instanceof Float)  ? js["distance"] as Float :
                                       (js["distance"] instanceof Number) ? (js["distance"] as Number).toFloat() : 0.0f;
                         var pace = (js["target_pace"] instanceof Number) ? (js["target_pace"] as Number) : -1;
