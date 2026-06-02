@@ -61,6 +61,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     // from forming an erroneous movement vector into the first crossing check.
     hidden var mPrevLat as Double = -999.0d;
     hidden var mPrevLng as Double = 0.0d;
+    hidden var mWarningFired as Boolean = false;  // true once the 3-second countdown beep has played for the current segment
 
     // Track whether this data field is the currently visible screen panel.
     // onTimerLap() fires on ALL data fields regardless of visibility; this flag
@@ -104,6 +105,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mCurrentRep = 0;
         mPrevLat = -999.0d;
         mPrevLng = 0.0d;
+        mWarningFired = false;
 
         // Load programme header only — segments deferred until session start.
         var cached = Application.Storage.getValue("programme");
@@ -211,6 +213,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             mCurrentSegment = 0;
             mSegmentStartMs = System.getTimer();
             mSegmentStartDistM = -1.0f;  // will be captured on first compute()
+            mWarningFired = false;
             mPrevLat = -999.0d;          // invalidate so first GPS tick after LAP press sets a fresh prev
             // Eagerly init repeat state if this block contains a repeat segment,
             // so the progress header is visible from the very first rep.
@@ -315,6 +318,10 @@ class leadout_datafieldView extends WatchUi.DataField {
             var duration = seg[:duration] as Number;
             var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
             advance = elapsedSecs >= duration;
+            if (!advance && !mWarningFired && (duration - elapsedSecs) <= 3) {
+                mWarningFired = true;
+                alertWarning();
+            }
         }
 
         if (advance) {
@@ -383,12 +390,14 @@ class leadout_datafieldView extends WatchUi.DataField {
                 mCurrentSegment = mRepeatStartIndex;
                 mSegmentStartMs = System.getTimer();
                 mSegmentStartDistM = mElapsedDistM;
+                mWarningFired = false;
                 alertSegment();
             }
         } else {
             mCurrentSegment    = nextIdx;
             mSegmentStartMs    = System.getTimer();
             mSegmentStartDistM = mElapsedDistM;
+            mWarningFired = false;
             alertSegment();
         }
     }
@@ -419,6 +428,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             mCurrentSegment    = afterRepeat;
             mSegmentStartMs    = System.getTimer();
             mSegmentStartDistM = mElapsedDistM;
+            mWarningFired = false;
             alertSegment();
         } else {
             doBlockOrSessionEnd();
@@ -610,6 +620,13 @@ class leadout_datafieldView extends WatchUi.DataField {
             WatchUi.requestUpdate();
         } else if (responseCode == 401) {
             getApp().handleAuthFailure();
+        }
+    }
+
+    // Quiet single beep only — 3 seconds before a time-based segment ends.
+    hidden function alertWarning() as Void {
+        if (Attention has :playTone) {
+            Attention.playTone(Attention.TONE_KEY);
         }
     }
 
