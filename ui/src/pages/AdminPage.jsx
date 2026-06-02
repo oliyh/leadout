@@ -9,6 +9,10 @@ function fmt(iso) {
     });
 }
 
+function shortId(id) {
+    return id ? id.slice(0, 8) : '—';
+}
+
 function AdminAccount({ account }) {
     const [resetting, setResetting] = useState(null);
 
@@ -25,7 +29,7 @@ function AdminAccount({ account }) {
     return (
         <div class="admin-card">
             <div class="admin-card-header">
-                <span class="admin-card-id">{account.id}</span>
+                <span class="admin-card-id" title={account.id}>{shortId(account.id)}</span>
                 <span class="muted">joined {fmt(account.created_at)}</span>
             </div>
             <div class="admin-card-body">
@@ -96,7 +100,7 @@ function AdminChannel({ channel }) {
                         ? <span class="muted">none</span>
                         : channel.subscribers.map(sub => (
                             <div key={sub.id} class="admin-row">
-                                <span class="admin-card-id">{sub.account_id}</span>
+                                <span class="admin-card-id" title={sub.account_id}>{shortId(sub.account_id)}</span>
                             </div>
                         ))
                     }
@@ -122,32 +126,50 @@ function AdminSummary() {
     const accounts = adminAccounts.value;
     const channels = adminChannels.value;
 
-    const totalDevices = accounts.reduce((n, a) => n + a.devices.length, 0);
-    const totalProgrammes = channels.reduce((n, ch) => n + ch.programmes.length, 0);
-
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    let syncOk = 0, syncNotOk = 0;
     const versionCounts = {};
     for (const account of accounts) {
         for (const device of account.devices) {
             const v = device.app_version ?? '(unknown)';
             versionCounts[v] = (versionCounts[v] ?? 0) + 1;
+            if (device.last_synced_at && new Date(device.last_synced_at).getTime() >= cutoff) {
+                syncOk++;
+            } else {
+                syncNotOk++;
+            }
         }
     }
+    const totalDevices = syncOk + syncNotOk;
+    const totalProgrammes = channels.reduce((n, ch) => n + ch.programmes.length, 0);
     const versions = Object.entries(versionCounts).sort(([a], [b]) => b.localeCompare(a));
 
     return (
         <div class="admin-summary">
-            <div class="admin-stat">
+            <a class="admin-stat admin-stat-link" href="#accounts">
                 <span class="admin-stat-value">{accounts.length}</span>
                 <span class="admin-stat-label">Accounts</span>
-            </div>
+            </a>
             <div class="admin-stat">
                 <span class="admin-stat-value">{totalDevices}</span>
                 <span class="admin-stat-label">Devices</span>
             </div>
-            <div class="admin-stat">
+            {totalDevices > 0 && (
+                <div class="admin-stat">
+                    <span class="admin-stat-value admin-stat-ok">{syncOk}</span>
+                    <span class="admin-stat-label">Synced (24h)</span>
+                </div>
+            )}
+            {totalDevices > 0 && syncNotOk > 0 && (
+                <div class="admin-stat">
+                    <span class="admin-stat-value admin-stat-notok">{syncNotOk}</span>
+                    <span class="admin-stat-label">Not synced</span>
+                </div>
+            )}
+            <a class="admin-stat admin-stat-link" href="#channels">
                 <span class="admin-stat-value">{channels.length}</span>
                 <span class="admin-stat-label">Channels</span>
-            </div>
+            </a>
             <div class="admin-stat">
                 <span class="admin-stat-value">{totalProgrammes}</span>
                 <span class="admin-stat-label">Programmes</span>
@@ -196,7 +218,7 @@ export function AdminPage() {
 
             <AdminSummary />
 
-            <section class="admin-section">
+            <section id="accounts" class="admin-section">
                 <h2 class="admin-section-title">
                     Accounts <span class="admin-count">({adminAccounts.value.length})</span>
                 </h2>
@@ -206,7 +228,7 @@ export function AdminPage() {
                 }
             </section>
 
-            <section class="admin-section">
+            <section id="channels" class="admin-section">
                 <h2 class="admin-section-title">
                     Channels <span class="admin-count">({adminChannels.value.length})</span>
                 </h2>

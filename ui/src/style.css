@@ -1718,6 +1718,17 @@ button { cursor: pointer; border: none; font-size: 13px; border-radius: 6px; fon
     color: #888;
 }
 
+.admin-stat-ok { color: #22a722; }
+
+.admin-stat-notok { color: #d04040; }
+
+.admin-stat-link {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+}
+.admin-stat-link:hover .admin-stat-value { text-decoration: underline; }
+
 .admin-stat-versions {
     flex: 1;
     min-width: 160px;
