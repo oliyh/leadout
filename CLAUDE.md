@@ -192,6 +192,10 @@ The app supports devices from API 3.3.0 upwards. A runtime check (`isOldSdk()` i
 
 **Consequence for date ordering:** `dateToInt()` in `Utils.mc` converts ISO date strings to integers for comparison, avoiding `String.compareTo()`.
 
+### Native Garmin Workout Integration (investigated, blocked)
+
+TrainingPeaks pushes workouts to Garmin watches via the **Garmin Health API** — a server-to-server partner API that requires Garmin approval (the same "Garmin Developer Programme" access that is currently impossible to obtain). Workouts synced this way appear as native Garmin workouts on the watch; no Connect IQ app is involved. Leadout's use case would map reasonably well onto this model — if every participant had the same workout file on their watch with a "press lap to start" first step, the group-sync UX would be equivalent. The Connect IQ SDK does not provide any API to create or save workouts into the native workout library from device-side code, so this route cannot be pursued from within the app either. The route is blocked on both ends.
+
 ### Data Field UI Constraints
 
 A Data Field occupies one panel on the activity data screen, not the full screen. The available canvas size depends on how many other data fields the user has configured. Leadout needs a dedicated full-screen data page - this is described in the setup instructions to help users configure this.

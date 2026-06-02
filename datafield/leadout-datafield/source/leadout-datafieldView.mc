@@ -62,6 +62,12 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mPrevLat as Double = -999.0d;
     hidden var mPrevLng as Double = 0.0d;
 
+    // Track whether this data field is the currently visible screen panel.
+    // onTimerLap() fires on ALL data fields regardless of visibility; this flag
+    // prevents a lap press on another screen (e.g. a TrainingPeaks workout) from
+    // accidentally starting or interacting with Leadout.
+    hidden var mIsVisible as Boolean = false;
+
     function initialize() {
         DataField.initialize();
 
@@ -170,7 +176,18 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     // ── Input ─────────────────────────────────────────────────────────────
 
+    function onShow() as Void {
+        mIsVisible = true;
+    }
+
+    function onHide() as Void {
+        mIsVisible = false;
+    }
+
     function onTimerLap() as Void {
+        if (!mIsVisible) {
+            return;
+        }
         if (mState == STATE_UPCOMING) {
             return;
         }

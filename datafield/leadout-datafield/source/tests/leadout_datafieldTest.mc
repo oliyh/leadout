@@ -436,8 +436,10 @@ function testBackgroundSentinel_keyName(logger as Test.Logger) as Boolean {
 //     → mState remains STATE_SYNCING (no programme to wait for)
 //
 // ── BlockStarted (spec rule: BlockStarted, LapButtonPressed when waiting) ─────
-//   onTimerLap() when mState = STATE_WAITING:
+//   onTimerLap() when mState = STATE_WAITING and mIsVisible = true:
 //     → mState = STATE_ACTIVE, mCurrentSegment = 0, mSegmentStartMs set
+//   onTimerLap() when mState = STATE_WAITING and mIsVisible = false:
+//     → state is unchanged (lap on a different data screen must not start the session)
 //   onTimerLap() when mState != STATE_WAITING:
 //     → state is unchanged (lap only advances in waiting state)
 //

@@ -94,7 +94,7 @@ datafield-test-all:
 datafield-build-docker:
 	$(DOCKER) build -f datafield/Dockerfile -t $(DATAFIELD_IMAGE) datafield
 
-datafield-test-docker: datafield-docker-build
+datafield-test-docker: datafield-build-docker
 	$(DOCKER) run --rm -v $(PWD)/datafield/leadout-datafield:/workspace $(DATAFIELD_IMAGE)
 
 # Installs datafield on a watch connected via usb
