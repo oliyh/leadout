@@ -732,14 +732,18 @@ function testContract_segment_repeatKind(logger as Test.Logger) as Boolean {
 // repeat group. The group starts at (previous repeat index + 1) or 0 if none.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Segments are the compact positional-array form (see Config.mc layout constants).
+// repeatGroupStart only inspects index 0 (the kind), so the trailing fields below
+// are representative placeholders.
+
 (:test)
 function testRepeatGroupStart_singleGroup(logger as Test.Logger) as Boolean {
     // [Fast, Slow, ×5] — no prior repeat, group starts at 0
     var segments = [
-        { :kind => "time",   :name => "Fast"   },
-        { :kind => "time",   :name => "Slow"   },
-        { :kind => "repeat", :name => "Repeat" }
-    ] as Array<Dictionary>;
+        [KIND_TIME,   "Fast", 0, 0.0f, -1]      as Array<Object>,
+        [KIND_TIME,   "Slow", 0, 0.0f, -1]      as Array<Object>,
+        [KIND_REPEAT, EXIT_COUNT, 5, 0, 0.0f]   as Array<Object>
+    ] as Array;
     Test.assertEqualMessage(repeatGroupStart(segments, 2), 0, "single group starts at index 0");
     return true;
 }
@@ -748,13 +752,13 @@ function testRepeatGroupStart_singleGroup(logger as Test.Logger) as Boolean {
 function testRepeatGroupStart_twoSequentialGroups(logger as Test.Logger) as Boolean {
     // [Fast, Slow, ×5, Sprint, Rest, ×3] — second group starts after first repeat (index 3)
     var segments = [
-        { :kind => "time",   :name => "Fast"   },
-        { :kind => "time",   :name => "Slow"   },
-        { :kind => "repeat", :name => "Repeat" },
-        { :kind => "time",   :name => "Sprint" },
-        { :kind => "time",   :name => "Rest"   },
-        { :kind => "repeat", :name => "Repeat" }
-    ] as Array<Dictionary>;
+        [KIND_TIME,   "Fast",   0, 0.0f, -1]    as Array<Object>,
+        [KIND_TIME,   "Slow",   0, 0.0f, -1]    as Array<Object>,
+        [KIND_REPEAT, EXIT_COUNT, 5, 0, 0.0f]   as Array<Object>,
+        [KIND_TIME,   "Sprint", 0, 0.0f, -1]    as Array<Object>,
+        [KIND_TIME,   "Rest",   0, 0.0f, -1]    as Array<Object>,
+        [KIND_REPEAT, EXIT_COUNT, 3, 0, 0.0f]   as Array<Object>
+    ] as Array;
     Test.assertEqualMessage(repeatGroupStart(segments, 5), 3, "second group starts after first repeat");
     return true;
 }
@@ -763,9 +767,9 @@ function testRepeatGroupStart_twoSequentialGroups(logger as Test.Logger) as Bool
 function testRepeatGroupStart_repeatAtIndex0(logger as Test.Logger) as Boolean {
     // Degenerate: repeat is the very first segment — group starts at 0
     var segments = [
-        { :kind => "repeat", :name => "Repeat" },
-        { :kind => "time",   :name => "Fast"   }
-    ] as Array<Dictionary>;
+        [KIND_REPEAT, EXIT_COUNT, 5, 0, 0.0f]   as Array<Object>,
+        [KIND_TIME,   "Fast", 0, 0.0f, -1]      as Array<Object>
+    ] as Array;
     Test.assertEqualMessage(repeatGroupStart(segments, 0), 0, "repeat at index 0 returns 0");
     return true;
 }
@@ -775,65 +779,67 @@ function testRepeatGroupStart_repeatAtIndex0(logger as Test.Logger) as Boolean {
 // Returns true when the exit condition in the repeat segment is satisfied.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// seg is the compact repeat segment array: [KIND_REPEAT, exit_type, repeat_count, duration, distance].
+
 (:test)
 function testShouldExitRepeat_count_notDone(logger as Test.Logger) as Boolean {
-    var seg = { :exit_type => "count", :repeat_count => 5, :duration => 0, :distance => 0.0f };
+    var seg = [KIND_REPEAT, EXIT_COUNT, 5, 0, 0.0f] as Array;
     Test.assertMessage(!shouldExitRepeat(seg, 3, 0, 0.0f), "rep 3 of 5 — not done");
     return true;
 }
 
 (:test)
 function testShouldExitRepeat_count_done(logger as Test.Logger) as Boolean {
-    var seg = { :exit_type => "count", :repeat_count => 5, :duration => 0, :distance => 0.0f };
+    var seg = [KIND_REPEAT, EXIT_COUNT, 5, 0, 0.0f] as Array;
     Test.assertMessage(shouldExitRepeat(seg, 5, 0, 0.0f), "rep 5 of 5 — done");
     return true;
 }
 
 (:test)
 function testShouldExitRepeat_count_singleRep(logger as Test.Logger) as Boolean {
-    var seg = { :exit_type => "count", :repeat_count => 1, :duration => 0, :distance => 0.0f };
+    var seg = [KIND_REPEAT, EXIT_COUNT, 1, 0, 0.0f] as Array;
     Test.assertMessage(shouldExitRepeat(seg, 1, 0, 0.0f), "rep 1 of 1 — exits immediately");
     return true;
 }
 
 (:test)
 function testShouldExitRepeat_time_notElapsed(logger as Test.Logger) as Boolean {
-    var seg = { :exit_type => "time", :repeat_count => 0, :duration => 60, :distance => 0.0f };
+    var seg = [KIND_REPEAT, EXIT_TIME, 0, 60, 0.0f] as Array;
     Test.assertMessage(!shouldExitRepeat(seg, 1, 59000, 0.0f), "59 s elapsed of 60 s — not done");
     return true;
 }
 
 (:test)
 function testShouldExitRepeat_time_exactlyElapsed(logger as Test.Logger) as Boolean {
-    var seg = { :exit_type => "time", :repeat_count => 0, :duration => 60, :distance => 0.0f };
+    var seg = [KIND_REPEAT, EXIT_TIME, 0, 60, 0.0f] as Array;
     Test.assertMessage(shouldExitRepeat(seg, 1, 60000, 0.0f), "60 s elapsed of 60 s — done");
     return true;
 }
 
 (:test)
 function testShouldExitRepeat_time_over(logger as Test.Logger) as Boolean {
-    var seg = { :exit_type => "time", :repeat_count => 0, :duration => 60, :distance => 0.0f };
+    var seg = [KIND_REPEAT, EXIT_TIME, 0, 60, 0.0f] as Array;
     Test.assertMessage(shouldExitRepeat(seg, 1, 65000, 0.0f), "65 s elapsed of 60 s — done");
     return true;
 }
 
 (:test)
 function testShouldExitRepeat_distance_notReached(logger as Test.Logger) as Boolean {
-    var seg = { :exit_type => "distance", :repeat_count => 0, :duration => 0, :distance => 400.0f };
+    var seg = [KIND_REPEAT, EXIT_DISTANCE, 0, 0, 400.0f] as Array;
     Test.assertMessage(!shouldExitRepeat(seg, 1, 0, 399.0f), "399 m of 400 m — not done");
     return true;
 }
 
 (:test)
 function testShouldExitRepeat_distance_exactlyReached(logger as Test.Logger) as Boolean {
-    var seg = { :exit_type => "distance", :repeat_count => 0, :duration => 0, :distance => 400.0f };
+    var seg = [KIND_REPEAT, EXIT_DISTANCE, 0, 0, 400.0f] as Array;
     Test.assertMessage(shouldExitRepeat(seg, 1, 0, 400.0f), "400 m of 400 m — done");
     return true;
 }
 
 (:test)
 function testShouldExitRepeat_distance_exceeded(logger as Test.Logger) as Boolean {
-    var seg = { :exit_type => "distance", :repeat_count => 0, :duration => 0, :distance => 400.0f };
+    var seg = [KIND_REPEAT, EXIT_DISTANCE, 0, 0, 400.0f] as Array;
     Test.assertMessage(shouldExitRepeat(seg, 1, 0, 500.0f), "500 m of 400 m — done");
     return true;
 }
@@ -897,5 +903,112 @@ function testLineCrossing_crosses_extension_not_segment(logger as Test.Logger) a
          0.0d,   0.001d    // q2: east end (line goes from lng=0 to lng=0.001)
     );
     Test.assertMessage(!result, "crossing beyond line endpoint should return false");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// compressProgramme — compact segment layout
+//
+// compressProgramme converts the server's string-keyed JSON into the compact
+// positional-array form that lives in Application.Storage and is read directly by
+// the DataField (no Dictionary expansion — the FR245 heap saving). These tests
+// pin the exact positional layout the View depends on; any drift between the
+// encoder and the field indices in Config.mc breaks the running watch silently,
+// so it must break a test instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testCompress_timeSegment_layout(logger as Test.Logger) as Boolean {
+    var prog = {
+        "id" => "p1", "name" => "P", "scheduled_date" => "2099-01-01",
+        "blocks" => [
+            { "name" => "B", "segments" => [
+                { "name" => "Fast", "kind" => "time", "duration" => 120, "distance" => 0, "target_pace" => 240 }
+            ] as Array<Dictionary> }
+        ] as Array<Dictionary>
+    };
+    var segs = ((compressProgramme(prog)["b"] as Array)[0] as Dictionary)["s"] as Array;
+    var seg = segs[0] as Array;
+    Test.assertEqualMessage(seg[SEG_KIND],     KIND_TIME, "time segment kind at index 0");
+    Test.assertEqualMessage(seg[SEG_NAME],     "Fast",    "name at SEG_NAME");
+    Test.assertEqualMessage(seg[SEG_DURATION], 120,       "duration at SEG_DURATION");
+    Test.assertEqualMessage(seg[SEG_PACE],     240,       "target pace at SEG_PACE");
+    return true;
+}
+
+(:test)
+function testCompress_distanceSegment_layout(logger as Test.Logger) as Boolean {
+    var prog = {
+        "id" => "p1", "name" => "P", "scheduled_date" => "2099-01-01",
+        "blocks" => [
+            { "name" => "B", "segments" => [
+                { "name" => "Recovery", "kind" => "distance", "duration" => 0, "distance" => 200, "target_pace" => null }
+            ] as Array<Dictionary> }
+        ] as Array<Dictionary>
+    };
+    var segs = ((compressProgramme(prog)["b"] as Array)[0] as Dictionary)["s"] as Array;
+    var seg = segs[0] as Array;
+    Test.assertEqualMessage(seg[SEG_KIND],     KIND_DISTANCE, "distance segment kind at index 0");
+    Test.assertEqualMessage(seg[SEG_NAME],     "Recovery",    "name at SEG_NAME");
+    Test.assertEqualMessage(seg[SEG_DISTANCE], 200.0f,        "distance at SEG_DISTANCE");
+    Test.assertEqualMessage(seg[SEG_PACE],     -1,            "null target pace encoded as -1");
+    return true;
+}
+
+(:test)
+function testCompress_lineSegment_layout(logger as Test.Logger) as Boolean {
+    var prog = {
+        "id" => "p1", "name" => "P", "scheduled_date" => "2099-01-01",
+        "blocks" => [
+            { "name" => "B", "segments" => [
+                { "name" => "Finish", "kind" => "line",
+                  "p1_lat" => 51.5074f, "p1_lng" => -0.1278f,
+                  "p2_lat" => 51.5075f, "p2_lng" => -0.1280f, "target_pace" => null }
+            ] as Array<Dictionary> }
+        ] as Array<Dictionary>
+    };
+    var segs = ((compressProgramme(prog)["b"] as Array)[0] as Dictionary)["s"] as Array;
+    var seg = segs[0] as Array;
+    Test.assertEqualMessage(seg[SEG_KIND],   KIND_LINE,  "line segment kind at index 0");
+    Test.assertEqualMessage(seg[SEG_NAME],   "Finish",   "name at SEG_NAME");
+    Test.assertEqualMessage(seg[LINE_P1LAT], 51.5074f,   "p1_lat at LINE_P1LAT");
+    Test.assertEqualMessage(seg[LINE_P1LNG], -0.1278f,   "p1_lng at LINE_P1LNG");
+    Test.assertEqualMessage(seg[LINE_P2LAT], 51.5075f,   "p2_lat at LINE_P2LAT");
+    Test.assertEqualMessage(seg[LINE_P2LNG], -0.1280f,   "p2_lng at LINE_P2LNG");
+    Test.assertEqualMessage(seg[LINE_PACE],  -1,         "null target pace encoded as -1 at LINE_PACE");
+    return true;
+}
+
+(:test)
+function testCompress_repeatSegment_layout(logger as Test.Logger) as Boolean {
+    var prog = {
+        "id" => "p1", "name" => "P", "scheduled_date" => "2099-01-01",
+        "blocks" => [
+            { "name" => "B", "segments" => [
+                { "name" => "Repeat", "kind" => "repeat", "exit_type" => "count",
+                  "repeat_count" => 5, "duration" => 0, "distance" => 0 }
+            ] as Array<Dictionary> }
+        ] as Array<Dictionary>
+    };
+    var segs = ((compressProgramme(prog)["b"] as Array)[0] as Dictionary)["s"] as Array;
+    var seg = segs[0] as Array;
+    Test.assertEqualMessage(seg[SEG_KIND],  KIND_REPEAT, "repeat segment kind at index 0");
+    Test.assertEqualMessage(seg[REP_EXIT],  EXIT_COUNT,  "exit type at REP_EXIT");
+    Test.assertEqualMessage(seg[REP_COUNT], 5,           "repeat count at REP_COUNT");
+    return true;
+}
+
+(:test)
+function testCompress_blockName_preserved(logger as Test.Logger) as Boolean {
+    // currentBlockName()/loadProgrammeHeader read the block name from key "n".
+    var prog = {
+        "id" => "p1", "name" => "P", "scheduled_date" => "2099-01-01",
+        "blocks" => [
+            { "name" => "Warm up", "segments" => [] as Array<Dictionary> }
+        ] as Array<Dictionary>
+    };
+    var block0 = (compressProgramme(prog)["b"] as Array)[0] as Dictionary;
+    Test.assertEqualMessage(block0["n"], "Warm up", "block name stored under key 'n'");
+    Test.assertMessage(block0["s"] instanceof Array, "block segments stored under key 's'");
     return true;
 }
