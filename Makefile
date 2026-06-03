@@ -95,7 +95,16 @@ datafield-build-docker:
 	$(DOCKER) build -f datafield/Dockerfile -t $(DATAFIELD_IMAGE) datafield
 
 datafield-test-docker: datafield-build-docker
-	$(DOCKER) run --rm -v $(PWD)/datafield/leadout-datafield:/workspace $(DATAFIELD_IMAGE)
+	@container=$$($(DOCKER) create -e DEVICE=$(DEVICE) $(DATAFIELD_IMAGE)); \
+	$(DOCKER) cp $(PWD)/datafield/leadout-datafield/. "$$container:/workspace/"; \
+	$(DOCKER) start -a "$$container"; \
+	status=$$?; \
+	$(DOCKER) rm "$$container" > /dev/null; \
+	exit $$status
+
+datafield-test-all-docker:
+	$(MAKE) datafield-test-docker DEVICE=fr265s
+	$(MAKE) datafield-test-docker DEVICE=fr245
 
 # Installs datafield on a watch connected via usb
 install-datafield: datafield-build
