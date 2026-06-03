@@ -252,6 +252,12 @@ function compressProgramme(data as Dictionary) as Dictionary {
     };
 }
 
+// Returns true when actualSec is within 10% of targetSec (and a real reading exists).
+// actualSec = 0 means no GPS signal — never considered on-target.
+function isPaceOnTarget(actualSec as Number, targetSec as Number) as Boolean {
+    return actualSec > 0 && (actualSec - targetSec).abs() <= targetSec / 10;
+}
+
 // Converts "YYYY-MM-DD" to an integer YYYYMMDD for ordering.
 // String.compareTo() is not available on CIQ 3.3, so numeric comparison is used instead.
 // Lexicographic order equals chronological order for this fixed format.

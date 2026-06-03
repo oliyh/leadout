@@ -422,6 +422,52 @@ function testBackgroundSentinel_keyName(logger as Test.Logger) as Boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// isPaceOnTarget
+// Returns true when actualSec is within 10% of targetSec.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testIsPaceOnTarget_exact(logger as Test.Logger) as Boolean {
+    Test.assertMessage(isPaceOnTarget(300, 300), "exact match is on-target");
+    return true;
+}
+
+(:test)
+function testIsPaceOnTarget_withinTenPercent_faster(logger as Test.Logger) as Boolean {
+    // 270 sec/km is 10% faster than 300 (300 - 30 = 270) — boundary, still on-target.
+    Test.assertMessage(isPaceOnTarget(270, 300), "10% faster (boundary) is on-target");
+    return true;
+}
+
+(:test)
+function testIsPaceOnTarget_withinTenPercent_slower(logger as Test.Logger) as Boolean {
+    // 330 sec/km is 10% slower than 300 (300 + 30 = 330) — boundary, still on-target.
+    Test.assertMessage(isPaceOnTarget(330, 300), "10% slower (boundary) is on-target");
+    return true;
+}
+
+(:test)
+function testIsPaceOnTarget_tooFast(logger as Test.Logger) as Boolean {
+    // 269 sec/km is just beyond 10% faster than 300.
+    Test.assertMessage(!isPaceOnTarget(269, 300), "just beyond 10% faster is off-target");
+    return true;
+}
+
+(:test)
+function testIsPaceOnTarget_tooSlow(logger as Test.Logger) as Boolean {
+    // 331 sec/km is just beyond 10% slower than 300.
+    Test.assertMessage(!isPaceOnTarget(331, 300), "just beyond 10% slower is off-target");
+    return true;
+}
+
+(:test)
+function testIsPaceOnTarget_noSignal(logger as Test.Logger) as Boolean {
+    // actualSec = 0 means no GPS — never on-target regardless of target.
+    Test.assertMessage(!isPaceOnTarget(0, 300), "zero actual pace (no signal) is off-target");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // View state machine — obligations documented, unit tests blocked by platform
 //
 // leadout_datafieldView extends WatchUi.DataField, which requires the UI runtime.

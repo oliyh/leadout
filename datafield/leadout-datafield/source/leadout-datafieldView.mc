@@ -904,7 +904,8 @@ class leadout_datafieldView extends WatchUi.DataField {
             dc.drawText(rightX, labelY, Graphics.FONT_XTINY,
                 "Actual",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
+            var paceOnTarget = isPaceOnTarget(mCurrentPaceSec, targetPace);
+            dc.setColor(paceOnTarget ? Graphics.COLOR_GREEN : fgColor, Graphics.COLOR_TRANSPARENT);
             dc.drawText(rightX, valueY, Graphics.FONT_TINY,
                 (mCurrentPaceSec > 0) ? formatDuration(mCurrentPaceSec) : "--:--",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
