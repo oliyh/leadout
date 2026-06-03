@@ -62,6 +62,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     hidden var mPrevLat as Double = -999.0d;
     hidden var mPrevLng as Double = 0.0d;
     hidden var mWarningFired as Boolean = false;  // true once the 3-second countdown beep has played for the current segment
+    hidden var mPauseStartMs as Number = 0;       // System.getTimer() at last onTimerPause; 0 when not paused
 
     // Track whether this data field is the currently visible screen panel.
     // onTimerLap() fires on ALL data fields regardless of visibility; this flag
@@ -106,6 +107,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mPrevLat = -999.0d;
         mPrevLng = 0.0d;
         mWarningFired = false;
+        mPauseStartMs = 0;
 
         // Load programme header only — segments deferred until session start.
         var cached = Application.Storage.getValue("programme");
@@ -224,6 +226,26 @@ class leadout_datafieldView extends WatchUi.DataField {
                 Application.Storage.setValue("pending_participation_id", mProgrammeId);
                 if (!mIsOldSdk) { recordParticipation(); }
             }
+        }
+    }
+
+    function onTimerPause() as Void {
+        mPauseStartMs = System.getTimer();
+    }
+
+    function onTimerResume() as Void {
+        if (mPauseStartMs > 0) {
+            var pauseDuration = System.getTimer() - mPauseStartMs;
+            if (mState == STATE_ACTIVE) {
+                mSegmentStartMs += pauseDuration;
+                if (mRepeatStartIndex >= 0) {
+                    mRepeatStartMs += pauseDuration;
+                }
+            }
+            if (mSessionStartMs > 0) {
+                mSessionStartMs += pauseDuration;
+            }
+            mPauseStartMs = 0;
         }
     }
 
