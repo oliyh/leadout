@@ -16,6 +16,6 @@
   "devDependencies": {
     "@preact/preset-vite": "^2.9.3",
     "vite": "^6.3.3",
-    "vitest": "^3.2.0"
+    "vitest": "^4.1.8"
   }
 }
