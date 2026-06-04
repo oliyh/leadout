@@ -61,7 +61,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     // from forming an erroneous movement vector into the first crossing check.
     hidden var mPrevLat as Double = -999.0d;
     hidden var mPrevLng as Double = 0.0d;
-    hidden var mWarningFired as Boolean = false;  // true once the 3-second countdown beep has played for the current segment
+    hidden var mWarningCount as Number = 0;  // number of countdown beeps fired for current segment (one per second for last 3s)
     hidden var mPauseStartMs as Number = 0;       // System.getTimer() at last onTimerPause; 0 when not paused
 
     // Track whether this data field is the currently visible screen panel.
@@ -106,7 +106,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mCurrentRep = 0;
         mPrevLat = -999.0d;
         mPrevLng = 0.0d;
-        mWarningFired = false;
+        mWarningCount = 0;
         mPauseStartMs = 0;
 
         // Load programme header only — segments deferred until session start.
@@ -175,7 +175,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         mSessionEndMs      = 0;
         mSessionStartDistM = 0.0f;
         mPauseStartMs      = 0;
-        mWarningFired      = false;
+        mWarningCount      = 0;
         mPrevLat           = -999.0d;
         mPrevLng           = 0.0d;
         clearRepeatState();
@@ -234,7 +234,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             mCurrentSegment = 0;
             mSegmentStartMs = System.getTimer();
             mSegmentStartDistM = -1.0f;  // will be captured on first compute()
-            mWarningFired = false;
+            mWarningCount = 0;
             mPrevLat = -999.0d;          // invalidate so first GPS tick after LAP press sets a fresh prev
             // Eagerly init repeat state if this block contains a repeat segment,
             // so the progress header is visible from the very first rep.
@@ -414,9 +414,15 @@ class leadout_datafieldView extends WatchUi.DataField {
             var duration = seg[SEG_DURATION] as Number;
             var elapsedSecs = (effectiveNow() - mSegmentStartMs) / 1000;
             advance = elapsedSecs >= duration;
-            if (!advance && !mWarningFired && (duration - elapsedSecs) <= 3) {
-                mWarningFired = true;
-                alertWarning();
+            if (!advance) {
+                var remaining = duration - elapsedSecs;
+                // Fire one beep per second for the last 3 seconds (3, 2, 1).
+                // mWarningCount tracks how many beeps have fired; a new beep is
+                // due whenever remaining drops to a value we haven't beeped yet.
+                if (remaining > 0 && remaining <= 3 && (3 - remaining) >= mWarningCount) {
+                    mWarningCount += 1;
+                    alertWarning();
+                }
             }
         }
 
@@ -486,14 +492,14 @@ class leadout_datafieldView extends WatchUi.DataField {
                 mCurrentSegment = mRepeatStartIndex;
                 mSegmentStartMs = System.getTimer();
                 mSegmentStartDistM = mElapsedDistM;
-                mWarningFired = false;
+                mWarningCount = 0;
                 alertSegment();
             }
         } else {
             mCurrentSegment    = nextIdx;
             mSegmentStartMs    = System.getTimer();
             mSegmentStartDistM = mElapsedDistM;
-            mWarningFired = false;
+            mWarningCount = 0;
             alertSegment();
         }
     }
@@ -524,7 +530,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             mCurrentSegment    = afterRepeat;
             mSegmentStartMs    = System.getTimer();
             mSegmentStartDistM = mElapsedDistM;
-            mWarningFired = false;
+            mWarningCount = 0;
             alertSegment();
         } else {
             doBlockOrSessionEnd();
@@ -671,10 +677,10 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
     }
 
-    // Quiet single beep only — 3 seconds before a time-based segment ends.
+    // Short low beep — countdown tick for each of the last 3 seconds of a time segment.
     hidden function alertWarning() as Void {
         if (Attention has :playTone) {
-            Attention.playTone(Attention.TONE_KEY);
+            Attention.playTone(Attention.TONE_ALERT_LO);
         }
     }
 

@@ -2,7 +2,7 @@
 // depending on the jungle file used. See monkey-device.jungle and monkey-sim.jungle.
 
 // Keep in sync with the version in manifest.xml when releasing.
-const APP_VERSION = "0.10.0";
+const APP_VERSION = "0.12.0";
 
 // ── Compact segment layout ───────────────────────────────────────────────────
 // Segments live on the heap as positional Arrays (not Dictionaries) to minimise
