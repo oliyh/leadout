@@ -41,11 +41,7 @@ java -jar /path/to/monkeybrains.jar \
 ### Build for all target devices
 
 ```bash
-java -jar /path/to/monkeybrains.jar \
-    --package-app \
-    --private-key developer.key \
-    --output leadout-datafield.iq \
-    manifest.xml
+make datafield-release
 ```
 
 Or use the VS Code command palette: **Monkey C: Build for Distribution**.

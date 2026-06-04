@@ -206,3 +206,21 @@ A Data Field occupies one panel on the activity data screen, not the full screen
 - Prefer writing logic to a script file (in `scripts/` or `tmp/`) and executing it with `bash` or `python3`, rather than using heredocs or piped inline commands. This avoids repeated permission prompts and keeps logic reusable.
 - Avoid `sed` to read particular lines of code as this is a potential write operation. Use `Read` instead
 - Avoid using absolute file paths when the files are within the current working directory
+- When creating new files, add them to git
+- When adding new logic, write it in a testable way using pure functions where possible, and add unit tests
+
+## Development environment
+
+This app is developed on multiple platforms:
+- A native ubuntu laptop (with and without the devcontainer)
+- Ubuntu running in VMWare on a Windows host (using the devcontainer)
+- In a container in coolify running on an Ubuntu VPS (using the devcontainer)
+
+This has ramifications for the simulator display with display forwarding etc.
+A common mistake the developer makes is forgetting to run `xhost +local:` when in VMWare.
+Consider all these environments when changing scripts to do with the build and the sim.
+
+### The Garmin simulator
+
+The sim has defied all attempts to reverse engineer it to control it programatically. Don't attempt to do so unless explicitly asked.
+Instead, ask the developer to use the sim if feedback is required.

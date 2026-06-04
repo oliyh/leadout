@@ -68,7 +68,9 @@ class leadout_datafieldView extends WatchUi.DataField {
     // onTimerLap() fires on ALL data fields regardless of visibility; this flag
     // prevents a lap press on another screen (e.g. a TrainingPeaks workout) from
     // accidentally starting or interacting with Leadout.
-    hidden var mIsVisible as Boolean = false;
+    // Seeded true in the simulator because the sim loads DataFields directly
+    // without firing onShow(), so mIsVisible would otherwise stay false forever.
+    hidden var mIsVisible as Boolean = IS_SIM;
 
     function initialize() {
         DataField.initialize();
