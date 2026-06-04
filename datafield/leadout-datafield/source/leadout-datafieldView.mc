@@ -68,9 +68,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     // onTimerLap() fires on ALL data fields regardless of visibility; this flag
     // prevents a lap press on another screen (e.g. a TrainingPeaks workout) from
     // accidentally starting or interacting with Leadout.
-    // Seeded true in the simulator because the sim loads DataFields directly
-    // without firing onShow(), so mIsVisible would otherwise stay false forever.
-    hidden var mIsVisible as Boolean = IS_SIM;
+    hidden var mIsVisible as Boolean = false;
 
     function initialize() {
         DataField.initialize();
@@ -164,19 +162,38 @@ class leadout_datafieldView extends WatchUi.DataField {
         WatchUi.requestUpdate();
     }
 
-    // Resets all state back to STATE_SYNCING (used by the settings reset action).
+    // Clears all per-session runtime state: block/segment position, segment and
+    // session timers, pause, GPS tracking, warning flag, and the repeat group.
+    // Shared by reset() and resetToStart(); mirrors the session fields in initialize().
+    hidden function clearSessionState() as Void {
+        mCurrentBlock      = 0;
+        mCurrentSegment    = 0;
+        mBlocks            = [] as Array<Dictionary>;
+        mSegmentStartMs    = 0;
+        mSegmentStartDistM = -1.0f;
+        mSessionStartMs    = 0;
+        mSessionEndMs      = 0;
+        mSessionStartDistM = 0.0f;
+        mPauseStartMs      = 0;
+        mWarningFired      = false;
+        mPrevLat           = -999.0d;
+        mPrevLng           = 0.0d;
+        clearRepeatState();
+    }
+
+    // Full wipe back to STATE_SYNCING — discards the loaded programme and error
+    // state. Used by the settings reset action, which also clears Storage, so it
+    // does not reload from cache.
     function reset() as Void {
+        clearSessionState();
         mState = STATE_SYNCING;
         mFetchFailed = false;
         mLastErrorCode = 0;
         mLastErrorMsg = "";
-        mBlocks = [] as Array<Dictionary>;
         mBlockNames = [] as Array<String>;
         mProgrammeName = "";
         mProgrammeDate = "";
         mProgrammeId = "";
-        mCurrentBlock = 0;
-        mCurrentSegment = 0;
         WatchUi.requestUpdate();
     }
 
@@ -231,11 +248,38 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
     }
 
-    function onTimerPause() as Void {
-        mPauseStartMs = System.getTimer();
+    // Freeze the countdown on the manual Stop button only (onTimerStop/onTimerStart).
+    // We deliberately do NOT hook onTimerPause/onTimerResume: those fire from Auto
+    // Pause, which is speed-driven — a participant standing still during a "recovery"
+    // segment could trip it, and the interval countdown must keep running through
+    // recovery. Only a deliberate Stop press should halt the session.
+    function onTimerStop() as Void {
+        freezeTimers();
     }
 
-    function onTimerResume() as Void {
+    function onTimerStart() as Void {
+        unfreezeTimers();
+    }
+
+    // Activity ended (saved or discarded) — return to the start of the programme
+    // so a freshly started activity shows the session from the beginning rather
+    // than the stale state of the View instance (which may not be destroyed).
+    function onTimerReset() as Void {
+        resetToStart();
+    }
+
+    // Freeze the countdown at the current instant. Idempotent: a repeat Stop
+    // event keeps the original stop timestamp so the resume adjustment spans the
+    // whole stoppage.
+    hidden function freezeTimers() as Void {
+        if (mPauseStartMs == 0) {
+            mPauseStartMs = System.getTimer();
+        }
+    }
+
+    // Resume after a freeze, shifting the segment/session start markers forward
+    // by the paused duration so the countdown continues from where it stopped.
+    hidden function unfreezeTimers() as Void {
         if (mPauseStartMs > 0) {
             var pauseDuration = System.getTimer() - mPauseStartMs;
             if (mState == STATE_ACTIVE) {
@@ -251,7 +295,30 @@ class leadout_datafieldView extends WatchUi.DataField {
         }
     }
 
+    // Returns to the start of the loaded programme: block 0, no active segment,
+    // all session/pause timers cleared. Segments are freed and reloaded lazily
+    // on the next LAP press. Unlike reset(), keeps the same programme by reloading
+    // its header from cache.
+    hidden function resetToStart() as Void {
+        clearSessionState();
+        // Neutralise mState so loadProgrammeHeader's sessionInProgress() guard passes,
+        // then reload the header from cache → block 0, STATE_WAITING/UPCOMING.
+        mState = STATE_SYNCING;
+        var cached = Application.Storage.getValue("programme");
+        if (cached instanceof Dictionary) {
+            loadProgrammeHeader(cached as Dictionary);
+        }
+        WatchUi.requestUpdate();
+    }
+
     // ── Logic ─────────────────────────────────────────────────────────────
+
+    // Returns the current timer value, frozen at the pause instant while paused.
+    // All elapsed-time calculations should use this instead of System.getTimer()
+    // directly so that countdowns freeze during an activity pause.
+    hidden function effectiveNow() as Number {
+        return (mPauseStartMs > 0) ? mPauseStartMs : System.getTimer();
+    }
 
     function compute(info as Activity.Info) as Void {
         // Update live pace from GPS speed (m/s → sec/km)
@@ -293,6 +360,11 @@ class leadout_datafieldView extends WatchUi.DataField {
             return;
         }
 
+        // Don't advance segments while the activity is paused.
+        if (mPauseStartMs > 0) {
+            return;
+        }
+
         var segments = currentSegments();
         var seg = segments[mCurrentSegment] as Array;
         var kind = seg[SEG_KIND] as Number;
@@ -306,7 +378,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             if (repSeg != null) {
                 var repExitType = repSeg[REP_EXIT] as Number;
                 if (repExitType != EXIT_COUNT) {
-                    var elapsedMs = System.getTimer() - mRepeatStartMs;
+                    var elapsedMs = effectiveNow() - mRepeatStartMs;
                     var coveredM  = mElapsedDistM - mRepeatStartDistM;
                     if (shouldExitRepeat(repSeg, mCurrentRep, elapsedMs, coveredM)) {
                         doRepeatExit(segments, currentRepeatMarkerIdx(segments));
@@ -328,7 +400,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             // The debounce prevents false triggers when standing on the line at LAP press
             // or from GPS jitter immediately after a crossing fires.
             if (prevLat > -998.0d && mPrevLat > -998.0d) {
-                if (System.getTimer() - mSegmentStartMs > 5000) {
+                if (effectiveNow() - mSegmentStartMs > 5000) {
                     advance = lineCrossingCheck(
                         prevLat, prevLng, mPrevLat, mPrevLng,
                         (seg[LINE_P1LAT] as Float).toDouble(),
@@ -340,7 +412,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             }
         } else {
             var duration = seg[SEG_DURATION] as Number;
-            var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
+            var elapsedSecs = (effectiveNow() - mSegmentStartMs) / 1000;
             advance = elapsedSecs >= duration;
             if (!advance && !mWarningFired && (duration - elapsedSecs) <= 3) {
                 mWarningFired = true;
@@ -821,7 +893,7 @@ class leadout_datafieldView extends WatchUi.DataField {
                     headerText = current.format("%d") + "/" + total.format("%d");
                 } else if (exitType == EXIT_TIME) {
                     var target = repSeg[REP_DURATION] as Number;
-                    var elapsedSecs = (System.getTimer() - mRepeatStartMs) / 1000;
+                    var elapsedSecs = (effectiveNow() - mRepeatStartMs) / 1000;
                     var remaining = target - elapsedSecs;
                     if (remaining < 0) { remaining = 0; }
                     headerText = formatDuration(remaining);
@@ -877,7 +949,7 @@ class leadout_datafieldView extends WatchUi.DataField {
             }
         } else {
             var duration = seg[SEG_DURATION] as Number;
-            var elapsedSecs = (System.getTimer() - mSegmentStartMs) / 1000;
+            var elapsedSecs = (effectiveNow() - mSegmentStartMs) / 1000;
             var remaining = duration - elapsedSecs;
             if (remaining < 0) { remaining = 0; }
             dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
