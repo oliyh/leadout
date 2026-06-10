@@ -208,6 +208,8 @@ describe('Admin data content', () => {
             .set('Authorization', `Bearer ${otherAccount.token}`)
             .send({ account_id: otherAccount.id });
 
+        await httpPublishProgramme(app, adminAccount, channel.id, 'Session 1');
+
         const res = await adminGet('/api/admin/channels');
         const ch = res.body.find(c => c.id === channel.id);
 
@@ -217,6 +219,8 @@ describe('Admin data content', () => {
         expect(subAccountIds).toContain(otherAccount.id);
 
         expect(Array.isArray(ch.programmes)).toBe(true);
+        expect(ch.programmes).toHaveLength(1);
+        expect(ch.programmes[0].participation_count).toBe(0);
     });
 });
 

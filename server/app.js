@@ -512,7 +512,11 @@ export function createApp(store) {
                 store.findProgrammesByChannel(ch.id),
                 store.findSubscriptionsByChannel(ch.id),
             ]);
-            return { ...ch, programmes, subscribers: subs };
+            const programmesWithCounts = await Promise.all(programmes.map(async p => ({
+                ...p,
+                participation_count: (await store.findParticipationsByProgramme(p.id)).length,
+            })));
+            return { ...ch, programmes: programmesWithCounts, subscribers: subs };
         }));
         res.json(result);
     });

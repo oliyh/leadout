@@ -114,6 +114,7 @@ function AdminChannel({ channel }) {
                             <div key={p.id} class="admin-row">
                                 <span>{p.name}</span>
                                 <span class="muted">{p.scheduled_date}</span>
+                                <span class="muted">{p.participation_count} started</span>
                             </div>
                         ))
                     }
