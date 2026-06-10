@@ -144,6 +144,7 @@ function AdminSummary() {
     }
     const totalDevices = syncOk + syncNotOk;
     const totalProgrammes = channels.reduce((n, ch) => n + ch.programmes.length, 0);
+    const totalParticipations = channels.reduce((n, ch) => n + ch.programmes.reduce((m, p) => m + (p.participation_count ?? 0), 0), 0);
     const versions = Object.entries(versionCounts).sort(([a], [b]) => b.localeCompare(a));
 
     return (
@@ -175,6 +176,10 @@ function AdminSummary() {
             <div class="admin-stat">
                 <span class="admin-stat-value">{totalProgrammes}</span>
                 <span class="admin-stat-label">Programmes</span>
+            </div>
+            <div class="admin-stat">
+                <span class="admin-stat-value">{totalParticipations}</span>
+                <span class="admin-stat-label">Sessions started</span>
             </div>
             {versions.length > 0 && (
                 <div class="admin-stat admin-stat-versions">
