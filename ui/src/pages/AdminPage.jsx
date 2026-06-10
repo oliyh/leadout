@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { adminAccounts, adminChannels, isAdmin, loadAdminData, adminResetDeviceToken } from '../store/admin.js';
+import { showChannel } from '../store/dashboard.js';
 
 function fmt(iso) {
     if (!iso) return 'never';
@@ -88,7 +89,7 @@ function AdminChannel({ channel }) {
     return (
         <div class="admin-card">
             <div class="admin-card-header">
-                <span class="admin-card-name">{channel.name}</span>
+                <button class="admin-card-name admin-card-link" onClick={() => showChannel(channel.id)}>{channel.name}</button>
                 <span class="muted">
                     {channel.subscribers.length} subscribers · {channel.programmes.length} programmes
                 </span>

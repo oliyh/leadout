@@ -35,6 +35,11 @@ function verifyToken(token) {
     try { return JSON.parse(Buffer.from(payload, 'base64url').toString()); } catch { return null; }
 }
 
+function isAdminRequest(req) {
+    const adminId = process.env.ADMIN_ACCOUNT_ID;
+    return !!adminId && req.authAccountId === adminId;
+}
+
 // Verifies the Bearer token and attaches req.authAccountId.
 // Returns 401 if the token is absent or invalid.
 function requireAuth(req, res, next) {
@@ -254,7 +259,7 @@ export function createApp(store) {
     app.get('/api/channels/:id/programmes', requireAuth, async (req, res) => {
         const _ch = await store.getChannel(req.params.id);
         if (!_ch) return res.status(404).end();
-        if (_ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
+        if (_ch.instructor_oauth_id !== req.authAccountId && !isAdminRequest(req)) return res.status(403).json({ error: 'forbidden' });
         const programmes = await store.findProgrammesByChannel(req.params.id);
         const result = await Promise.all(programmes.map(async prog => ({
             ...prog,
@@ -267,7 +272,7 @@ export function createApp(store) {
     app.get('/api/channels/:id/subscribers', requireAuth, async (req, res) => {
         const _ch = await store.getChannel(req.params.id);
         if (!_ch) return res.status(404).end();
-        if (_ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
+        if (_ch.instructor_oauth_id !== req.authAccountId && !isAdminRequest(req)) return res.status(403).json({ error: 'forbidden' });
         res.json(await store.findSubscriptionsByChannel(req.params.id));
     });
 
@@ -393,7 +398,7 @@ export function createApp(store) {
         const prog = await store.getProgramme(req.params.id);
         if (!prog) return res.status(404).end();
         const _ch = await store.getChannel(prog.channel_id);
-        if (!_ch || _ch.instructor_oauth_id !== req.authAccountId) return res.status(403).json({ error: 'forbidden' });
+        if (!_ch || (_ch.instructor_oauth_id !== req.authAccountId && !isAdminRequest(req))) return res.status(403).json({ error: 'forbidden' });
         const records = await store.findSyncRecordsByProgramme(prog.id);
         res.json({
             programme_id: prog.id,

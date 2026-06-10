@@ -19,6 +19,22 @@ async function httpCreateAccount(app, googleId) {
     return res.body; // includes .token
 }
 
+async function httpCreateChannel(app, account, name) {
+    const res = await request(app).post('/api/channels')
+        .set('Authorization', `Bearer ${account.token}`)
+        .send({ instructor_oauth_id: account.id, name });
+    expect(res.status).toBe(201);
+    return res.body;
+}
+
+async function httpPublishProgramme(app, account, channelId, name) {
+    const res = await request(app).post(`/api/channels/${channelId}/programmes`)
+        .set('Authorization', `Bearer ${account.token}`)
+        .send({ name, scheduled_date: new Date().toISOString().slice(0, 10), pace_assumption: 330, blocks: [] });
+    expect(res.status).toBe(201);
+    return res.body;
+}
+
 // Save / restore ADMIN_ACCOUNT_ID around each describe that needs it.
 function withAdminEnv() {
     let saved;
@@ -276,5 +292,65 @@ describe('POST /api/admin/devices/:id/reset-token', () => {
         const res = await request(app).get('/api/sync/WATCH-RESET-01')
             .set('Authorization', `Bearer ${newToken}`);
         expect(res.status).toBe(200);
+    });
+});
+
+// ── Admin bypass for instructor-owned read endpoints ─────────────────────────
+
+describe('Admin bypass — instructor channel read endpoints', () => {
+    let app, adminAccount, instructorAccount, channel, programme;
+    withAdminEnv();
+
+    beforeEach(async () => {
+        ({ app } = makeApp());
+        adminAccount     = await httpCreateAccount(app, 'g-bypass-admin');
+        instructorAccount = await httpCreateAccount(app, 'g-bypass-instructor');
+        process.env.ADMIN_ACCOUNT_ID = adminAccount.id;
+
+        channel   = await httpCreateChannel(app, instructorAccount, 'Instructor Channel');
+        programme = await httpPublishProgramme(app, instructorAccount, channel.id, 'Session 1');
+    });
+
+    function adminGet(path) {
+        return request(app).get(path).set('Authorization', `Bearer ${adminAccount.token}`);
+    }
+
+    it('admin can view programmes for a channel they do not own (200)', async () => {
+        const res = await adminGet(`/api/channels/${channel.id}/programmes`);
+        expect(res.status).toBe(200);
+        expect(res.body.map(p => p.id)).toContain(programme.id);
+    });
+
+    it('admin can view subscribers for a channel they do not own (200)', async () => {
+        const res = await adminGet(`/api/channels/${channel.id}/subscribers`);
+        expect(res.status).toBe(200);
+        expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    it('admin can view propagation stats for a programme they do not own (200)', async () => {
+        const res = await adminGet(`/api/programmes/${programme.id}/propagation`);
+        expect(res.status).toBe(200);
+        expect(res.body.programme_id).toBe(programme.id);
+    });
+
+    it('non-admin still gets 403 for channel programmes', async () => {
+        const other = await httpCreateAccount(app, 'g-bypass-other');
+        const res = await request(app).get(`/api/channels/${channel.id}/programmes`)
+            .set('Authorization', `Bearer ${other.token}`);
+        expect(res.status).toBe(403);
+    });
+
+    it('non-admin still gets 403 for channel subscribers', async () => {
+        const other = await httpCreateAccount(app, 'g-bypass-other2');
+        const res = await request(app).get(`/api/channels/${channel.id}/subscribers`)
+            .set('Authorization', `Bearer ${other.token}`);
+        expect(res.status).toBe(403);
+    });
+
+    it('non-admin still gets 403 for programme propagation', async () => {
+        const other = await httpCreateAccount(app, 'g-bypass-other3');
+        const res = await request(app).get(`/api/programmes/${programme.id}/propagation`)
+            .set('Authorization', `Bearer ${other.token}`);
+        expect(res.status).toBe(403);
     });
 });
