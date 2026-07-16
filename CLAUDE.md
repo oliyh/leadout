@@ -208,7 +208,7 @@ A Data Field occupies one panel on the activity data screen, not the full screen
 - Avoid using absolute file paths when the files are within the current working directory
 - When creating new files, add them to git
 - When adding new logic, write it in a testable way using pure functions where possible, and add unit tests
-- When changes are complete, run the tests to verify
+- When changes are complete, run the tests to verify. If any fail, fix them and run them again. Only go back to the developer when they are green or require a decision from the developer.
 
 ## Development environment
 
