@@ -547,7 +547,10 @@ function testIsPaceOnTarget_noSignal(logger as Test.Logger) as Boolean {
 //     → Application.Storage.getValue("programme") read (service saved it before exit)
 //     → if Dictionary: view.setProgramme(cached) called → loadProgrammeHeader()
 //       - if sessionInProgress(): early return, no state change
-//         (background sync never disrupts an in-progress session)
+//         (background sync never disrupts an in-progress OR completed session —
+//          sessionInProgress() covers STATE_COMPLETE too, so a sync landing after
+//          the last block finishes can't flip it back to STATE_WAITING and let a
+//          stray autolap on the run home restart the session)
 //       - otherwise: STATE_WAITING (or STATE_UPCOMING if future date)
 //     → if not Dictionary: no state change (storage miss — next background tick retries)
 //   onBackgroundData({"no_programme" => true}):

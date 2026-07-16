@@ -553,13 +553,17 @@ class leadout_datafieldView extends WatchUi.DataField {
 
     // ── Session guard ─────────────────────────────────────────────────────
 
-    // True while a Leadout session is in progress: either actively running a
-    // segment (STATE_ACTIVE) or waiting between blocks (STATE_WAITING at block > 0).
-    // Used by loadProgrammeHeader and the sync state setters to prevent a background
-    // sync result from silently resetting an in-progress session.
+    // True while a Leadout session is in progress or finished on this activity:
+    // actively running a segment (STATE_ACTIVE), waiting between blocks
+    // (STATE_WAITING at block > 0), or done (STATE_COMPLETE). Used by
+    // loadProgrammeHeader and the sync state setters to prevent a background sync
+    // result from silently resetting an in-progress session back to STATE_WAITING —
+    // which would let a stray autolap (e.g. on the run home) restart it. Only
+    // onTimerReset()/resetToStart() (a genuine new activity) clears STATE_COMPLETE.
     hidden function sessionInProgress() as Boolean {
         return mState == STATE_ACTIVE ||
-               (mState == STATE_WAITING && mCurrentBlock > 0);
+               (mState == STATE_WAITING && mCurrentBlock > 0) ||
+               mState == STATE_COMPLETE;
     }
 
     // ── Programme loading ─────────────────────────────────────────────────
