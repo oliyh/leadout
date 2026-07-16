@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { modal, closeModal } from '../store/modal.js';
 import { programmes, deleteProgramme, addBlock, openExternalProgramme } from '../store/programmes.js';
 import { pyramidSegments, pyramidPreview, fartlek321Segments, fartlek321Preview, monaFartlekSegments, monaFartlekPreview } from '../store/templates.js';
-import { showProgrammeEditor, showChannel, showHome } from '../store/dashboard.js';
+import { currentView, showProgrammeEditor, showChannel, showHome } from '../store/dashboard.js';
 import { createChannel, createProgramme as createChannelProgramme } from '../store/channels.js';
 import { unsubscribe } from '../store/subscriptions.js';
 import { removeDevice, registerDevice } from '../store/devices.js';
@@ -117,7 +117,9 @@ function ConfirmDeleteModal({ progId }) {
     const prog = programmes.value.find(p => p.id === progId);
 
     async function onDelete() {
+        const view = currentView.value;
         await deleteProgramme(progId);
+        if (view?.type === 'programme' && view.id === progId) showChannel(view.channel_id);
         closeModal();
     }
 
