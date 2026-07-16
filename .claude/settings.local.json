@@ -52,7 +52,8 @@
       "Bash(DEVICE=fr245 make datafield-sim)",
       "Bash(DISPLAY=:0 GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 ciq-simulator --help)",
       "Bash(DISPLAY=:0 xdpyinfo)",
-      "Bash(make datafield-sim *)"
+      "Bash(make datafield-sim *)",
+      "Bash(git pull *)"
     ],
     "additionalDirectories": [
       "/home/oliy/dev/leadout",

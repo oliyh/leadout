@@ -1,6 +1,6 @@
 import { useRef } from 'preact/hooks';
 import { activeSegment, selectSegment } from '../store/editor.js';
-import { addBlock, updateBlock, deleteBlock, moveBlock, addSegment, moveSegment } from '../store/programmes.js';
+import { addBlock, updateBlock, deleteBlock, cloneBlock, moveBlock, addSegment, moveSegment } from '../store/programmes.js';
 import { SegmentPanel } from './SegmentPanel.jsx';
 import { openTemplateModal } from '../store/modal.js';
 import { normPace, segDuration, segDistanceM, blockStats, progStats } from '../lib/estimates.js';
@@ -134,6 +134,8 @@ function BlockRow({ prog, block, index, total, readonly }) {
                             onClick={() => moveBlock(prog.id, block.id, 'up')} title="Move up">↑</button>
                         <button class="btn-icon" disabled={index === total - 1}
                             onClick={() => moveBlock(prog.id, block.id, 'down')} title="Move down">↓</button>
+                        <button class="btn-icon"
+                            onClick={() => cloneBlock(prog.id, block.id)} title="Clone block">⧉</button>
                         <button class="btn-icon btn-danger"
                             onClick={() => deleteBlock(prog.id, block.id)} title="Delete block">✕</button>
                     </div>

@@ -253,6 +253,22 @@ export function deleteBlock(progId, blockId) {
     }), 'delete block');
 }
 
+export function cloneBlock(progId, blockId) {
+    mutate(progId, p => {
+        const idx = p.blocks.findIndex(b => b.id === blockId);
+        if (idx === -1) return p;
+        const src = p.blocks[idx];
+        const copy = {
+            ...src,
+            id: newId(),
+            segments: src.segments.map(s => ({ ...s, id: newId() })),
+        };
+        const blocks = [...p.blocks];
+        blocks.splice(idx + 1, 0, copy);
+        return { ...p, blocks: blocks.map((b, i) => ({ ...b, position: i })) };
+    }, 'clone block');
+}
+
 export function moveBlock(progId, blockId, direction) {
     mutate(progId, p => {
         const blocks = [...p.blocks];
