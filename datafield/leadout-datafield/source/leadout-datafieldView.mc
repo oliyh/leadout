@@ -61,7 +61,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     // from forming an erroneous movement vector into the first crossing check.
     hidden var mPrevLat as Double = -999.0d;
     hidden var mPrevLng as Double = 0.0d;
-    hidden var mWarningCount as Number = 0;  // number of countdown beeps fired for current segment (one per second for last 3s)
+    hidden var mWarningCount as Number = 0;  // warning beeps fired for current segment: time segments count up (one per second, final 3s); distance/line segments latch at 1 (single beep, final 15m)
     hidden var mPauseStartMs as Number = 0;       // System.getTimer() at last onTimerPause; 0 when not paused
 
     // Track whether this data field is the currently visible screen panel.
@@ -393,7 +393,18 @@ class leadout_datafieldView extends WatchUi.DataField {
         if (kind == KIND_DISTANCE) {
             var distTarget = seg[SEG_DISTANCE] as Float;
             if (mSegmentStartDistM >= 0.0f) {
-                advance = (mElapsedDistM - mSegmentStartDistM) >= distTarget;
+                var distDone = mElapsedDistM - mSegmentStartDistM;
+                advance = distDone >= distTarget;
+                if (!advance) {
+                    // Single latched warning beep on entering the final stretch — unlike
+                    // the time-based countdown, GPS distance can jitter back and forth
+                    // near the threshold, so mWarningCount just flags "already fired".
+                    var distanceRemaining = distTarget - distDone;
+                    if (inFinalStretch(distanceRemaining, SEGMENT_WARNING_DISTANCE_M) && mWarningCount == 0) {
+                        mWarningCount = 1;
+                        alertWarning();
+                    }
+                }
             }
         } else if (kind == KIND_LINE) {
             // Require a valid movement vector and > 5 s since segment/block start.
@@ -408,6 +419,15 @@ class leadout_datafieldView extends WatchUi.DataField {
                         (seg[LINE_P2LAT] as Float).toDouble(),
                         (seg[LINE_P2LNG] as Float).toDouble()
                     );
+                }
+                if (!advance && mWarningCount == 0) {
+                    var midLat = ((seg[LINE_P1LAT] as Float).toDouble() + (seg[LINE_P2LAT] as Float).toDouble()) / 2.0d;
+                    var midLng = ((seg[LINE_P1LNG] as Float).toDouble() + (seg[LINE_P2LNG] as Float).toDouble()) / 2.0d;
+                    var distToLineM = distanceToPointM(mPrevLat, mPrevLng, midLat, midLng);
+                    if (inFinalStretch(distToLineM, SEGMENT_WARNING_DISTANCE_M)) {
+                        mWarningCount = 1;
+                        alertWarning();
+                    }
                 }
             }
         } else {
@@ -896,6 +916,18 @@ class leadout_datafieldView extends WatchUi.DataField {
             ? ((seg[SEG_DURATION] as Number) - ((effectiveNow() - mSegmentStartMs) / 1000))
             : -1;
 
+        // Distance remaining for the two GPS-driven kinds. -1.0 sentinel when not
+        // applicable, or for a finish line with no GPS fix yet (mPrevLat still -999).
+        var distRemaining = -1.0f;
+        if (segKind == KIND_DISTANCE) {
+            var distDone = (mSegmentStartDistM >= 0.0f) ? (mElapsedDistM - mSegmentStartDistM) : 0.0f;
+            distRemaining = (seg[SEG_DISTANCE] as Float) - distDone;
+        } else if (segKind == KIND_LINE && mPrevLat > -998.0d) {
+            var midLat = ((seg[LINE_P1LAT] as Float).toDouble() + (seg[LINE_P2LAT] as Float).toDouble()) / 2.0d;
+            var midLng = ((seg[LINE_P1LNG] as Float).toDouble() + (seg[LINE_P2LNG] as Float).toDouble()) / 2.0d;
+            distRemaining = distanceToPointM(mPrevLat, mPrevLng, midLat, midLng);
+        }
+
         // Next display segment — skip repeat markers. Shared by the segment-name
         // countdown preview below and the bottom "Next" panel.
         var nextIdx = nextSegmentIndex(segments, mCurrentSegment);
@@ -935,7 +967,7 @@ class leadout_datafieldView extends WatchUi.DataField {
         // glance during the warning beeps shows what's coming, not what's ending.
         dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
         var nameText = segName;
-        if (inFinalCountdown(timeRemaining, SEGMENT_WARNING_SECS)) {
+        if (inFinalCountdown(timeRemaining, SEGMENT_WARNING_SECS) || inFinalStretch(distRemaining, SEGMENT_WARNING_DISTANCE_M)) {
             var previewName = segmentPreviewName(segments, nextIdx, mBlocks, mCurrentBlock);
             if (previewName != null) {
                 nameText = "Next: " + previewName;
@@ -947,28 +979,18 @@ class leadout_datafieldView extends WatchUi.DataField {
 
         // ── Main counter (time remaining or distance remaining) ────────────
         if (segKind == KIND_DISTANCE) {
-            var distTarget = seg[SEG_DISTANCE] as Float;
-            var distDone = (mSegmentStartDistM >= 0.0f) ? (mElapsedDistM - mSegmentStartDistM) : 0.0f;
-            var distRemaining = distTarget - distDone;
-            if (distRemaining < 0.0f) { distRemaining = 0.0f; }
+            var distRemainingDisplay = distRemaining;
+            if (distRemainingDisplay < 0.0f) { distRemainingDisplay = 0.0f; }
             dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
-                distRemaining.format("%d") + "m",
+                distRemainingDisplay.format("%d") + "m",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else if (segKind == KIND_LINE) {
             // Show metres to the finish-line midpoint when a GPS fix is available.
-            // Falls back to "Cross line" when mPrevLat is still the sentinel -999.
-            if (mPrevLat > -998.0d) {
-                var midLat = ((seg[LINE_P1LAT] as Float).toDouble() + (seg[LINE_P2LAT] as Float).toDouble()) / 2.0d;
-                var midLng = ((seg[LINE_P1LNG] as Float).toDouble() + (seg[LINE_P2LNG] as Float).toDouble()) / 2.0d;
-                var cosLat = Math.cos(midLat * Math.PI / 180.0d);
-                var kLat   = 111320.0d;
-                var kLng   = 111320.0d * cosLat;
-                var dx = (mPrevLng - midLng) * kLng;
-                var dy = (mPrevLat - midLat) * kLat;
-                var distToLineM = Math.sqrt(dx * dx + dy * dy).toFloat();
-                if (distToLineM < 0.0f) { distToLineM = 0.0f; }
+            // Falls back to "Cross line" when mPrevLat is still the sentinel -999
+            // (distRemaining stays at its -1.0 sentinel in that case).
+            if (distRemaining >= 0.0f) {
                 dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
-                    distToLineM.format("%d") + "m",
+                    distRemaining.format("%d") + "m",
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             } else {
                 dc.drawText(cx, h / 2, Graphics.FONT_SMALL,

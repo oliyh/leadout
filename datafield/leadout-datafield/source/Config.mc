@@ -8,6 +8,10 @@ const APP_VERSION = "0.12.0";
 // and the segment-name display switches to previewing the next segment.
 const SEGMENT_WARNING_SECS = 3;
 
+// Metres before a distance or finish-line segment ends during which the warning
+// beep fires and the segment-name display switches to previewing the next segment.
+const SEGMENT_WARNING_DISTANCE_M = 15.0f;
+
 // ── Compact segment layout ───────────────────────────────────────────────────
 // Segments live on the heap as positional Arrays (not Dictionaries) to minimise
 // memory on small-RAM DataField devices — FR245 and other CIQ 3.3 watches give a

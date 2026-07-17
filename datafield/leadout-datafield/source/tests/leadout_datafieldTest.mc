@@ -926,6 +926,63 @@ function testInFinalCountdown_zeroOrNegativeExcluded(logger as Test.Logger) as B
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// inFinalStretch
+// Distance counterpart to inFinalCountdown: true once remaining distance drops
+// into (0, thresholdM] — the window for the distance/finish-line warning beep
+// and the "Next: X" preview.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testInFinalStretch_withinWindow(logger as Test.Logger) as Boolean {
+    Test.assertMessage(inFinalStretch(15.0f, 15.0f), "15m remaining, 15m threshold — in window");
+    Test.assertMessage(inFinalStretch(5.0f, 15.0f), "5m remaining — in window");
+    return true;
+}
+
+(:test)
+function testInFinalStretch_outsideWindow(logger as Test.Logger) as Boolean {
+    Test.assertMessage(!inFinalStretch(16.0f, 15.0f), "16m remaining, 15m threshold — not yet in window");
+    return true;
+}
+
+(:test)
+function testInFinalStretch_zeroOrNegativeExcluded(logger as Test.Logger) as Boolean {
+    Test.assertMessage(!inFinalStretch(0.0f, 15.0f), "0m remaining excluded (segment already ended)");
+    Test.assertMessage(!inFinalStretch(-1.0f, 15.0f), "negative remaining (sentinel / no GPS fix) excluded");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// distanceToPointM
+// Equirectangular-projection distance between two lat/lng points, in metres.
+// Used both to approximate distance-to-finish-line and to compute geofence
+// nearness for the warning beep / "Next: X" preview.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testDistanceToPointM_samePointIsZero(logger as Test.Logger) as Boolean {
+    Test.assertEqualMessage(distanceToPointM(51.5d, -0.1d, 51.5d, -0.1d), 0.0f, "same point is zero distance");
+    return true;
+}
+
+(:test)
+function testDistanceToPointM_oneThousandthDegreeLatitude(logger as Test.Logger) as Boolean {
+    // A degree of latitude is ~111.32km everywhere, independent of longitude —
+    // 0.001 degree (pure north-south offset) is ~111.32m.
+    var dist = distanceToPointM(0.001d, 0.0d, 0.0d, 0.0d);
+    Test.assertMessage(dist > 111.0f && dist < 111.7f, "0.001 deg latitude ~111.32m, got " + dist.format("%.2f") + "m");
+    return true;
+}
+
+(:test)
+function testDistanceToPointM_oneThousandthDegreeLongitudeAtEquator(logger as Test.Logger) as Boolean {
+    // At the equator cos(lat) = 1, so a degree of longitude also spans ~111.32km.
+    var dist = distanceToPointM(0.0d, 0.001d, 0.0d, 0.0d);
+    Test.assertMessage(dist > 111.0f && dist < 111.7f, "0.001 deg longitude at equator ~111.32m, got " + dist.format("%.2f") + "m");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // shouldExitRepeat
 // Returns true when the exit condition in the repeat segment is satisfied.
 // ─────────────────────────────────────────────────────────────────────────────

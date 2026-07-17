@@ -153,6 +153,25 @@ function inFinalCountdown(timeRemaining as Number, thresholdSecs as Number) as B
     return timeRemaining > 0 && timeRemaining <= thresholdSecs;
 }
 
+// Distance counterpart to inFinalCountdown: true when the current segment is within
+// its final `thresholdM` metres. Callers pass -1.0 for segments with no distance
+// remaining (time-based, or a finish line with no GPS fix yet).
+function inFinalStretch(distRemaining as Float, thresholdM as Float) as Boolean {
+    return distRemaining > 0.0f && distRemaining <= thresholdM;
+}
+
+// Approximate straight-line distance in metres between two lat/lng points, using an
+// equirectangular projection centred on (toLat, toLng). Accurate within ~10 km — the
+// same approximation lineCrossingCheck uses for finish-line geometry.
+function distanceToPointM(fromLat as Double, fromLng as Double, toLat as Double, toLng as Double) as Float {
+    var cosLat = Math.cos(toLat * Math.PI / 180.0d);
+    var kLat = 111320.0d;
+    var kLng = 111320.0d * cosLat;
+    var dx = (fromLng - toLng) * kLng;
+    var dy = (fromLat - toLat) * kLat;
+    return Math.sqrt(dx * dx + dy * dy).toFloat();
+}
+
 // Returns true when the repeat exit condition encoded in seg is satisfied.
 // seg:          a compact repeat segment array [KIND_REPEAT, exit_type, repeat_count, duration, distance].
 // currentRep:   1-based index of the rep just completed.
