@@ -416,10 +416,10 @@ class leadout_datafieldView extends WatchUi.DataField {
             advance = elapsedSecs >= duration;
             if (!advance) {
                 var remaining = duration - elapsedSecs;
-                // Fire one beep per second for the last 3 seconds (3, 2, 1).
+                // Fire one beep per second for the last SEGMENT_WARNING_SECS seconds.
                 // mWarningCount tracks how many beeps have fired; a new beep is
                 // due whenever remaining drops to a value we haven't beeped yet.
-                if (remaining > 0 && remaining <= 3 && (3 - remaining) >= mWarningCount) {
+                if (inFinalCountdown(remaining, SEGMENT_WARNING_SECS) && (SEGMENT_WARNING_SECS - remaining) >= mWarningCount) {
                     mWarningCount += 1;
                     alertWarning();
                 }
@@ -890,6 +890,16 @@ class leadout_datafieldView extends WatchUi.DataField {
         // pace lives at index 6 on line segments, index 4 otherwise; -1 = no target.
         var targetPace = (segKind == KIND_LINE) ? (seg[LINE_PACE] as Number) : (seg[SEG_PACE] as Number);
 
+        // Time remaining in the current segment; only meaningful when time-based
+        // (KIND_DISTANCE/KIND_LINE complete on GPS progress, not a clock).
+        var timeRemaining = (segKind != KIND_DISTANCE && segKind != KIND_LINE)
+            ? ((seg[SEG_DURATION] as Number) - ((effectiveNow() - mSegmentStartMs) / 1000))
+            : -1;
+
+        // Next display segment — skip repeat markers. Shared by the segment-name
+        // countdown preview below and the bottom "Next" panel.
+        var nextIdx = nextSegmentIndex(segments, mCurrentSegment);
+
         // ── Repeat progress header (above segment name) ───────────────────
         if (mRepeatStartIndex >= 0) {
             var repSeg = currentRepeatMarkerSeg(segments);
@@ -921,10 +931,18 @@ class leadout_datafieldView extends WatchUi.DataField {
             }
         }
 
-        // ── Segment name ──────────────────────────────────────────────────
+        // ── Segment name — swaps to "Next: X" in the final few seconds so a
+        // glance during the warning beeps shows what's coming, not what's ending.
         dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
+        var nameText = segName;
+        if (inFinalCountdown(timeRemaining, SEGMENT_WARNING_SECS)) {
+            var previewName = segmentPreviewName(segments, nextIdx, mBlocks, mCurrentBlock);
+            if (previewName != null) {
+                nameText = "Next: " + previewName;
+            }
+        }
         dc.drawText(cx, h / 4, Graphics.FONT_MEDIUM,
-            segName,
+            nameText,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // ── Main counter (time remaining or distance remaining) ────────────
@@ -958,9 +976,7 @@ class leadout_datafieldView extends WatchUi.DataField {
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             }
         } else {
-            var duration = seg[SEG_DURATION] as Number;
-            var elapsedSecs = (effectiveNow() - mSegmentStartMs) / 1000;
-            var remaining = duration - elapsedSecs;
+            var remaining = timeRemaining;
             if (remaining < 0) { remaining = 0; }
             dc.drawText(cx, h / 2, Graphics.FONT_NUMBER_HOT,
                 formatDuration(remaining),
@@ -994,11 +1010,6 @@ class leadout_datafieldView extends WatchUi.DataField {
                 (mCurrentPaceSec > 0) ? formatDuration(mCurrentPaceSec) : "--:--",
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else {
-            // Find next display segment — skip repeat markers
-            var nextIdx = mCurrentSegment + 1;
-            while (nextIdx < segments.size() && ((segments[nextIdx] as Array)[SEG_KIND] as Number == KIND_REPEAT)) {
-                nextIdx++;
-            }
             if (nextIdx < segments.size()) {
                 var next = segments[nextIdx] as Array;
                 var nextKind = next[SEG_KIND] as Number;

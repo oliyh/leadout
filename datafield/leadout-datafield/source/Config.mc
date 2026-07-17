@@ -4,6 +4,10 @@
 // Keep in sync with the version in manifest.xml when releasing.
 const APP_VERSION = "0.12.0";
 
+// Seconds before a time-based segment ends during which the warning beeps fire
+// and the segment-name display switches to previewing the next segment.
+const SEGMENT_WARNING_SECS = 3;
+
 // ── Compact segment layout ───────────────────────────────────────────────────
 // Segments live on the heap as positional Arrays (not Dictionaries) to minimise
 // memory on small-RAM DataField devices — FR245 and other CIQ 3.3 watches give a

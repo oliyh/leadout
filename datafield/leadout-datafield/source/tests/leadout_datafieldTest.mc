@@ -824,6 +824,108 @@ function testRepeatGroupStart_repeatAtIndex0(logger as Test.Logger) as Boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// nextSegmentIndex
+// Returns the index of the next real (non-repeat-marker) segment after currentIdx,
+// or segments.size() if none remain in this block.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testNextSegmentIndex_plainNext(logger as Test.Logger) as Boolean {
+    var segments = [
+        [KIND_TIME, "Fast", 0, 0.0f, -1] as Array<Object>,
+        [KIND_TIME, "Slow", 0, 0.0f, -1] as Array<Object>
+    ] as Array;
+    Test.assertEqualMessage(nextSegmentIndex(segments, 0), 1, "next segment is the very next index");
+    return true;
+}
+
+(:test)
+function testNextSegmentIndex_skipsRepeatMarker(logger as Test.Logger) as Boolean {
+    var segments = [
+        [KIND_TIME,   "Fast", 0, 0.0f, -1]     as Array<Object>,
+        [KIND_REPEAT, EXIT_COUNT, 5, 0, 0.0f]  as Array<Object>,
+        [KIND_TIME,   "Sprint", 0, 0.0f, -1]   as Array<Object>
+    ] as Array;
+    Test.assertEqualMessage(nextSegmentIndex(segments, 0), 2, "repeat marker skipped to reach next real segment");
+    return true;
+}
+
+(:test)
+function testNextSegmentIndex_lastSegment(logger as Test.Logger) as Boolean {
+    var segments = [
+        [KIND_TIME, "Fast", 0, 0.0f, -1] as Array<Object>
+    ] as Array;
+    Test.assertEqualMessage(nextSegmentIndex(segments, 0), 1, "past the end of the block returns segments.size()");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// segmentPreviewName
+// "Up next" name: the next segment in this block, else the next block's name,
+// else null when this is the last segment of the last block.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testSegmentPreviewName_nextSegmentInBlock(logger as Test.Logger) as Boolean {
+    var segments = [
+        [KIND_TIME, "Fast", 0, 0.0f, -1] as Array<Object>,
+        [KIND_TIME, "Slow", 0, 0.0f, -1] as Array<Object>
+    ] as Array;
+    var blocks = [{"n" => "Block A", "s" => segments}] as Array;
+    Test.assertEqualMessage(segmentPreviewName(segments, 1, blocks, 0), "Slow", "previews next segment in same block");
+    return true;
+}
+
+(:test)
+function testSegmentPreviewName_fallsBackToNextBlock(logger as Test.Logger) as Boolean {
+    var segments = [
+        [KIND_TIME, "Fast", 0, 0.0f, -1] as Array<Object>
+    ] as Array;
+    var blocks = [
+        {"n" => "Block A", "s" => segments},
+        {"n" => "Block B", "s" => segments}
+    ] as Array;
+    Test.assertEqualMessage(segmentPreviewName(segments, 1, blocks, 0), "Block B", "last segment of block previews next block's name");
+    return true;
+}
+
+(:test)
+function testSegmentPreviewName_nullOnLastSegmentOfLastBlock(logger as Test.Logger) as Boolean {
+    var segments = [
+        [KIND_TIME, "Fast", 0, 0.0f, -1] as Array<Object>
+    ] as Array;
+    var blocks = [{"n" => "Block A", "s" => segments}] as Array;
+    Test.assertMessage(segmentPreviewName(segments, 1, blocks, 0) == null, "no preview past the final segment of the final block");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// inFinalCountdown
+// True once remaining time drops into (0, thresholdSecs] — the window in which
+// warning beeps fire and the segment name switches to a "Next: X" preview.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testInFinalCountdown_withinWindow(logger as Test.Logger) as Boolean {
+    Test.assertMessage(inFinalCountdown(3, 3), "3 s remaining, 3 s threshold — in window");
+    Test.assertMessage(inFinalCountdown(1, 3), "1 s remaining — in window");
+    return true;
+}
+
+(:test)
+function testInFinalCountdown_outsideWindow(logger as Test.Logger) as Boolean {
+    Test.assertMessage(!inFinalCountdown(4, 3), "4 s remaining, 3 s threshold — not yet in window");
+    return true;
+}
+
+(:test)
+function testInFinalCountdown_zeroOrNegativeExcluded(logger as Test.Logger) as Boolean {
+    Test.assertMessage(!inFinalCountdown(0, 3), "0 s remaining excluded (segment already ended)");
+    Test.assertMessage(!inFinalCountdown(-1, 3), "negative remaining (non-time segment sentinel) excluded");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // shouldExitRepeat
 // Returns true when the exit condition in the repeat segment is satisfied.
 // ─────────────────────────────────────────────────────────────────────────────

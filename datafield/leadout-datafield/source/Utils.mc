@@ -116,6 +116,43 @@ function repeatGroupStart(segments as Array, repeatIdx as Number) as Number {
     return 0;
 }
 
+// Returns the index of the next real (non-repeat-marker) segment after currentIdx,
+// or segments.size() if none remain in this block.
+// segments is the compact form: an Array of positional segment Arrays.
+function nextSegmentIndex(segments as Array, currentIdx as Number) as Number {
+    var idx = currentIdx + 1;
+    while (idx < segments.size() && ((segments[idx] as Array)[SEG_KIND] as Number == KIND_REPEAT)) {
+        idx++;
+    }
+    return idx;
+}
+
+// Returns the name to preview as "up next": the segment at nextIdx if one exists
+// in this block, otherwise the name of the following block, otherwise null when
+// this is the last segment of the last block.
+// blocks is an Array of Dictionary, each shaped {"n" => name, "s" => segments}.
+function segmentPreviewName(
+    segments        as Array,
+    nextIdx         as Number,
+    blocks          as Array,
+    currentBlockIdx as Number
+) as String? {
+    if (nextIdx < segments.size()) {
+        return (segments[nextIdx] as Array)[SEG_NAME] as String;
+    }
+    if (currentBlockIdx < blocks.size() - 1) {
+        return (blocks[currentBlockIdx + 1] as Dictionary)["n"] as String;
+    }
+    return null;
+}
+
+// Returns true when the current segment is within its final `thresholdSecs` seconds
+// and thus its name display should switch to previewing the next segment.
+// Only meaningful for time-based segments — callers pass -1 for distance/line segments.
+function inFinalCountdown(timeRemaining as Number, thresholdSecs as Number) as Boolean {
+    return timeRemaining > 0 && timeRemaining <= thresholdSecs;
+}
+
 // Returns true when the repeat exit condition encoded in seg is satisfied.
 // seg:          a compact repeat segment array [KIND_REPEAT, exit_type, repeat_count, duration, distance].
 // currentRep:   1-based index of the rep just completed.
