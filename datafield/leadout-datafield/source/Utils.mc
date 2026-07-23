@@ -76,6 +76,18 @@ function makeTokenRequest(deviceCode as String, callback as Method) as Void {
     );
 }
 
+// -1001 is the CIQ networking layer's generic TLS/connection-refused code. In the
+// simulator this almost always means "Use Device HTTPS Requirements" is enabled in
+// simulator.ini while API_BASE points at a plain-http dev server — log a pointer to
+// the fix instead of leaving the developer to guess from a bare error code.
+(:background)
+function logIfSimHttpsMisconfigured(responseCode as Number) as Void {
+    if (IS_SIM && responseCode == -1001) {
+        System.println("[reg] http " + responseCode + " — turn off 'Use Device HTTPS Requirements' "
+            + "in simulator.ini (UseHttpsRequirements=0)");
+    }
+}
+
 // Clears watch_token and programme from storage on a 401 response.
 // If a token was present (rejected by server), also clears device_code and returns true
 // so the caller knows to generate a new one. Returns false when no token was stored —

@@ -30,6 +30,7 @@ class leadout_datafieldApp extends Application.AppBase {
     }
 
     function onStartTokenPoll(responseCode as Number, data as Dictionary?) as Void {
+        logIfSimHttpsMisconfigured(responseCode);
         if (responseCode == 200 && data != null) {
             var token = data["token"];
             if (token instanceof String) {
@@ -119,6 +120,7 @@ class leadout_datafieldApp extends Application.AppBase {
     // Other → network error, keep whatever is cached.
     function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
         var view = mView;
+        logIfSimHttpsMisconfigured(responseCode);
         if (responseCode == 200 && data != null) {
             var programmes = data["programmes"] as Array<Dictionary>;
             var prog = findNextProgramme(programmes);

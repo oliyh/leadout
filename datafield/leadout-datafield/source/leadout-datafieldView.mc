@@ -663,6 +663,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     // Other (including 410 already-claimed) → leave mPolling=false so compute() retries.
     function onTokenPoll(responseCode as Number, data as Dictionary?) as Void {
         mPolling = false;
+        logIfSimHttpsMisconfigured(responseCode);
         if (responseCode == 200 && data != null) {
             var token = data["token"];
             if (token instanceof String) {
@@ -680,6 +681,7 @@ class leadout_datafieldView extends WatchUi.DataField {
     // Other → network issue; compute() will retry the token poll after 10 s.
     function onRegistrationPoll(responseCode as Number, data as Dictionary?) as Void {
         mPolling = false;
+        logIfSimHttpsMisconfigured(responseCode);
         if (responseCode == 200 && data != null) {
             var programmes = data["programmes"] as Array<Dictionary>;
             var prog = findNextProgramme(programmes);

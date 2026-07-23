@@ -1,7 +1,8 @@
 {
   "name": "Leadout",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "context": ".."
   },
   "runArgs": [
     "--device=/dev/uinput",

@@ -30,6 +30,7 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
     }
 
     function onTokenResponse(responseCode as Number, data as Dictionary?) as Void {
+        logIfSimHttpsMisconfigured(responseCode);
         if (responseCode == 200 && data != null) {
             var token = data["token"];
             if (token instanceof String) {
@@ -49,6 +50,7 @@ class LeadoutServiceDelegate extends System.ServiceDelegate {
     }
 
     function onSyncResponse(responseCode as Number, data as Dictionary?) as Void {
+        logIfSimHttpsMisconfigured(responseCode);
         if (responseCode == 200 && data != null) {
             var programmes = data["programmes"] as Array<Dictionary>;
             var prog = findNextProgramme(programmes);

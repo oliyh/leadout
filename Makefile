@@ -11,6 +11,16 @@ PRG_SIM     := $(DATAFIELD)/bin/leadoutdatafield-sim.prg
 PRG_RELEASE := $(DATAFIELD)/bin/leadoutdatafield.iq
 DEVICE      ?= fr265s
 DEVICE_SIM  := $(DEVICE)_sim
+
+# fr245's plain LCD skin segfaults under this container's virtual GPU unless Mesa
+# software rendering is forced. fr265s's richer AMOLED skin needs a WebKitWebProcess
+# renderer that instead relies on real GL/compositing — forcing software rendering
+# breaks that renderer, so the flag must only apply to the device(s) that need it.
+ifeq ($(DEVICE),fr245)
+SIM_ENV := LIBGL_ALWAYS_SOFTWARE=1
+else
+SIM_ENV :=
+endif
 WATCH_MTP   := $(shell gio mount -l 2>/dev/null | grep -o 'mtp://[^ ]*' | head -1)
 WATCH_APPS  := $(WATCH_MTP)Internal Storage/GARMIN/Apps
 
@@ -76,13 +86,13 @@ datafield-test: datafield-build-test
 	fi
 	@if ! pgrep -x simulator > /dev/null; then \
 	    echo "Starting simulator..."; \
-	    DISPLAY=:99 GDK_BACKEND=x11 ciq-simulator &>/dev/null & \
+	    DISPLAY=:99 GDK_BACKEND=x11 $(SIM_ENV) ciq-simulator &>/dev/null & \
 	    sleep 6; \
 	fi
 	@DISPLAY=:99 $(MONKEYDO) $(PRG_TEST) $(DEVICE) -t 2>&1 | tee /tmp/datafield-test-results.txt; \
 	grep -q "^PASSED" /tmp/datafield-test-results.txt; \
 	status=$$?; \
-	pkill -f WebKitWebProcess 2>/dev/null || true; \
+	pkill -f "[W]ebKitWebProcess" 2>/dev/null || true; \
 	pkill -x simulator 2>/dev/null || true; \
 	pkill -x Xvfb 2>/dev/null || true; \
 	exit $$status
