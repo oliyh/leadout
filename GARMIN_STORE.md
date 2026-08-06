@@ -119,9 +119,9 @@ Fix the issue and resubmit — resubmissions usually move faster.
 
 For subsequent releases:
 
-1. Bump the `version` in `manifest.xml`.
-2. Build a new signed `.iq`.
-3. Go to your app in the developer portal → **Upload New Version**.
+1. Bump the `version` in `manifest.xml` and `Config.mc`.
+2. Build a new signed `.iq` using `make datafield-release`.
+3. Go to your app in the [developer portal](https://apps.garmin.com/developer/dashboard) → **Upload New Version**.
 4. Add a changelog entry.
 5. Updates are usually approved within 2–5 business days.
 

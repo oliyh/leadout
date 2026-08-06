@@ -53,7 +53,8 @@
       "Bash(DISPLAY=:0 GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 ciq-simulator --help)",
       "Bash(DISPLAY=:0 xdpyinfo)",
       "Bash(make datafield-sim *)",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "Bash(allium --version)"
     ],
     "additionalDirectories": [
       "/home/oliy/dev/leadout",

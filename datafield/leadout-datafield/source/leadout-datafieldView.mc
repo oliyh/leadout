@@ -70,6 +70,19 @@ class leadout_datafieldView extends WatchUi.DataField {
     // accidentally starting or interacting with Leadout.
     hidden var mIsVisible as Boolean = false;
 
+    // System.getTimer() at the last onUpdate() call. onUpdate() only runs while
+    // this field is the on-screen panel, so its recency corroborates mIsVisible:
+    // scrolling away does not always fire onHide() reliably (observed on-device
+    // — a lap pressed shortly after leaving the Leadout screen still started the
+    // programme), which can leave mIsVisible stuck true. Requiring a recent
+    // onUpdate() as well self-heals even when onHide() is missed.
+    hidden var mLastUpdateMs as Number = 0;
+
+    // Longest gap between onUpdate() calls tolerated before an mIsVisible=true
+    // flag is treated as stale. Generous enough to survive a missed refresh
+    // cycle without masking a genuine navigate-away.
+    const VISIBLE_STALE_MS = 5000;
+
     function initialize() {
         DataField.initialize();
 
@@ -207,8 +220,15 @@ class leadout_datafieldView extends WatchUi.DataField {
         mIsVisible = false;
     }
 
+    // Ground truth for "is this field actually on screen right now": mIsVisible
+    // reflects onShow()/onHide(), backstopped by onUpdate() recency in case
+    // onHide() failed to fire for this navigation. See mLastUpdateMs comment.
+    hidden function isCurrentlyVisible() as Boolean {
+        return mIsVisible && (System.getTimer() - mLastUpdateMs) < VISIBLE_STALE_MS;
+    }
+
     function onTimerLap() as Void {
-        if (!mIsVisible) {
+        if (!isCurrentlyVisible()) {
             return;
         }
         if (mState == STATE_UPCOMING) {
@@ -765,6 +785,8 @@ class leadout_datafieldView extends WatchUi.DataField {
     // ── Display ───────────────────────────────────────────────────────────
 
     function onUpdate(dc as Dc) as Void {
+        mLastUpdateMs = System.getTimer();
+
         var bgColor = getBackgroundColor();
         var fgColor = (bgColor == Graphics.COLOR_BLACK)
             ? Graphics.COLOR_WHITE

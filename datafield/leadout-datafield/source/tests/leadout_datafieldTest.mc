@@ -482,10 +482,14 @@ function testIsPaceOnTarget_noSignal(logger as Test.Logger) as Boolean {
 //     → mState remains STATE_SYNCING (no programme to wait for)
 //
 // ── BlockStarted (spec rule: BlockStarted, LapButtonPressed when waiting) ─────
-//   onTimerLap() when mState = STATE_WAITING and mIsVisible = true:
+//   onTimerLap() when mState = STATE_WAITING and isCurrentlyVisible() = true:
 //     → mState = STATE_ACTIVE, mCurrentSegment = 0, mSegmentStartMs set
 //   onTimerLap() when mState = STATE_WAITING and mIsVisible = false:
 //     → state is unchanged (lap on a different data screen must not start the session)
+//   onTimerLap() when mState = STATE_WAITING, mIsVisible = true, but no onUpdate()
+//   within the last VISIBLE_STALE_MS:
+//     → state is unchanged (onHide() is not always fired reliably on-device when
+//       scrolling away; staleness of onUpdate() is the backstop — see mLastUpdateMs)
 //   onTimerLap() when mState != STATE_WAITING:
 //     → state is unchanged (lap only advances in waiting state)
 //

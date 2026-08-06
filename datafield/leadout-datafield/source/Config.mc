@@ -2,7 +2,7 @@
 // depending on the jungle file used. See monkey-device.jungle and monkey-sim.jungle.
 
 // Keep in sync with the version in manifest.xml when releasing.
-const APP_VERSION = "0.12.0";
+const APP_VERSION = "0.14.0";
 
 // Seconds before a time-based segment ends during which the warning beeps fire
 // and the segment-name display switches to previewing the next segment.
