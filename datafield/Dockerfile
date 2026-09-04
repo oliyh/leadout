@@ -31,8 +31,12 @@ RUN SDK_FILE=$(curl -s https://developer.garmin.com/downloads/connect-iq/sdks/sd
     && unzip -q /tmp/ciq.zip -d $CIQ_SDK \
     && rm /tmp/ciq.zip
 
+# Pinned to the last commit where devices.zip still existed at this path — matco/connectiq-tester
+# removed it from master on 2026-09-01 in favour of a private ghcr.io image (ghcr.io/matco/connectiq-tester-resources),
+# which anonymous CI runners can't pull. If this SHA ever stops resolving, find the new last-good commit with:
+#   curl -s "https://api.github.com/repos/matco/connectiq-tester/commits?path=devices.zip&per_page=1"
 RUN mkdir -p /root/.Garmin/ConnectIQ/Devices \
-    && wget -q "https://raw.githubusercontent.com/matco/connectiq-tester/master/devices.zip" -O /tmp/devices.zip \
+    && wget -q "https://raw.githubusercontent.com/matco/connectiq-tester/76b8e0c4db6fb86c15720d61117229ab53ea9fcc/devices.zip" -O /tmp/devices.zip \
     && unzip -q /tmp/devices.zip -d /root/.Garmin/ConnectIQ/Devices \
     && rm /tmp/devices.zip
 
