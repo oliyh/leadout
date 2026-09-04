@@ -139,6 +139,31 @@ function nextSegmentIndex(segments as Array, currentIdx as Number) as Number {
     return idx;
 }
 
+// Repeat-aware counterpart to nextSegmentIndex: mirrors the doAdvance()/doRepeatExit()
+// decision in the View so the "up next" preview agrees with what will actually happen.
+// If the slot right after currentIdx is a repeat marker and the group's exit condition
+// (per shouldExitRepeat) isn't satisfied yet, the group loops for another rep, so the
+// real "next" segment is the one at repeatStartIndex — not whatever follows the marker.
+// Pass repeatStartIndex -1 when no repeat group is active at currentIdx.
+function previewNextIndex(
+    segments         as Array,
+    currentIdx       as Number,
+    currentRep       as Number,
+    repeatStartIndex as Number,
+    elapsedMs        as Number,
+    coveredDistM     as Float
+) as Number {
+    var idx = currentIdx + 1;
+    if (repeatStartIndex >= 0 && idx < segments.size() &&
+        ((segments[idx] as Array)[SEG_KIND] as Number) == KIND_REPEAT) {
+        var repSeg = segments[idx] as Array;
+        if (!shouldExitRepeat(repSeg, currentRep, elapsedMs, coveredDistM)) {
+            return repeatStartIndex;
+        }
+    }
+    return nextSegmentIndex(segments, currentIdx);
+}
+
 // Returns the name to preview as "up next": the segment at nextIdx if one exists
 // in this block, otherwise the name of the following block, otherwise null when
 // this is the last segment of the last block.

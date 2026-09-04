@@ -864,6 +864,53 @@ function testNextSegmentIndex_lastSegment(logger as Test.Logger) as Boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// previewNextIndex
+// Repeat-aware "up next" index: loops back to the group start instead of past
+// the marker when the repeat hasn't finished its reps yet.
+// ─────────────────────────────────────────────────────────────────────────────
+
+(:test)
+function testPreviewNextIndex_loopsBackMidRepeat(logger as Test.Logger) as Boolean {
+    // "60s" repeat x5, then "30s" repeat x2 — on rep 1 of the 60s group.
+    var segments = [
+        [KIND_TIME,   "60s", 60, 0.0f, -1]    as Array<Object>,
+        [KIND_REPEAT, EXIT_COUNT, 5, 0, 0.0f] as Array<Object>,
+        [KIND_TIME,   "30s", 30, 0.0f, -1]    as Array<Object>,
+        [KIND_REPEAT, EXIT_COUNT, 2, 0, 0.0f] as Array<Object>
+    ] as Array;
+    Test.assertEqualMessage(
+        previewNextIndex(segments, 0, 1, 0, 0, 0.0f), 0,
+        "rep 1 of 5 — next segment loops back to the group start, not past the marker");
+    return true;
+}
+
+(:test)
+function testPreviewNextIndex_fallsThroughOnFinalRep(logger as Test.Logger) as Boolean {
+    var segments = [
+        [KIND_TIME,   "60s", 60, 0.0f, -1]    as Array<Object>,
+        [KIND_REPEAT, EXIT_COUNT, 5, 0, 0.0f] as Array<Object>,
+        [KIND_TIME,   "30s", 30, 0.0f, -1]    as Array<Object>,
+        [KIND_REPEAT, EXIT_COUNT, 2, 0, 0.0f] as Array<Object>
+    ] as Array;
+    Test.assertEqualMessage(
+        previewNextIndex(segments, 0, 5, 0, 0, 0.0f), 2,
+        "rep 5 of 5 — group is exiting, next segment is the one after the marker");
+    return true;
+}
+
+(:test)
+function testPreviewNextIndex_noActiveRepeatMatchesPlainNext(logger as Test.Logger) as Boolean {
+    var segments = [
+        [KIND_TIME, "Fast", 0, 0.0f, -1] as Array<Object>,
+        [KIND_TIME, "Slow", 0, 0.0f, -1] as Array<Object>
+    ] as Array;
+    Test.assertEqualMessage(
+        previewNextIndex(segments, 0, 0, -1, 0, 0.0f), 1,
+        "no active repeat group — behaves like nextSegmentIndex");
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // segmentPreviewName
 // "Up next" name: the next segment in this block, else the next block's name,
 // else null when this is the last segment of the last block.

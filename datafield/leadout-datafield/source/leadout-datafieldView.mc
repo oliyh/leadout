@@ -952,9 +952,15 @@ class leadout_datafieldView extends WatchUi.DataField {
             distRemaining = distanceToPointM(mPrevLat, mPrevLng, midLat, midLng);
         }
 
-        // Next display segment — skip repeat markers. Shared by the segment-name
-        // countdown preview below and the bottom "Next" panel.
-        var nextIdx = nextSegmentIndex(segments, mCurrentSegment);
+        // Next display segment — skip repeat markers, but loop back to the start of
+        // the current repeat group instead of past it when more reps remain (matches
+        // doAdvance()'s decision). Shared by the segment-name countdown preview below
+        // and the bottom "Next" panel.
+        var nextIdx = previewNextIndex(
+            segments, mCurrentSegment, mCurrentRep, mRepeatStartIndex,
+            (mRepeatStartIndex >= 0) ? (effectiveNow() - mRepeatStartMs) : 0,
+            (mRepeatStartIndex >= 0) ? (mElapsedDistM - mRepeatStartDistM) : 0.0f
+        );
 
         // ── Repeat progress header (above segment name) ───────────────────
         if (mRepeatStartIndex >= 0) {
