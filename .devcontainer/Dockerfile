@@ -1,3 +1,5 @@
+FROM ghcr.io/matco/connectiq-tester@sha256:64958e8fd2925d0c4986d72a9aa9d8e2101297a881354aab0118be2f1dc22105 AS ciq-devices
+
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -35,11 +37,11 @@ RUN SDK_FILE=$(curl -s https://developer.garmin.com/downloads/connect-iq/sdks/sd
     && ln -s "$SDK_HOME/connectiq-sdk-lin-${SDK_VERSION}" "$SDK_HOME/current" \
     && echo "$SDK_HOME/connectiq-sdk-lin-${SDK_VERSION}" > /root/.Garmin/ConnectIQ/current-sdk.cfg
 
-# Device definitions (community package — avoids SDK Manager + Garmin login)
-RUN mkdir -p /root/.Garmin/ConnectIQ/Devices \
-    && wget -q "https://raw.githubusercontent.com/matco/connectiq-tester/master/devices.zip" -O /tmp/devices.zip \
-    && unzip -q /tmp/devices.zip -d /root/.Garmin/ConnectIQ/Devices \
-    && rm /tmp/devices.zip
+# Device definitions (community package — avoids SDK Manager + Garmin login).
+# Copied from matco/connectiq-tester's public image: its repo no longer ships devices.zip
+# (removed 2026-09-01) and the separate resources image requires auth. Pinned by digest;
+# to update, `docker pull ghcr.io/matco/connectiq-tester:latest` and take the new digest.
+COPY --from=ciq-devices /root/.Garmin/ConnectIQ/Devices /root/.Garmin/ConnectIQ/Devices
 
 # Patch older device simulator.json files that reference proprietary .cft font
 # files (e.g. FNT_FR945_*.cft) which are only distributed by the official

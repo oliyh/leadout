@@ -1,3 +1,5 @@
+FROM ghcr.io/matco/connectiq-tester@sha256:64958e8fd2925d0c4986d72a9aa9d8e2101297a881354aab0118be2f1dc22105 AS ciq-devices
+
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -31,14 +33,12 @@ RUN SDK_FILE=$(curl -s https://developer.garmin.com/downloads/connect-iq/sdks/sd
     && unzip -q /tmp/ciq.zip -d $CIQ_SDK \
     && rm /tmp/ciq.zip
 
-# Pinned to the last commit where devices.zip still existed at this path — matco/connectiq-tester
-# removed it from master on 2026-09-01 in favour of a private ghcr.io image (ghcr.io/matco/connectiq-tester-resources),
-# which anonymous CI runners can't pull. If this SHA ever stops resolving, find the new last-good commit with:
-#   curl -s "https://api.github.com/repos/matco/connectiq-tester/commits?path=devices.zip&per_page=1"
-RUN mkdir -p /root/.Garmin/ConnectIQ/Devices \
-    && wget -q "https://raw.githubusercontent.com/matco/connectiq-tester/76b8e0c4db6fb86c15720d61117229ab53ea9fcc/devices.zip" -O /tmp/devices.zip \
-    && unzip -q /tmp/devices.zip -d /root/.Garmin/ConnectIQ/Devices \
-    && rm /tmp/devices.zip
+# Device definitions are copied from matco/connectiq-tester's public image. Its repo no longer
+# ships devices.zip (removed 2026-09-01) and the separate resources image
+# (ghcr.io/matco/connectiq-tester-resources) requires auth, but the tester image itself pulls anonymously.
+# Pinned by digest for reproducibility; to update, run `docker pull ghcr.io/matco/connectiq-tester:latest`
+# and take the new digest from the output.
+COPY --from=ciq-devices /root/.Garmin/ConnectIQ/Devices /root/.Garmin/ConnectIQ/Devices
 
 # Throw-away key for test builds — not used for publishing
 RUN openssl genrsa -out /tmp/key.pem 4096 \
